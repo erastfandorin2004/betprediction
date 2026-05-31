@@ -453,25 +453,39 @@ export function LineupSection({ lineups, homeName, awayName, probable = false }:
         <LineupPitch home={lineups.home} away={lineups.away} />
       </SectionCard>
 
-      {/* Substitutes */}
-      <SectionCard title={L.subs}>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <SubColumn players={lineups.home.substitutes} />
-          <SubColumn players={lineups.away.substitutes} />
-        </div>
-      </SectionCard>
+      {/* Substitutes — labelled per team */}
+      {(lineups.home.substitutes.length > 0 || lineups.away.substitutes.length > 0) && (
+        <SectionCard title={L.subs}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="mb-2 text-xs font-semibold" style={{ color: 'rgb(var(--fg-secondary))' }}>{homeName}</p>
+              <SubColumn players={lineups.home.substitutes} />
+            </div>
+            <div>
+              <p className="mb-2 text-xs font-semibold" style={{ color: 'rgb(var(--fg-secondary))' }}>{awayName}</p>
+              <SubColumn players={lineups.away.substitutes} />
+            </div>
+          </div>
+        </SectionCard>
+      )}
 
       {/* Injuries & suspensions — intentionally empty for now */}
       <SectionCard title={L.injuries}>
         <p className="text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>{L.none}</p>
       </SectionCard>
 
-      {/* Coaches */}
+      {/* Coaches — labelled per team */}
       {(lineups.home.coach || lineups.away.coach) && (
         <SectionCard title={L.coaches}>
-          <div className="grid gap-4 sm:grid-cols-2 text-sm" style={{ color: 'rgb(var(--fg-card))' }}>
-            <span>{lineups.home.coach ?? '—'}</span>
-            <span>{lineups.away.coach ?? '—'}</span>
+          <div className="grid gap-4 sm:grid-cols-2 text-sm">
+            <div>
+              <p className="mb-1 text-xs font-semibold" style={{ color: 'rgb(var(--fg-secondary))' }}>{homeName}</p>
+              <span style={{ color: 'rgb(var(--fg-card))' }}>{lineups.home.coach ?? '—'}</span>
+            </div>
+            <div>
+              <p className="mb-1 text-xs font-semibold" style={{ color: 'rgb(var(--fg-secondary))' }}>{awayName}</p>
+              <span style={{ color: 'rgb(var(--fg-card))' }}>{lineups.away.coach ?? '—'}</span>
+            </div>
           </div>
         </SectionCard>
       )}
@@ -865,8 +879,10 @@ export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHome
         if (ctx.lineups) {
           return <LineupSection lineups={ctx.lineups} homeName={homeRuShort} awayName={awayRuShort} />;
         }
-        const homeProb = squadToProbableLineup(ctx.homeSquad, ctx.homeCoach?.name ?? null);
-        const awayProb = squadToProbableLineup(ctx.awaySquad, ctx.awayCoach?.name ?? null);
+        const homeCoach = getCoach(homeTeam.name, homeTeam.id, ctx.homeCoach, locale);
+        const awayCoach = getCoach(awayTeam.name, awayTeam.id, ctx.awayCoach, locale);
+        const homeProb = squadToProbableLineup(ctx.homeSquad, homeCoach);
+        const awayProb = squadToProbableLineup(ctx.awaySquad, awayCoach);
         if (homeProb && awayProb) {
           return (
             <LineupSection
