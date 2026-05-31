@@ -1,18 +1,19 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { eq } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
+import * as schema from '@ai-score/db';
+import { DatabaseService } from '../database/database.service';
 import type { RegisterDto } from './dto/register.dto';
 import type { LoginDto } from './dto/login.dto';
 
-interface StoredUser {
-  id: string;
-  email: string;
-  passwordHash: string;
-  role: 'user' | 'admin';
-  createdAt: Date;
-}
+type DbUser = typeof schema.users.$inferSelect;
 
 export interface TokenPair {
   accessToken: string;
@@ -25,46 +26,53 @@ export interface AuthResponse extends TokenPair {
 
 @Injectable()
 export class AuthService {
-  // Temporary in-memory store — replaced by Drizzle + PostgreSQL in Step 2
-  private readonly users = new Map<string, StoredUser>();
-  private readonly usersByEmail = new Map<string, StoredUser>();
+  // Refresh tokens stored in memory — moved to DB in Step 6 (session management)
   private readonly refreshTokens = new Map<string, string>();
 
   constructor(
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly db: DatabaseService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponse> {
-    if (this.usersByEmail.has(dto.email)) {
-      throw new ConflictException('Email already in use');
-    }
+    const [existing] = await this.db.db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(eq(schema.users.email, dto.email))
+      .limit(1);
+
+    if (existing) throw new ConflictException('Email already in use');
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
-    const user: StoredUser = {
-      id: randomUUID(),
-      email: dto.email,
-      passwordHash,
-      role: 'user',
-      createdAt: new Date(),
-    };
 
-    this.users.set(user.id, user);
-    this.usersByEmail.set(user.email, user);
+    const [user] = await this.db.db
+      .insert(schema.users)
+      .values({ email: dto.email, passwordHash, role: 'user' })
+      .returning();
+
+    if (!user) throw new InternalServerErrorException('Failed to create user');
+
+    // Create free subscription record
+    await this.db.db
+      .insert(schema.subscriptions)
+      .values({ userId: user.id, tier: 'free' })
+      .onConflictDoNothing();
 
     return this.issueTokens(user);
   }
 
   async login(dto: LoginDto): Promise<AuthResponse> {
-    const user = this.usersByEmail.get(dto.email);
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
+    const [user] = await this.db.db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, dto.email))
+      .limit(1);
+
+    if (!user?.passwordHash) throw new UnauthorizedException('Invalid credentials');
 
     const isValid = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!isValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
+    if (!isValid) throw new UnauthorizedException('Invalid credentials');
 
     return this.issueTokens(user);
   }
@@ -79,19 +87,18 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    if (payload.type !== 'refresh') {
-      throw new UnauthorizedException('Invalid token type');
-    }
+    if (payload.type !== 'refresh') throw new UnauthorizedException('Invalid token type');
 
     const stored = this.refreshTokens.get(payload.sub);
-    if (stored !== token) {
-      throw new UnauthorizedException('Refresh token revoked');
-    }
+    if (stored !== token) throw new UnauthorizedException('Refresh token revoked');
 
-    const user = this.users.get(payload.sub);
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
+    const [user] = await this.db.db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, payload.sub))
+      .limit(1);
+
+    if (!user) throw new UnauthorizedException('User not found');
 
     const { user: _u, ...tokens } = this.issueTokens(user);
     return tokens;
@@ -101,7 +108,7 @@ export class AuthService {
     this.refreshTokens.delete(userId);
   }
 
-  private issueTokens(user: StoredUser): AuthResponse {
+  private issueTokens(user: DbUser): AuthResponse {
     const base = { sub: user.id, email: user.email, role: user.role };
 
     const accessToken = this.jwtService.sign(

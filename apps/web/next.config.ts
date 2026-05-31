@@ -8,9 +8,7 @@ const config: NextConfig = {
       { hostname: 'crests.football-data.org' },
     ],
   },
-  experimental: {
-    typedRoutes: true,
-  },
+  experimental: {},
 };
 
 export default config;

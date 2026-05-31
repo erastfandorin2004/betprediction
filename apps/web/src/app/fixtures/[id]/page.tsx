@@ -7,6 +7,7 @@ import { formatTime, formatDateLabel } from '@/lib/format';
 import { LiveBadge } from '@/components/match/live-badge';
 import { ScoreDisplay } from '@/components/match/score-display';
 import { Badge } from '@/components/ui/badge';
+import { PredictionCard } from '@/components/prediction/prediction-card';
 import { cn } from '@/lib/utils';
 import type { FixtureDetail, MatchEvent } from '@ai-score/shared';
 
@@ -124,14 +125,16 @@ export default async function FixturePage({ params }: Props) {
         )}
       </div>
 
-      {/* Prediction (placeholder) */}
-      {!fixture.prediction && (
+      {/* AI Prediction */}
+      {fixture.prediction ? (
+        <PredictionCard prediction={fixture.prediction} />
+      ) : (
         <div className="card-surface p-5 text-center">
           <p className="text-sm font-semibold text-zinc-300">🤖 AI-прогноз</p>
           <p className="mt-2 text-xs text-zinc-500">
             {hasStarted
-              ? 'Прогноз доступен только до начала матча'
-              : 'Прогноз появится после настройки OpenRouter (Шаг 4)'}
+              ? 'Прогноз фиксируется только до начала матча'
+              : 'Прогноз готовится — воркер генерирует за 1–2 часа до матча'}
           </p>
         </div>
       )}
