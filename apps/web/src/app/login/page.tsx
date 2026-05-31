@@ -4,11 +4,13 @@ import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/auth/auth-provider';
+import { useLocale } from '@/components/i18n/locale-provider';
 import { login } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
 export default function LoginPage() {
   const { signIn } = useAuth();
+  const { t } = useLocale();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,7 +26,7 @@ export default function LoginPage() {
       signIn(tokens);
       router.push('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка входа');
+      setError(err instanceof Error ? err.message : t.auth.loginError);
     } finally {
       setLoading(false);
     }
@@ -34,7 +36,7 @@ export default function LoginPage() {
     <div className="mx-auto max-w-md px-4 py-16">
       <div className="mb-8 text-center">
         <p className="text-2xl font-bold">⚡ AI-Score</p>
-        <h1 className="mt-2 text-xl font-semibold text-zinc-200">Вход в аккаунт</h1>
+        <h1 className="mt-2 text-xl font-semibold text-zinc-200">{t.auth.signInTitle}</h1>
       </div>
 
       <form onSubmit={(e) => { void handleSubmit(e); }} className="card-surface space-y-4 p-6">
@@ -50,7 +52,7 @@ export default function LoginPage() {
           />
         </Field>
 
-        <Field label="Пароль">
+        <Field label={t.auth.password}>
           <input
             type="password"
             value={password}
@@ -73,13 +75,13 @@ export default function LoginPage() {
             'hover:bg-electric-500 disabled:cursor-not-allowed disabled:opacity-50',
           )}
         >
-          {loading ? 'Входим...' : 'Войти'}
+          {loading ? t.auth.signingIn : t.auth.signInBtn}
         </button>
 
         <p className="text-center text-sm text-zinc-500">
-          Нет аккаунта?{' '}
+          {t.auth.noAccount}{' '}
           <Link href="/register" className="text-electric-400 hover:text-electric-300">
-            Зарегистрироваться
+            {t.auth.createBtn}
           </Link>
         </p>
       </form>

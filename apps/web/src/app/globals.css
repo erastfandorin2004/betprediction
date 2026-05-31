@@ -3,63 +3,68 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  /* ── Dark theme (default) ── charcoal surfaces */
+  :root,
+  .dark {
     color-scheme: dark;
+    --pitch-950: 14 14 14;
+    --pitch-900: 22 22 22;
+    --pitch-800: 32 32 32;
+    --pitch-700: 48 48 48;
+    --pitch-600: 68 68 68;
+    --fg-primary: 250 250 250;
+    --fg-secondary: 163 163 163;
+    --fg-muted: 100 100 100;
+    --fg-card: 230 230 230;
   }
 
-  * {
-    box-sizing: border-box;
+  /* ── Light theme ── */
+  .light {
+    color-scheme: light;
+    --pitch-950: 240 240 240;
+    --pitch-900: 255 255 255;
+    --pitch-800: 248 248 248;
+    --pitch-700: 224 224 224;
+    --pitch-600: 200 200 200;
+    --fg-primary: 15 15 15;
+    --fg-secondary: 80 80 80;
+    --fg-muted: 140 140 140;
+    --fg-card: 30 30 30;
   }
+
+  * { box-sizing: border-box; }
 
   body {
-    @apply bg-pitch-950 text-zinc-100 antialiased;
+    @apply bg-pitch-950 text-zinc-900 antialiased dark:text-zinc-100;
     font-feature-settings: 'rlig' 1, 'calt' 1;
   }
 
-  /* Monospace tabular numbers for scores and odds */
   .tabular {
     font-variant-numeric: tabular-nums;
     @apply font-mono;
   }
 
-  /* Scrollbar */
-  ::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
-  }
-  ::-webkit-scrollbar-track {
-    @apply bg-pitch-900;
-  }
-  ::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-pitch-700;
-  }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { @apply bg-pitch-900; }
+  ::-webkit-scrollbar-thumb { @apply rounded-full bg-pitch-700; }
 }
 
 @layer components {
+  .card-surface {
+    @apply rounded-2xl border bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800;
+  }
+
   .badge-value {
     @apply inline-flex items-center gap-1 rounded-full bg-value-500/15 px-2 py-0.5 text-xs font-semibold text-value-400;
   }
-
   .badge-live {
     @apply inline-flex items-center gap-1.5 rounded-full bg-loss-500/15 px-2 py-0.5 text-xs font-semibold text-loss-400;
-  }
-
-  .card-surface {
-    @apply rounded-xl border border-pitch-700 bg-pitch-900;
   }
 }
 
 @layer utilities {
-  .electric-glow {
-    box-shadow: 0 0 20px rgb(59 130 246 / 0.25);
-  }
-
+  .electric-glow { box-shadow: 0 0 20px rgb(59 130 246 / 0.25); }
   .text-gradient-electric {
     @apply bg-gradient-to-r from-electric-400 to-electric-600 bg-clip-text text-transparent;
-  }
-
-  .live-dot::before {
-    content: '';
-    @apply inline-block h-1.5 w-1.5 animate-pulse-slow rounded-full bg-loss-400;
   }
 }

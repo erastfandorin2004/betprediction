@@ -4,11 +4,13 @@ import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/auth/auth-provider';
+import { useLocale } from '@/components/i18n/locale-provider';
 import { register } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
 export default function RegisterPage() {
   const { signIn } = useAuth();
+  const { t } = useLocale();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,7 +26,7 @@ export default function RegisterPage() {
       signIn(tokens);
       router.push('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка регистрации');
+      setError(err instanceof Error ? err.message : t.auth.registerError);
     } finally {
       setLoading(false);
     }
@@ -34,10 +36,8 @@ export default function RegisterPage() {
     <div className="mx-auto max-w-md px-4 py-16">
       <div className="mb-8 text-center">
         <p className="text-2xl font-bold">⚡ AI-Score</p>
-        <h1 className="mt-2 text-xl font-semibold text-zinc-200">Создать аккаунт</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          Бесплатно · 3 прогноза в день без подписки
-        </p>
+        <h1 className="mt-2 text-xl font-semibold text-zinc-200">{t.auth.createTitle}</h1>
+        <p className="mt-1 text-sm text-zinc-500">{t.auth.freeSub}</p>
       </div>
 
       <form onSubmit={(e) => { void handleSubmit(e); }} className="card-surface space-y-4 p-6">
@@ -53,13 +53,13 @@ export default function RegisterPage() {
           />
         </Field>
 
-        <Field label="Пароль">
+        <Field label={t.auth.password}>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className={inputCls}
-            placeholder="Минимум 8 символов, 1 цифра, 1 заглавная"
+            placeholder={t.auth.passwordHint}
             required
             minLength={8}
           />
@@ -77,17 +77,15 @@ export default function RegisterPage() {
             'hover:bg-electric-500 disabled:cursor-not-allowed disabled:opacity-50',
           )}
         >
-          {loading ? 'Создаём аккаунт...' : 'Зарегистрироваться'}
+          {loading ? t.auth.creating : t.auth.createBtn}
         </button>
 
-        <p className="text-center text-xs text-zinc-700">
-          Регистрируясь, вы подтверждаете, что вам исполнилось 18 лет.
-        </p>
+        <p className="text-center text-xs text-zinc-700">{t.auth.ageConfirm}</p>
 
         <p className="text-center text-sm text-zinc-500">
-          Уже есть аккаунт?{' '}
+          {t.auth.hasAccount}{' '}
           <Link href="/login" className="text-electric-400 hover:text-electric-300">
-            Войти
+            {t.auth.signInBtn}
           </Link>
         </p>
       </form>

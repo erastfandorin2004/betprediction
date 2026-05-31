@@ -1,8 +1,11 @@
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
 import type { FixtureListItem } from '@ai-score/shared';
-import { cn } from '@/lib/utils';
 import { formatTime } from '@/lib/format';
+import { useLocale } from '@/components/i18n/locale-provider';
+import { getTeamName } from '@/lib/team-names-ru';
 import { LiveBadge } from './live-badge';
 import { ScoreDisplay } from './score-display';
 import { PredictionBadge } from './prediction-badge';
@@ -13,65 +16,53 @@ interface MatchCardProps {
 }
 
 export function MatchCard({ fixture }: MatchCardProps) {
+  const { t, locale } = useLocale();
   const isLive = fixture.status === 'live';
   const isFinished = fixture.status === 'finished';
   const hasStarted = isLive || isFinished;
-
-  const homeWin =
-    fixture.score !== null && fixture.score.home > fixture.score.away;
-  const awayWin =
-    fixture.score !== null && fixture.score.away > fixture.score.home;
+  const homeWin = fixture.score !== null && fixture.score.home > fixture.score.away;
+  const awayWin = fixture.score !== null && fixture.score.away > fixture.score.home;
 
   return (
     <Link
       href={`/fixtures/${fixture.id}`}
-      className={cn(
-        'group relative block rounded-xl border p-4 transition-all duration-150',
-        'hover:border-electric-700/50 hover:bg-pitch-800/80',
-        isLive
-          ? 'border-loss-500/25 bg-pitch-900'
-          : 'border-pitch-700 bg-pitch-900',
-      )}
+      className="group block rounded-2xl p-4 transition-all duration-150 hover:scale-[1.005]"
+      style={{
+        background: 'rgb(var(--pitch-900))',
+        border: `1px solid ${isLive ? 'rgb(239 68 68 / 0.4)' : 'rgb(var(--pitch-700))'}`,
+      }}
     >
-      {isLive && (
-        <div className="pointer-events-none absolute inset-0 rounded-xl bg-loss-500/[0.03]" />
-      )}
-
-      {/* Teams + Score row */}
+      {/* Teams row */}
       <div className="flex items-center gap-3">
-        {/* Home team */}
-        <div className="flex min-w-0 flex-1 items-center gap-2">
+        {/* Home */}
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <TeamLogo src={fixture.homeTeam.logo} name={fixture.homeTeam.name} />
           <span
-            className={cn(
-              'truncate text-sm font-semibold transition-colors',
-              homeWin ? 'text-zinc-100' : isFinished ? 'text-zinc-500' : 'text-zinc-200',
-            )}
+            className="truncate text-sm font-semibold"
+            style={{ color: isFinished && !homeWin ? 'rgb(var(--fg-muted))' : 'rgb(var(--fg-card))' }}
           >
-            {fixture.homeTeam.shortName || fixture.homeTeam.name}
+            {getTeamName(fixture.homeTeam.name, fixture.homeTeam.shortName, locale, true)}
           </span>
         </div>
 
-        {/* Centre: score or kick-off time */}
-        <div className="shrink-0 min-w-[60px] text-center">
+        {/* Score / Time */}
+        <div className="shrink-0 min-w-[56px] text-center">
           {hasStarted && fixture.score ? (
-            <ScoreDisplay score={fixture.score} className="justify-center text-lg" />
+            <ScoreDisplay score={fixture.score} className="justify-center text-base font-bold" />
           ) : (
-            <span className="tabular text-sm font-medium text-zinc-400">
+            <span className="tabular text-sm font-semibold" style={{ color: 'rgb(var(--fg-secondary))' }}>
               {formatTime(fixture.startsAt)}
             </span>
           )}
         </div>
 
-        {/* Away team */}
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+        {/* Away */}
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-2.5">
           <span
-            className={cn(
-              'truncate text-right text-sm font-semibold transition-colors',
-              awayWin ? 'text-zinc-100' : isFinished ? 'text-zinc-500' : 'text-zinc-200',
-            )}
+            className="truncate text-right text-sm font-semibold"
+            style={{ color: isFinished && !awayWin ? 'rgb(var(--fg-muted))' : 'rgb(var(--fg-card))' }}
           >
-            {fixture.awayTeam.shortName || fixture.awayTeam.name}
+            {getTeamName(fixture.awayTeam.name, fixture.awayTeam.shortName, locale, true)}
           </span>
           <TeamLogo src={fixture.awayTeam.logo} name={fixture.awayTeam.name} />
         </div>
@@ -82,18 +73,17 @@ export function MatchCard({ fixture }: MatchCardProps) {
         <div className="flex items-center gap-2">
           {isLive && <LiveBadge minute={fixture.minute} />}
           {isFinished && (
-            <span className="text-xs text-zinc-600">Завершён</span>
+            <span className="text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>{t.match.finished}</span>
           )}
           {!hasStarted && (
-            <span className="text-xs text-zinc-600">{formatTime(fixture.startsAt)}</span>
+            <span className="text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
+              {formatTime(fixture.startsAt)}
+            </span>
           )}
         </div>
-
         <div className="flex items-center gap-2">
           {fixture.hasValue && <Badge variant="value">VALUE</Badge>}
-          {fixture.prediction && (
-            <PredictionBadge prediction={fixture.prediction} />
-          )}
+          {fixture.prediction && <PredictionBadge prediction={fixture.prediction} />}
         </div>
       </div>
     </Link>
@@ -103,19 +93,15 @@ export function MatchCard({ fixture }: MatchCardProps) {
 function TeamLogo({ src, name }: { src: string | null; name: string }) {
   if (!src) {
     return (
-      <div className="h-7 w-7 shrink-0 rounded-full bg-pitch-700 flex items-center justify-center text-[10px] font-bold text-zinc-500">
+      <div
+        className="h-7 w-7 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold"
+        style={{ background: 'rgb(var(--pitch-800))', color: 'rgb(var(--fg-muted))' }}
+      >
         {name.slice(0, 2).toUpperCase()}
       </div>
     );
   }
   return (
-    <Image
-      src={src}
-      alt={name}
-      width={28}
-      height={28}
-      className="h-7 w-7 shrink-0 rounded object-contain"
-      unoptimized
-    />
+    <Image src={src} alt={name} width={28} height={28} className="h-7 w-7 shrink-0 rounded object-contain" unoptimized />
   );
 }

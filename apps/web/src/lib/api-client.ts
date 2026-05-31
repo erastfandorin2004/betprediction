@@ -60,6 +60,103 @@ function buildQs(params: Record<string, string | number | undefined>): string {
   return '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString();
 }
 
+export interface SquadPlayer {
+  id: number;
+  name: string;
+  position: string | null;
+  shirtNumber: number | null;
+  nationality: string | null;
+}
+
+export interface MatchSummary {
+  id: number;
+  startsAt: string;
+  status: string;
+  scoreHome: number | null;
+  scoreAway: number | null;
+  homeTeam: { id: number; name: string; shortName: string; logo: string | null };
+  awayTeam: { id: number; name: string; shortName: string; logo: string | null };
+}
+
+export interface StandingRow {
+  position: number;
+  team: { id: number; name: string; shortName: string; crest: string | null };
+  playedGames: number;
+  won: number;
+  draw: number;
+  lost: number;
+  points: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+}
+
+export interface H2HMatch {
+  id: number;
+  date: string;
+  status: string;
+  league: string;
+  country: string;
+  season: number;
+  venue: string | null;
+  homeTeam: { name: string; logo: string };
+  awayTeam: { name: string; logo: string };
+  scoreHome: number | null;
+  scoreAway: number | null;
+  scoreHtHome: number | null;
+  scoreHtAway: number | null;
+}
+
+export interface NewsArticle {
+  title: string;
+  description: string | null;
+  url: string;
+  source: string;
+  publishedAt: string;
+  urlToImage: string | null;
+}
+
+export interface LineupPlayer {
+  id: string;
+  name: string;
+  number: number | null;
+}
+
+export interface TeamLineup {
+  formation: string;
+  lines: number[];
+  coach: string | null;
+  startingXI: LineupPlayer[];
+  substitutes: LineupPlayer[];
+}
+
+export interface MatchLineups {
+  home: TeamLineup;
+  away: TeamLineup;
+}
+
+export interface FixtureContext {
+  homeForm: MatchSummary[];
+  awayForm: MatchSummary[];
+  homeFormFlash: H2HMatch[];
+  awayFormFlash: H2HMatch[];
+  h2hWc: MatchSummary[];
+  h2hAll: H2HMatch[];
+  lineups: MatchLineups | null;
+  homeSquad: SquadPlayer[];
+  awaySquad: SquadPlayer[];
+  homeCoach: { name: string } | null;
+  awayCoach: { name: string } | null;
+  homeGroup: { group: string | null; table: StandingRow[]; teamRow: StandingRow } | null;
+  awayGroup: { group: string | null; table: StandingRow[]; teamRow: StandingRow } | null;
+  news: NewsArticle[];
+}
+
+export interface WorldCupDay {
+  date: string;
+  fixtures: FixtureListItem[];
+}
+
 export const api = {
   fixtures: {
     list: (params: FixtureListParams = {}) =>
@@ -73,6 +170,16 @@ export const api = {
       apiFetch<FixtureDetail>(`/v1/fixtures/${id}`, {
         revalidate: 60,
         tags: [`fixture-${id}`],
+      }),
+    context: (id: number) =>
+      apiFetch<FixtureContext>(`/v1/fixtures/${id}/context`, {
+        revalidate: 1800,
+        tags: [`fixture-context-${id}`],
+      }),
+    worldCup: () =>
+      apiFetch<WorldCupDay[]>('/v1/fixtures/world-cup', {
+        revalidate: 300,
+        tags: ['world-cup'],
       }),
   },
   leagues: {

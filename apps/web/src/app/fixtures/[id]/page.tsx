@@ -1,15 +1,17 @@
+import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, MapPin, Calendar } from 'lucide-react';
+import { MapPin, Calendar } from 'lucide-react';
 import { api, ApiError } from '@/lib/api-client';
+import type { FixtureContext } from '@/lib/api-client';
 import { formatTime, formatDateLabel } from '@/lib/format';
 import { LiveBadge } from '@/components/match/live-badge';
 import { ScoreDisplay } from '@/components/match/score-display';
-import { Badge } from '@/components/ui/badge';
 import { PredictionCard } from '@/components/prediction/prediction-card';
-import { cn } from '@/lib/utils';
-import type { FixtureDetail, MatchEvent } from '@ai-score/shared';
+import type { FixtureDetail } from '@ai-score/shared';
+import { ContextDisplay } from './display';
+import { FixtureLabels, FixtureEventsWrapper, TeamBlockClient } from './fixture-labels';
+import { getEspnH2H, getEspnTeamForm } from '@/lib/espn';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -18,7 +20,6 @@ interface Props {
 export default async function FixturePage({ params }: Props) {
   const { id } = await params;
   const fixtureId = parseInt(id, 10);
-
   if (isNaN(fixtureId)) notFound();
 
   let fixture: FixtureDetail;
@@ -36,192 +37,129 @@ export default async function FixturePage({ params }: Props) {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 space-y-4">
       {/* Back */}
-      <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300">
-        <ArrowLeft className="h-4 w-4" />
-        Матчи
-      </Link>
+      <FixtureLabels type="back" />
 
       {/* Match header */}
-      <div className="card-surface overflow-hidden">
-        {/* League bar */}
-        <div className="flex items-center gap-2 border-b border-pitch-800 px-5 py-2.5">
-          {fixture.league.logo && (
-            <img src={fixture.league.logo} alt="" className="h-4 w-4 object-contain" />
-          )}
-          <span className="text-xs text-zinc-500">{fixture.league.name}</span>
-          {fixture.round && (
-            <>
-              <span className="text-zinc-700">·</span>
-              <span className="text-xs text-zinc-600">{fixture.round}</span>
-            </>
-          )}
+      <div className="overflow-hidden rounded-2xl" style={{ background: 'rgb(var(--pitch-900))', border: '1px solid rgb(var(--pitch-700))' }}>
+        <div className="flex items-center gap-2 px-5 py-2.5" style={{ borderBottom: '1px solid rgb(var(--pitch-700))' }}>
+          {fixture.league.logo && <img src={fixture.league.logo} alt="" className="h-4 w-4 object-contain" />}
+          <span className="text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>{fixture.league.name}</span>
+          {fixture.round && <><span style={{ color: 'rgb(var(--pitch-600))' }}>·</span><span className="text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>{fixture.round}</span></>}
         </div>
 
-        {/* Teams */}
-        <div className="px-5 py-6">
+        <div className="px-5 py-8">
           <div className="flex items-center gap-4">
-            <TeamBlock
-              name={fixture.homeTeam.name}
-              shortName={fixture.homeTeam.shortName}
-              logo={fixture.homeTeam.logo}
-              bold={isFinished && fixture.score !== null && fixture.score.home > fixture.score.away}
-            />
-
+            <TeamBlockClient name={fixture.homeTeam.name} shortName={fixture.homeTeam.shortName} logo={fixture.homeTeam.logo}
+              bold={isFinished && fixture.score !== null && fixture.score.home > fixture.score.away} />
             <div className="shrink-0 text-center">
               {hasStarted && fixture.score ? (
                 <ScoreDisplay score={fixture.score} className="justify-center text-3xl" />
               ) : (
                 <div>
-                  <div className="tabular text-2xl font-bold text-zinc-300">
-                    {formatTime(fixture.startsAt)}
-                  </div>
-                  <div className="mt-0.5 text-xs text-zinc-600">
-                    {formatDateLabel(fixture.startsAt)}
-                  </div>
+                  <div className="tabular text-2xl font-bold" style={{ color: 'rgb(var(--fg-primary))' }}>{formatTime(fixture.startsAt)}</div>
+                  <div className="mt-0.5 text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>{formatDateLabel(fixture.startsAt)}</div>
                 </div>
               )}
-              {isLive && (
-                <div className="mt-2 flex justify-center">
-                  <LiveBadge minute={fixture.minute} />
-                </div>
-              )}
-              {isFinished && (
-                <Badge variant="muted" className="mt-2">Завершён</Badge>
-              )}
+              {isLive && <div className="mt-2 flex justify-center"><LiveBadge minute={fixture.minute} /></div>}
+              {isFinished && <FixtureLabels type="finished-badge" />}
             </div>
-
-            <TeamBlock
-              name={fixture.awayTeam.name}
-              shortName={fixture.awayTeam.shortName}
-              logo={fixture.awayTeam.logo}
-              align="right"
-              bold={isFinished && fixture.score !== null && fixture.score.away > fixture.score.home}
-            />
+            <TeamBlockClient name={fixture.awayTeam.name} shortName={fixture.awayTeam.shortName} logo={fixture.awayTeam.logo} align="right"
+              bold={isFinished && fixture.score !== null && fixture.score.away > fixture.score.home} />
           </div>
-
-          {/* Half-time score */}
           {fixture.score?.halfTime && (
-            <p className="mt-3 text-center text-xs text-zinc-600">
-              Перерыв: {fixture.score.halfTime.home} : {fixture.score.halfTime.away}
-            </p>
+            <FixtureLabels type="halftime" home={fixture.score.halfTime.home} away={fixture.score.halfTime.away} />
           )}
         </div>
 
-        {/* Venue + time meta */}
-        {(fixture.venue || true) && (
-          <div className="flex flex-wrap items-center gap-4 border-t border-pitch-800 px-5 py-3 text-xs text-zinc-600">
+        <div className="flex flex-wrap items-center gap-4 px-5 py-3 text-xs" style={{ borderTop: '1px solid rgb(var(--pitch-700))', color: 'rgb(var(--fg-muted))' }}>
+          <span className="flex items-center gap-1.5">
+            <Calendar className="h-3.5 w-3.5" />
+            {formatDateLabel(fixture.startsAt)}, {formatTime(fixture.startsAt)} <FixtureLabels type="msk" />
+          </span>
+          {fixture.venue && (
             <span className="flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5" />
-              {formatDateLabel(fixture.startsAt)}, {formatTime(fixture.startsAt)} (МСК)
+              <MapPin className="h-3.5 w-3.5" />
+              {fixture.venue.name}{fixture.venue.city ? `, ${fixture.venue.city}` : ''}
             </span>
-            {fixture.venue && (
-              <span className="flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5" />
-                {fixture.venue.name}
-                {fixture.venue.city ? `, ${fixture.venue.city}` : ''}
-              </span>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* AI Prediction */}
       {fixture.prediction ? (
         <PredictionCard prediction={fixture.prediction} />
       ) : (
-        <div className="card-surface p-5 text-center">
-          <p className="text-sm font-semibold text-zinc-300">🤖 AI-прогноз</p>
-          <p className="mt-2 text-xs text-zinc-500">
-            {hasStarted
-              ? 'Прогноз фиксируется только до начала матча'
-              : 'Прогноз готовится — воркер генерирует за 1–2 часа до матча'}
-          </p>
-        </div>
+        <FixtureLabels type="no-prediction" hasStarted={hasStarted} />
       )}
 
-      {/* Match events */}
+      {/* Events */}
       {fixture.events.length > 0 && (
-        <section className="card-surface p-5">
-          <h3 className="mb-4 text-sm font-semibold text-zinc-300">События матча</h3>
-          <EventTimeline events={fixture.events} />
-        </section>
+        <FixtureEventsWrapper events={fixture.events} />
       )}
 
-      {/* Placeholder sections */}
-      {!hasStarted && (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {['Статистика', 'Форма', 'H2H', 'Составы'].map((label) => (
-            <div key={label} className="card-surface p-5">
-              <p className="text-sm font-semibold text-zinc-500">{label}</p>
-              <p className="mt-2 text-xs text-zinc-700">
-                Появятся в следующих шагах
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Context */}
+      <Suspense fallback={<ContextSkeleton />}>
+        <ContextSections fixtureId={fixtureId} homeTeam={fixture.homeTeam} awayTeam={fixture.awayTeam} />
+      </Suspense>
     </div>
   );
 }
 
-function TeamBlock({
-  name,
-  shortName,
-  logo,
-  align = 'left',
-  bold,
-}: {
-  name: string;
-  shortName: string;
-  logo: string | null;
-  align?: 'left' | 'right';
-  bold?: boolean;
+async function ContextSections({ fixtureId, homeTeam, awayTeam }: {
+  fixtureId: number;
+  homeTeam: { id: number; name: string; shortName: string };
+  awayTeam: { id: number; name: string; shortName: string };
 }) {
+  let raw: FixtureContext;
+  try {
+    raw = await api.fixtures.context(fixtureId);
+  } catch {
+    return null;
+  }
+
+  const ctx: FixtureContext = {
+    homeForm: raw.homeForm ?? [],
+    awayForm: raw.awayForm ?? [],
+    homeFormFlash: raw.homeFormFlash ?? [],
+    awayFormFlash: raw.awayFormFlash ?? [],
+    h2hWc: raw.h2hWc ?? [],
+    h2hAll: raw.h2hAll ?? [],
+    homeSquad: raw.homeSquad ?? [],
+    awaySquad: raw.awaySquad ?? [],
+    homeCoach: raw.homeCoach ?? null,
+    awayCoach: raw.awayCoach ?? null,
+    homeGroup: raw.homeGroup ?? null,
+    awayGroup: raw.awayGroup ?? null,
+    lineups: raw.lineups ?? null,
+    news: raw.news ?? [],
+  };
+
+  // Fetch ESPN H2H + team form in parallel
+  const [espnH2h, espnHomeForm, espnAwayForm] = await Promise.all([
+    getEspnH2H(homeTeam.name, awayTeam.name).catch(() => []),
+    getEspnTeamForm(homeTeam.name).catch(() => []),
+    getEspnTeamForm(awayTeam.name).catch(() => []),
+  ]);
+
   return (
-    <div className={cn('flex min-w-0 flex-1 flex-col items-center gap-2', align === 'right' && '')}>
-      {logo ? (
-        <Image src={logo} alt={name} width={52} height={52} className="h-13 w-13 object-contain" unoptimized />
-      ) : (
-        <div className="flex h-13 w-13 items-center justify-center rounded-full bg-pitch-700 text-lg font-bold text-zinc-500">
-          {name.slice(0, 2).toUpperCase()}
-        </div>
-      )}
-      <span className={cn('text-center text-sm font-semibold', bold ? 'text-zinc-100' : 'text-zinc-400')}>
-        {shortName || name}
-      </span>
-    </div>
+    <ContextDisplay
+      ctx={ctx}
+      homeTeam={homeTeam}
+      awayTeam={awayTeam}
+      espnH2h={espnH2h}
+      espnHomeForm={espnHomeForm}
+      espnAwayForm={espnAwayForm}
+    />
   );
 }
 
-const EVENT_ICON: Record<string, string> = {
-  goal: '⚽',
-  own_goal: '⚽',
-  penalty: '⚽',
-  missed_penalty: '❌',
-  yellow_card: '🟨',
-  red_card: '🟥',
-  yellow_red_card: '🟨🟥',
-  substitution: '🔄',
-};
-
-function EventTimeline({ events }: { events: MatchEvent[] }) {
+function ContextSkeleton() {
   return (
-    <div className="space-y-2">
-      {events.map((e) => (
-        <div key={e.id} className="flex items-center gap-3 text-sm">
-          <span className="tabular w-10 shrink-0 text-right text-xs text-zinc-500">
-            {e.minute}′
-          </span>
-          <span>{EVENT_ICON[e.type] ?? '•'}</span>
-          <span className="text-zinc-300">{e.player?.name ?? '—'}</span>
-          {e.type === 'substitution' && e.assist && (
-            <span className="text-zinc-600">↓ {e.assist.name}</span>
-          )}
-          <span className={cn('ml-auto text-xs', e.team === 'home' ? 'text-electric-500' : 'text-zinc-600')}>
-            {e.team === 'home' ? 'Хозяева' : 'Гости'}
-          </span>
-        </div>
+    <div className="space-y-4">
+      {[80, 48, 64, 200, 120].map((h, i) => (
+        <div key={i} className="animate-pulse rounded-2xl" style={{ background: 'rgb(var(--pitch-900))', height: `${h * 4}px` }} />
       ))}
     </div>
   );
 }
+
