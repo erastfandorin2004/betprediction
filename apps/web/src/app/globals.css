@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-pitch-950 text-zinc-100 antialiased;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+
+  /* Monospace tabular numbers for scores and odds */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    @apply font-mono;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-pitch-900;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-pitch-700;
+  }
+}
+
+@layer components {
+  .badge-value {
+    @apply inline-flex items-center gap-1 rounded-full bg-value-500/15 px-2 py-0.5 text-xs font-semibold text-value-400;
+  }
+
+  .badge-live {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-loss-500/15 px-2 py-0.5 text-xs font-semibold text-loss-400;
+  }
+
+  .card-surface {
+    @apply rounded-xl border border-pitch-700 bg-pitch-900;
+  }
+}
+
+@layer utilities {
+  .electric-glow {
+    box-shadow: 0 0 20px rgb(59 130 246 / 0.25);
+  }
+
+  .text-gradient-electric {
+    @apply bg-gradient-to-r from-electric-400 to-electric-600 bg-clip-text text-transparent;
+  }
+
+  .live-dot::before {
+    content: '';
+    @apply inline-block h-1.5 w-1.5 animate-pulse-slow rounded-full bg-loss-400;
+  }
+}

@@ -13,8 +13,9 @@ build/
 out/
 .next/
 .nuxt/
+.turbo/
 
-# Environment
+# Environment — never commit secrets
 .env
 .env.local
 .env.*.local
@@ -33,43 +34,30 @@ logs/
 .DS_Store
 Thumbs.db
 
-# ─── Swift / Xcode ───────────────────────────────────────────────────────────
+# TypeScript incremental build info
+*.tsbuildinfo
 
-# Build
+# ─── Swift / Xcode (legacy, kept for safety) ─────────────────────────────────
 DerivedData/
 *.xcarchive
 *.ipa
 *.dSYM.zip
 *.dSYM
-
-# User-specific Xcode settings
 *.xcuserdata/
 xcuserdata/
 *.xcworkspace/xcuserdata/
-
-# SPM
 .build/
 .swiftpm/
-Packages/
+# NOTE: 'Packages/' removed — conflicts with monorepo 'packages/' on case-insensitive FS
 Package.resolved
-
-# CocoaPods
 Pods/
 *.xcworkspace
-
-# Carthage
 Carthage/Build/
-
-# Playgrounds
 timeline.xctimeline
 playground.xcworkspace
-
-# fastlane
 fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
-
-# Simulator
 *.moved-aside
 *.hmap

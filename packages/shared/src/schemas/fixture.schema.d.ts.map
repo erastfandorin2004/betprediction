@@ -1,0 +1,1 @@
+{"version":3,"file":"fixture.schema.d.ts","sourceRoot":"","sources":["fixture.schema.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,CAAC,EAAE,MAAM,KAAK,CAAC;AAExB,eAAO,MAAM,sBAAsB;;;;;;;;;;;;;;;;;;;;;;;;EAcjC,CAAC;AAEH,MAAM,MAAM,qBAAqB,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,sBAAsB,CAAC,CAAC;AAC3E,MAAM,MAAM,sBAAsB,GAAG,CAAC,CAAC,MAAM,CAAC,OAAO,sBAAsB,CAAC,CAAC"}

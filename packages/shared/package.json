@@ -1,0 +1,19 @@
+{
+  "name": "@ai-score/shared",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@ai-score/config": "workspace:*",
+    "typescript": "^5.8.3"
+  }
+}

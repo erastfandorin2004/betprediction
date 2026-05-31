@@ -1,0 +1,12 @@
+{
+  "name": "@ai-score/worker",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'Worker not yet implemented (Step 2+)'",
+    "build": "echo 'Worker not yet implemented (Step 2+)'"
+  },
+  "dependencies": {
+    "@ai-score/shared": "workspace:*"
+  }
+}
