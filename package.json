@@ -8,9 +8,12 @@
     "lint": "turbo lint",
     "test": "turbo test",
     "type-check": "turbo type-check",
-    "format": "prettier --write \"**/*.{ts,tsx,json,md}\" --ignore-path .gitignore"
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\" --ignore-path .gitignore",
+    "db:start": "node scripts/start-db.mjs",
+    "db:push": "DATABASE_URL=postgresql://aiscore:aiscore@127.0.0.1:5432/aiscore pnpm --filter @ai-score/db db:push"
   },
   "devDependencies": {
+    "embedded-postgres": "18.3.0-beta.17",
     "prettier": "^3.5.3",
     "turbo": "^2.5.4",
     "typescript": "^5.8.3"

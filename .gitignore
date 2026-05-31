@@ -37,6 +37,9 @@ Thumbs.db
 # TypeScript incremental build info
 *.tsbuildinfo
 
+# Embedded PostgreSQL data (dev only)
+tmp/
+
 # ─── Swift / Xcode (legacy, kept for safety) ─────────────────────────────────
 DerivedData/
 *.xcarchive

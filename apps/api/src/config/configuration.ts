@@ -20,10 +20,13 @@ export default () => {
       refreshExpiresIn: process.env['JWT_REFRESH_EXPIRES_IN'] ?? '7d',
     },
     database: {
-      url: process.env['DATABASE_URL'] ?? '',
+      url: process.env['DATABASE_URL'] ?? 'postgresql://aiscore:aiscore@localhost:5432/aiscore',
     },
     redis: {
       url: process.env['REDIS_URL'] ?? 'redis://localhost:6379',
+    },
+    footballData: {
+      apiKey: process.env['FOOTBALL_DATA_API_KEY'] ?? '',
     },
     openrouter: {
       apiKey: process.env['OPENROUTER_API_KEY'] ?? '',
