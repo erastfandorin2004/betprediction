@@ -1,196 +1,113 @@
-import { TrendingUp, Zap, ShieldCheck, BarChart3 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Suspense } from 'react';
+import { api } from '@/lib/api-client';
+import { todayIso } from '@/lib/format';
+import { DateTabs } from '@/components/layout/date-tabs';
+import { MatchFeed } from '@/components/match/match-feed';
+import { LeagueGroupSkeleton } from '@/components/ui/skeleton';
+import { TrendingUp, Zap, ShieldCheck } from 'lucide-react';
 
-export default function HomePage() {
-  return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      <HeroSection />
-      <DailyPicksSection />
-      <StatsSection />
-      <FeaturesSection />
-    </div>
-  );
+interface PageProps {
+  searchParams: Promise<{ date?: string }>;
 }
 
-function HeroSection() {
+export default async function HomePage({ searchParams }: PageProps) {
+  const { date: rawDate } = await searchParams;
+  const date = rawDate ?? todayIso();
+
   return (
-    <section className="py-16 text-center">
-      <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-electric-700/50 bg-electric-900/20 px-4 py-1.5 text-sm text-electric-400">
-        <span className="h-1.5 w-1.5 animate-pulse-slow rounded-full bg-electric-400" />
-        Ансамбль из 6 LLM · Обновляется в реальном времени
-      </div>
+    <div className="mx-auto max-w-3xl px-4 py-6">
+      {/* Live section */}
+      <Suspense fallback={null}>
+        <LiveSection />
+      </Suspense>
 
-      <h1 className="mt-6 text-5xl font-bold leading-tight tracking-tight md:text-6xl">
-        <span className="text-gradient-electric">AI-прогнозы</span>
-        <br />
-        <span className="text-zinc-100">для умных болельщиков</span>
-      </h1>
-
-      <p className="mx-auto mt-6 max-w-xl text-lg text-zinc-400">
-        Несколько LLM анализируют форму, статистику и коэффициенты — и выдают единый прозрачный
-        прогноз с оценкой уверенности и обоснованием.
-      </p>
-
-      <div className="mt-8 flex flex-wrap justify-center gap-4">
-        <a
-          href="/matches"
-          className="electric-glow rounded-xl bg-electric-600 px-6 py-3 font-semibold text-white transition-all hover:bg-electric-500"
-        >
-          Смотреть матчи
-        </a>
-        <a
-          href="/track-record"
-          className="rounded-xl border border-pitch-700 bg-pitch-900 px-6 py-3 font-semibold text-zinc-300 transition-all hover:border-electric-700 hover:text-white"
-        >
-          Трек-рекорд точности
-        </a>
-      </div>
-    </section>
-  );
-}
-
-function DailyPicksSection() {
-  return (
-    <section className="py-10">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-zinc-100">AI-выборы дня</h2>
-          <p className="mt-0.5 text-sm text-zinc-500">Топ-прогнозы по уверенности и value</p>
+      {/* Date tabs + feed */}
+      <div className="mt-6">
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-zinc-100">Матчи</h2>
+          <Suspense fallback={null}>
+            <DateTabs selectedDate={date} />
+          </Suspense>
         </div>
-        <a href="/picks" className="text-sm text-electric-400 hover:text-electric-300">
-          Все выборы →
-        </a>
-      </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {[1, 2, 3].map((i) => (
-          <PickCardSkeleton key={i} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function PickCardSkeleton() {
-  return (
-    <div className="card-surface animate-pulse p-4">
-      <div className="flex items-start justify-between">
-        <div className="space-y-2">
-          <div className="h-3 w-24 rounded bg-pitch-700" />
-          <div className="h-5 w-40 rounded bg-pitch-700" />
-        </div>
-        <div className="h-7 w-16 rounded-full bg-pitch-700" />
-      </div>
-
-      <div className="mt-4 flex items-center gap-3">
-        <div className="h-8 w-8 rounded-full bg-pitch-700" />
-        <div className="flex-1 space-y-1">
-          <div className="h-4 w-full rounded bg-pitch-700" />
-          <div className="h-3 w-3/4 rounded bg-pitch-700" />
-        </div>
-        <div className="h-8 w-8 rounded-full bg-pitch-700" />
-      </div>
-
-      <div className="mt-4 space-y-2">
-        <div className="h-3 w-28 rounded bg-pitch-700" />
-        <div className="flex gap-2">
-          {[60, 25, 15].map((w, i) => (
-            <div
-              key={i}
-              className={cn('h-6 rounded bg-pitch-700')}
-              style={{ width: `${w}%` }}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="mt-3 h-3 w-3/4 rounded bg-pitch-700" />
-    </div>
-  );
-}
-
-function StatsSection() {
-  const stats = [
-    { label: 'Точность прогнозов', value: '—', sub: 'накапливается', icon: BarChart3 },
-    { label: 'Прогнозов выдано', value: '0', sub: 'начинаем считать', icon: Zap },
-    { label: 'ROI flat-ставка', value: '—', sub: 'накапливается', icon: TrendingUp },
-    { label: 'Верифицировано', value: '100%', sub: 'до старта матча', icon: ShieldCheck },
-  ];
-
-  return (
-    <section className="py-10">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {stats.map(({ label, value, sub, icon: Icon }) => (
-          <div key={label} className="card-surface p-5">
-            <Icon className="h-5 w-5 text-electric-500" />
-            <div className="tabular mt-3 text-3xl font-bold text-zinc-100">{value}</div>
-            <div className="mt-1 text-sm font-medium text-zinc-300">{label}</div>
-            <div className="mt-0.5 text-xs text-zinc-600">{sub}</div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function FeaturesSection() {
-  const features = [
-    {
-      title: 'Ансамбль LLM',
-      description:
-        'До 6 моделей (GPT, Claude, Gemini, DeepSeek) анализируют каждый матч независимо. Консенсус = выше уверенность.',
-      badge: 'Уникально',
-    },
-    {
-      title: 'Честный трек-рекорд',
-      description:
-        'Все прогнозы фиксируются до старта матча и никогда не изменяются. Точность считается по реальным исходам.',
-      badge: 'Прозрачно',
-    },
-    {
-      title: 'Value-сигналы',
-      description:
-        'Сравниваем AI-вероятность с рыночными коэффициентами и автоматически подсвечиваем перевес (edge).',
-      badge: 'Pro',
-    },
-    {
-      title: 'Глубокая статистика',
-      description:
-        'Форма, H2H, составы, травмы, xG, движение коэффициентов — всё в одном экране без лишних вкладок.',
-      badge: 'Бесплатно',
-    },
-  ];
-
-  return (
-    <section className="py-10">
-      <h2 className="mb-2 text-center text-2xl font-bold text-zinc-100">
-        Почему AI-Score
-      </h2>
-      <p className="mb-8 text-center text-sm text-zinc-500">
-        Мы сделали то, чего нет у LiveScore, TIPSTOP и eScored
-      </p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {features.map(({ title, description, badge }) => (
-          <div key={title} className="card-surface p-6">
-            <div className="flex items-start justify-between">
-              <h3 className="font-semibold text-zinc-100">{title}</h3>
-              <span
-                className={cn(
-                  'rounded-full px-2 py-0.5 text-xs font-semibold',
-                  badge === 'Pro'
-                    ? 'bg-value-500/15 text-value-400'
-                    : badge === 'Уникально'
-                      ? 'bg-electric-500/15 text-electric-400'
-                      : 'bg-goal-500/15 text-goal-400',
-                )}
-              >
-                {badge}
-              </span>
+        <Suspense
+          key={date}
+          fallback={
+            <div className="space-y-6">
+              <LeagueGroupSkeleton />
+              <LeagueGroupSkeleton />
             </div>
-            <p className="mt-3 text-sm leading-relaxed text-zinc-400">{description}</p>
-          </div>
-        ))}
+          }
+        >
+          <FixtureFeed date={date} />
+        </Suspense>
       </div>
+
+      {/* Stats strip */}
+      <StatsStrip />
+    </div>
+  );
+}
+
+async function LiveSection() {
+  let live: Awaited<ReturnType<typeof api.fixtures.live>> = [];
+  try {
+    live = await api.fixtures.live();
+  } catch {
+    return null;
+  }
+
+  if (!live.length) return null;
+
+  return (
+    <section>
+      <div className="mb-3 flex items-center gap-2">
+        <span className="h-2 w-2 animate-pulse-slow rounded-full bg-loss-400" />
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-loss-400">
+          Live — {live.length} {pluralMatches(live.length)}
+        </h2>
+      </div>
+      <MatchFeed fixtures={live} />
     </section>
   );
+}
+
+async function FixtureFeed({ date }: { date: string }) {
+  let result: Awaited<ReturnType<typeof api.fixtures.list>>;
+  try {
+    result = await api.fixtures.list({ date, limit: 100 });
+  } catch {
+    return (
+      <p className="py-8 text-center text-sm text-zinc-600">
+        Не удалось загрузить матчи — API недоступен
+      </p>
+    );
+  }
+
+  return <MatchFeed fixtures={result.items} />;
+}
+
+function StatsStrip() {
+  return (
+    <div className="mt-12 grid grid-cols-3 gap-3 border-t border-pitch-800 pt-8">
+      {[
+        { icon: ShieldCheck, label: 'Верифицировано', value: '100%', sub: 'снапшоты до матча' },
+        { icon: Zap, label: 'Прогнозов', value: '—', sub: 'запускается' },
+        { icon: TrendingUp, label: 'Ансамбль', value: '6 LLM', sub: 'через OpenRouter' },
+      ].map(({ icon: Icon, label, value, sub }) => (
+        <div key={label} className="card-surface p-4 text-center">
+          <Icon className="mx-auto h-5 w-5 text-electric-500" />
+          <div className="tabular mt-2 text-2xl font-bold text-zinc-100">{value}</div>
+          <div className="mt-0.5 text-xs font-medium text-zinc-400">{label}</div>
+          <div className="mt-0.5 text-xs text-zinc-600">{sub}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function pluralMatches(n: number): string {
+  if (n === 1) return 'матч';
+  if (n >= 2 && n <= 4) return 'матча';
+  return 'матчей';
 }
