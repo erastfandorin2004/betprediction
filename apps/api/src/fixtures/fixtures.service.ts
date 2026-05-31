@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, between, count, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, asc, between, count, eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import * as schema from '@ai-score/db';
 import { DatabaseService } from '../database/database.service';
@@ -13,6 +13,11 @@ import type {
   TeamRef,
   LeagueRef,
   SportRef,
+  PredictionBadge,
+  PredictionDetail,
+  PredictionMarket,
+  ModelConsensus,
+  PredictionStatus,
 } from '@ai-score/shared';
 import type { PaginationMeta } from '@ai-score/shared';
 
@@ -20,6 +25,7 @@ type FixtureRow = typeof schema.fixtures.$inferSelect;
 type LeagueRow = typeof schema.leagues.$inferSelect;
 type TeamRow = typeof schema.teams.$inferSelect;
 type SportRow = typeof schema.sports.$inferSelect;
+type PredictionRow = typeof schema.predictions.$inferSelect;
 
 @Injectable()
 export class FixturesService {
@@ -65,26 +71,25 @@ export class FixturesService {
           sport: schema.sports,
           homeTeam,
           awayTeam,
+          prediction: schema.predictions,
         })
         .from(schema.fixtures)
         .leftJoin(schema.leagues, eq(schema.fixtures.leagueId, schema.leagues.id))
         .leftJoin(schema.sports, eq(schema.fixtures.sportId, schema.sports.id))
         .leftJoin(homeTeam, eq(schema.fixtures.homeTeamId, homeTeam.id))
         .leftJoin(awayTeam, eq(schema.fixtures.awayTeamId, awayTeam.id))
+        .leftJoin(schema.predictions, eq(schema.fixtures.id, schema.predictions.fixtureId))
         .where(conditions)
         .orderBy(asc(schema.fixtures.startsAt))
         .limit(limit)
         .offset((page - 1) * limit),
 
-      this.db.db
-        .select({ total: count() })
-        .from(schema.fixtures)
-        .where(conditions),
+      this.db.db.select({ total: count() }).from(schema.fixtures).where(conditions),
     ]);
 
     const total = totalRow?.total ?? 0;
     const items = rows.map((r) =>
-      this.toListItem(r.fixture, r.league, r.sport, r.homeTeam, r.awayTeam),
+      this.toListItem(r.fixture, r.league, r.sport, r.homeTeam, r.awayTeam, r.prediction),
     );
 
     const result = {
@@ -111,17 +116,19 @@ export class FixturesService {
         sport: schema.sports,
         homeTeam,
         awayTeam,
+        prediction: schema.predictions,
       })
       .from(schema.fixtures)
       .leftJoin(schema.leagues, eq(schema.fixtures.leagueId, schema.leagues.id))
       .leftJoin(schema.sports, eq(schema.fixtures.sportId, schema.sports.id))
       .leftJoin(homeTeam, eq(schema.fixtures.homeTeamId, homeTeam.id))
       .leftJoin(awayTeam, eq(schema.fixtures.awayTeamId, awayTeam.id))
+      .leftJoin(schema.predictions, eq(schema.fixtures.id, schema.predictions.fixtureId))
       .where(eq(schema.fixtures.status, 'live'))
       .orderBy(asc(schema.fixtures.startsAt));
 
     const items = rows.map((r) =>
-      this.toListItem(r.fixture, r.league, r.sport, r.homeTeam, r.awayTeam),
+      this.toListItem(r.fixture, r.league, r.sport, r.homeTeam, r.awayTeam, r.prediction),
     );
 
     await this.redis.set(cacheKey, JSON.stringify(items), 30);
@@ -143,18 +150,22 @@ export class FixturesService {
         sport: schema.sports,
         homeTeam,
         awayTeam,
+        prediction: schema.predictions,
       })
       .from(schema.fixtures)
       .leftJoin(schema.leagues, eq(schema.fixtures.leagueId, schema.leagues.id))
       .leftJoin(schema.sports, eq(schema.fixtures.sportId, schema.sports.id))
       .leftJoin(homeTeam, eq(schema.fixtures.homeTeamId, homeTeam.id))
       .leftJoin(awayTeam, eq(schema.fixtures.awayTeamId, awayTeam.id))
+      .leftJoin(schema.predictions, eq(schema.fixtures.id, schema.predictions.fixtureId))
       .where(eq(schema.fixtures.id, id))
       .limit(1);
 
     if (!row) throw new NotFoundException(`Fixture ${id} not found`);
 
-    const detail = this.toDetail(row.fixture, row.league, row.sport, row.homeTeam, row.awayTeam);
+    const detail = this.toDetail(
+      row.fixture, row.league, row.sport, row.homeTeam, row.awayTeam, row.prediction,
+    );
     const ttl = row.fixture.status === 'live' ? 30 : 300;
     await this.redis.set(cacheKey, JSON.stringify(detail), ttl);
     return detail;
@@ -166,6 +177,7 @@ export class FixturesService {
     sport: SportRow | null,
     homeTeam: TeamRow | null,
     awayTeam: TeamRow | null,
+    prediction: PredictionRow | null,
   ): FixtureListItem {
     return {
       id: fixture.id,
@@ -177,8 +189,8 @@ export class FixturesService {
       status: fixture.status as FixtureStatus,
       minute: fixture.minute,
       score: this.toScore(fixture.scoreHome, fixture.scoreAway, fixture.halfTimeHome, fixture.halfTimeAway),
-      prediction: null,
-      hasValue: false,
+      prediction: prediction ? this.toPredictionBadge(prediction) : null,
+      hasValue: (prediction?.valueEdge ?? 0) > 0.05,
       isFavorite: false,
     };
   }
@@ -189,6 +201,7 @@ export class FixturesService {
     sport: SportRow | null,
     homeTeam: TeamRow | null,
     awayTeam: TeamRow | null,
+    prediction: PredictionRow | null,
   ): FixtureDetail {
     return {
       id: fixture.id,
@@ -209,49 +222,62 @@ export class FixturesService {
       lineups: null,
       h2h: null,
       standings: { home: null, away: null },
-      prediction: null,
+      prediction: prediction ? this.toPredictionDetail(prediction) : null,
+    };
+  }
+
+  private toPredictionBadge(pred: PredictionRow): PredictionBadge {
+    return {
+      recommendedOutcome: pred.recommendedOutcome,
+      probability: pred.probability,
+      confidence: pred.confidence,
+      stars: (pred.stars ?? 1) as PredictionBadge['stars'],
+      isLocked: false,
+    };
+  }
+
+  private toPredictionDetail(pred: PredictionRow): PredictionDetail {
+    return {
+      fixtureId: pred.fixtureId,
+      createdAt: pred.createdAt.toISOString(),
+      status: pred.status as PredictionStatus,
+      markets: (pred.markets as PredictionMarket[] | null) ?? [],
+      recommendedMarket: pred.recommendedMarket as PredictionDetail['recommendedMarket'],
+      recommendedOutcome: pred.recommendedOutcome,
+      probability: pred.probability,
+      confidence: pred.confidence,
+      stars: (pred.stars ?? 1) as PredictionDetail['stars'],
+      modelConsensus: (pred.modelConsensus as ModelConsensus | null) ?? null,
+      rationale: pred.rationale,
+      keyFactors: pred.keyFactors as string[] | null,
+      valueEdge: pred.valueEdge,
+      impliedProbability: pred.impliedProbability,
+      outcome: pred.isCorrect !== null
+        ? { isCorrect: pred.isCorrect!, actualResult: pred.actualResult ?? '', resolvedAt: pred.resolvedAt?.toISOString() ?? '' }
+        : null,
+      isLocked: false,
+      lockedFields: [],
     };
   }
 
   private toSportRef(sport: SportRow | null, fallbackId: number): SportRef {
-    return {
-      id: sport?.id ?? fallbackId,
-      name: sport?.name ?? 'Football',
-      slug: sport?.slug ?? 'football',
-    };
+    return { id: sport?.id ?? fallbackId, name: sport?.name ?? 'Football', slug: sport?.slug ?? 'football' };
   }
 
   private toLeagueRef(league: LeagueRow | null): LeagueRef {
     return {
-      id: league?.id ?? 0,
-      name: league?.name ?? 'Unknown',
-      shortName: league?.shortName ?? null,
-      logo: league?.logo ?? null,
-      country: league?.country ?? '',
-      countryCode: league?.countryCode ?? null,
+      id: league?.id ?? 0, name: league?.name ?? 'Unknown',
+      shortName: league?.shortName ?? null, logo: league?.logo ?? null,
+      country: league?.country ?? '', countryCode: league?.countryCode ?? null,
     };
   }
 
   private toTeamRef(team: TeamRow | null): TeamRef {
-    return {
-      id: team?.id ?? 0,
-      name: team?.name ?? 'Unknown',
-      shortName: team?.shortName ?? '',
-      logo: team?.logo ?? null,
-    };
+    return { id: team?.id ?? 0, name: team?.name ?? 'Unknown', shortName: team?.shortName ?? '', logo: team?.logo ?? null };
   }
 
-  private toScore(
-    home: number | null,
-    away: number | null,
-    htHome: number | null,
-    htAway: number | null,
-  ): Score | null {
+  private toScore(home: number | null, away: number | null, htHome: number | null, htAway: number | null): Score | null {
     if (home === null || away === null) return null;
-    return {
-      home,
-      away,
-      ...(htHome !== null && htAway !== null ? { halfTime: { home: htHome, away: htAway } } : {}),
-    };
+    return { home, away, ...(htHome !== null && htAway !== null ? { halfTime: { home: htHome, away: htAway } } : {}) };
   }
 }

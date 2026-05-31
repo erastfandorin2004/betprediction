@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { IngestModule } from './ingest/ingest.module';
+import { PredictionsModule } from './predictions/predictions.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -13,6 +14,7 @@ import configuration from './config/configuration';
     }),
     ScheduleModule.forRoot(),
     IngestModule,
+    PredictionsModule,
   ],
 })
 export class WorkerModule {}
