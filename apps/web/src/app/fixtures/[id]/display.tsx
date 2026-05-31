@@ -308,37 +308,32 @@ function splitLines(xi: LineupPlayer[], lines: number[]): LineupPlayer[][] {
 
 function PitchToken({ p, side }: { p: LineupPlayer; side: 'home' | 'away' }) {
   const { locale } = useLocale();
-  const circle = (
-    <div
-      className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
-      style={{
-        background: side === 'home' ? 'rgba(10,12,16,0.78)' : '#f8fafc',
-        color: side === 'home' ? '#fff' : '#0a0c10',
-        border: '1.5px solid rgba(255,255,255,0.55)',
-      }}
-    >
-      {p.number ?? '–'}
-    </div>
-  );
-  const name = (
-    <span
-      className="block w-16 truncate text-center text-[10px] font-medium leading-tight text-white"
-      style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}
-    >
-      {getPlayerNameRu(p.name, locale)}
-    </span>
-  );
   return (
     <div className="flex flex-col items-center gap-0.5">
-      {circle}
-      {name}
+      <div
+        className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold"
+        style={{
+          background: side === 'home' ? 'rgba(10,12,16,0.8)' : '#f8fafc',
+          color: side === 'home' ? '#fff' : '#0a0c10',
+          border: '1.5px solid rgba(255,255,255,0.6)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.35)',
+        }}
+      >
+        {p.number ?? ''}
+      </div>
+      <span
+        className="block w-[4.75rem] truncate text-center text-[10px] font-medium leading-none text-white"
+        style={{ textShadow: '0 1px 3px rgba(0,0,0,0.95)' }}
+      >
+        {getPlayerNameRu(p.name, locale)}
+      </span>
     </div>
   );
 }
 
 function PitchRow({ players, side }: { players: LineupPlayer[]; side: 'home' | 'away' }) {
   return (
-    <div className="flex items-center justify-around px-3 py-1.5">
+    <div className="flex items-center justify-evenly px-2">
       {players.map((p) => <PitchToken key={p.id || p.name} p={p} side={side} />)}
     </div>
   );
@@ -351,28 +346,29 @@ export function LineupPitch({ home, away }: { home: TeamLineup; away: TeamLineup
 
   return (
     <div
-      className="overflow-hidden rounded-2xl"
+      className="mx-auto flex w-full max-w-[420px] flex-col overflow-hidden rounded-xl"
       style={{
+        aspectRatio: '3 / 4',
         background:
-          'repeating-linear-gradient(180deg, #1f7a44 0px, #1f7a44 56px, #1c7040 56px, #1c7040 112px)',
-        border: '1px solid rgb(var(--pitch-700))',
+          'repeating-linear-gradient(180deg, #1f7a44 0, #1f7a44 12.5%, #1c7040 12.5%, #1c7040 25%)',
+        border: '1px solid rgba(0,0,0,0.35)',
       }}
     >
       {/* Home half */}
-      <div className="flex flex-col justify-around pt-4 pb-2">
+      <div className="flex flex-1 flex-col justify-evenly py-2">
         {homeGroups.map((row, i) => <PitchRow key={`h${i}`} players={row} side="home" />)}
       </div>
 
-      {/* Centre line */}
-      <div className="relative" style={{ borderTop: '2px solid rgba(255,255,255,0.3)' }}>
+      {/* Centre line + circle */}
+      <div className="relative h-0" style={{ borderTop: '1px solid rgba(255,255,255,0.28)' }}>
         <div
-          className="absolute left-1/2 top-0 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full"
-          style={{ border: '2px solid rgba(255,255,255,0.3)' }}
+          className="absolute left-1/2 top-0 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{ border: '1px solid rgba(255,255,255,0.28)' }}
         />
       </div>
 
       {/* Away half */}
-      <div className="flex flex-col justify-around pt-2 pb-4">
+      <div className="flex flex-1 flex-col justify-evenly py-2">
         {awayGroups.map((row, i) => <PitchRow key={`a${i}`} players={row} side="away" />)}
       </div>
     </div>
@@ -396,20 +392,64 @@ function SubColumn({ players }: { players: LineupPlayer[] }) {
   );
 }
 
-export function LineupSection({ lineups, homeName, awayName }: {
+/* Map a roster position to a pitch line: 0=GK, 1=DEF, 2=MID, 3=FWD. */
+function squadLineIndex(position: string | null): 0 | 1 | 2 | 3 {
+  const p = (position ?? '').toLowerCase();
+  if (p.includes('keeper') || p === 'gk') return 0;
+  if (p.includes('back') || p.includes('defence') || p.includes('defender')) return 1;
+  if (p.includes('midfield')) return 2;
+  return 3; // forward / winger / offence / striker / unknown
+}
+
+/** Approximate XI from a full roster (no starter data) — a 4-3-3 by position. */
+export function squadToProbableLineup(
+  squad: FixtureContext['homeSquad'],
+  coach: string | null,
+): TeamLineup | null {
+  if (squad.length < 11) return null;
+  type Sq = FixtureContext['homeSquad'];
+  const gk: Sq = [], def: Sq = [], mid: Sq = [], fwd: Sq = [];
+  for (const p of squad) {
+    const i = squadLineIndex(p.position);
+    (i === 0 ? gk : i === 1 ? def : i === 2 ? mid : fwd).push(p);
+  }
+  const groups = [gk.slice(0, 1), def.slice(0, 4), mid.slice(0, 3), fwd.slice(0, 3)];
+  const lines = groups.map((g) => g.length);
+  const xi = groups.flat();
+  const chosen = new Set(xi.map((p) => p.id));
+  const subs = squad.filter((p) => !chosen.has(p.id));
+  const toP = (p: FixtureContext['homeSquad'][0]): LineupPlayer => ({
+    id: String(p.id), name: p.name, number: p.shirtNumber,
+  });
+  return {
+    formation: lines.slice(1).join('-'),
+    lines,
+    coach,
+    startingXI: xi.map(toP),
+    substitutes: subs.map(toP),
+  };
+}
+
+export function LineupSection({ lineups, homeName, awayName, probable = false }: {
   lineups: NonNullable<FixtureContext['lineups']>;
   homeName: string;
   awayName: string;
+  probable?: boolean;
 }) {
   const { locale } = useLocale();
   const L = locale === 'ru'
-    ? { subs: 'Запасные', injuries: 'Травмы и дисквалификации', coaches: 'Тренеры', none: 'Нет данных' }
-    : { subs: 'Substitutes', injuries: 'Injuries & Suspensions', coaches: 'Coaches', none: 'No data' };
+    ? { subs: 'Запасные', injuries: 'Травмы и дисквалификации', coaches: 'Тренеры', none: 'Нет данных',
+        note: 'Ожидаемый состав — обновится реальной расстановкой перед матчем' }
+    : { subs: 'Substitutes', injuries: 'Injuries & Suspensions', coaches: 'Coaches', none: 'No data',
+        note: 'Probable lineup — updates with the confirmed XI before kickoff' };
 
   return (
     <div className="space-y-4">
       {/* Pitch + formation header */}
       <SectionCard title={`${homeName} ${lineups.home.formation ? `(${lineups.home.formation})` : ''} — ${awayName} ${lineups.away.formation ? `(${lineups.away.formation})` : ''}`.trim()}>
+        {probable && (
+          <p className="mb-3 text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>⚠ {L.note}</p>
+        )}
         <LineupPitch home={lineups.home} away={lineups.away} />
       </SectionCard>
 
@@ -820,17 +860,32 @@ export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHome
       {/* H2H */}
       <H2HSection ctx={ctx} homeTeam={homeTeam} awayTeam={awayTeam} espnH2h={espnH2h} />
 
-      {/* Lineups (real formation pitch) — fallback to full squad rosters */}
-      {ctx.lineups ? (
-        <LineupSection lineups={ctx.lineups} homeName={homeRuShort} awayName={awayRuShort} />
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <SquadCard title={homeRu} squad={ctx.homeSquad} coach={ctx.homeCoach}
-            teamNameEn={homeTeam.name} teamId={homeTeam.id} />
-          <SquadCard title={awayRu} squad={ctx.awaySquad} coach={ctx.awayCoach}
-            teamNameEn={awayTeam.name} teamId={awayTeam.id} />
-        </div>
-      )}
+      {/* Lineups: real formation pitch → probable XI pitch → squad rosters */}
+      {(() => {
+        if (ctx.lineups) {
+          return <LineupSection lineups={ctx.lineups} homeName={homeRuShort} awayName={awayRuShort} />;
+        }
+        const homeProb = squadToProbableLineup(ctx.homeSquad, ctx.homeCoach?.name ?? null);
+        const awayProb = squadToProbableLineup(ctx.awaySquad, ctx.awayCoach?.name ?? null);
+        if (homeProb && awayProb) {
+          return (
+            <LineupSection
+              lineups={{ home: homeProb, away: awayProb }}
+              homeName={homeRuShort}
+              awayName={awayRuShort}
+              probable
+            />
+          );
+        }
+        return (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SquadCard title={homeRu} squad={ctx.homeSquad} coach={ctx.homeCoach}
+              teamNameEn={homeTeam.name} teamId={homeTeam.id} />
+            <SquadCard title={awayRu} squad={ctx.awaySquad} coach={ctx.awayCoach}
+              teamNameEn={awayTeam.name} teamId={awayTeam.id} />
+          </div>
+        );
+      })()}
 
       {/* News */}
       <SectionCard title={t.fixture.news}>
