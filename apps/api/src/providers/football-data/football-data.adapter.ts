@@ -10,6 +10,8 @@ import type {
   FdMatchesResponse,
   FdMatch,
   FdCompetition,
+  FdTeamDetail,
+  FdStandingsResponse,
 } from './football-data.types';
 
 const FD_STATUS_MAP: Record<string, string> = {
@@ -56,6 +58,14 @@ export class FootballDataAdapter extends SportsDataProvider {
     return data.competitions
       .filter((c) => c.currentSeason !== null)
       .map((c) => this.mapCompetition(c));
+  }
+
+  async getTeamWithSquad(teamId: number): Promise<FdTeamDetail> {
+    return this.fetch<FdTeamDetail>(`/teams/${teamId}`);
+  }
+
+  async getWcStandings(): Promise<FdStandingsResponse> {
+    return this.fetch<FdStandingsResponse>('/competitions/WC/standings');
   }
 
   async getFixturesByDate(dateFrom: string, dateTo: string): Promise<SportsDataFixture[]> {

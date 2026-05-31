@@ -45,6 +45,51 @@ export interface FdMatch {
   venue?: string;
 }
 
+export interface FdPlayer {
+  id: number;
+  name: string;
+  position: string | null;
+  dateOfBirth: string | null;
+  nationality: string | null;
+  shirtNumber: number | null;
+}
+
+export interface FdTeamDetail {
+  id: number;
+  name: string;
+  shortName: string;
+  tla: string;
+  crest: string | null;
+  area: { name: string; code: string };
+  coach: { name: string | null } | null;
+  squad: FdPlayer[];
+}
+
+export interface FdStandingRow {
+  position: number;
+  team: { id: number; name: string; shortName: string; crest: string | null };
+  playedGames: number;
+  won: number;
+  draw: number;
+  lost: number;
+  points: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+  form: string | null;
+}
+
+export interface FdStandingGroup {
+  stage: string;
+  type: string;
+  group: string | null;
+  table: FdStandingRow[];
+}
+
+export interface FdStandingsResponse {
+  standings: FdStandingGroup[];
+}
+
 export interface FdCompetitionsResponse {
   competitions: FdCompetition[];
 }

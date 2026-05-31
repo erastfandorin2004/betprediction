@@ -1,9 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, between, count, eq } from 'drizzle-orm';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { and, asc, between, count, eq, gte, or } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import * as schema from '@ai-score/db';
 import { DatabaseService } from '../database/database.service';
 import { RedisService } from '../redis/redis.service';
+import { FootballDataAdapter } from '../providers/football-data/football-data.adapter';
+import { FlashLiveAdapter } from '../providers/flashlive/flashlive.adapter';
+import type { AfH2HFixture } from '../providers/api-football/api-football.adapter';
+import { NewsService } from '../news/news.service';
 import type { FixtureListQueryDto } from './dto/fixture-list-query.dto';
 import type {
   FixtureListItem,
@@ -29,9 +33,14 @@ type PredictionRow = typeof schema.predictions.$inferSelect;
 
 @Injectable()
 export class FixturesService {
+  private readonly logger = new Logger(FixturesService.name);
+
   constructor(
     private readonly db: DatabaseService,
     private readonly redis: RedisService,
+    private readonly fdAdapter: FootballDataAdapter,
+    private readonly flashLiveAdapter: FlashLiveAdapter,
+    private readonly newsService: NewsService,
   ) {}
 
   async findAll(
@@ -98,6 +107,49 @@ export class FixturesService {
     };
 
     await this.redis.set(cacheKey, JSON.stringify(result), 60);
+    return result;
+  }
+
+  async findWorldCup(): Promise<{ date: string; fixtures: FixtureListItem[] }[]> {
+    const cacheKey = 'fixtures:world-cup';
+    const cached = await this.redis.get(cacheKey);
+    if (cached) return JSON.parse(cached) as { date: string; fixtures: FixtureListItem[] }[];
+
+    const WC_LEAGUE_ID = 2000;
+    const homeTeam = alias(schema.teams, 'home_team');
+    const awayTeam = alias(schema.teams, 'away_team');
+
+    const rows = await this.db.db
+      .select({
+        fixture: schema.fixtures,
+        league: schema.leagues,
+        sport: schema.sports,
+        homeTeam,
+        awayTeam,
+        prediction: schema.predictions,
+      })
+      .from(schema.fixtures)
+      .leftJoin(schema.leagues, eq(schema.fixtures.leagueId, schema.leagues.id))
+      .leftJoin(schema.sports, eq(schema.fixtures.sportId, schema.sports.id))
+      .leftJoin(homeTeam, eq(schema.fixtures.homeTeamId, homeTeam.id))
+      .leftJoin(awayTeam, eq(schema.fixtures.awayTeamId, awayTeam.id))
+      .leftJoin(schema.predictions, eq(schema.fixtures.id, schema.predictions.fixtureId))
+      .where(and(
+        eq(schema.fixtures.leagueId, WC_LEAGUE_ID),
+        gte(schema.fixtures.startsAt, new Date('2026-06-01')),
+      ))
+      .orderBy(asc(schema.fixtures.startsAt));
+
+    const byDay = new Map<string, FixtureListItem[]>();
+    for (const r of rows) {
+      const item = this.toListItem(r.fixture, r.league, r.sport, r.homeTeam, r.awayTeam, r.prediction);
+      const day = r.fixture.startsAt.toISOString().slice(0, 10);
+      if (!byDay.has(day)) byDay.set(day, []);
+      byDay.get(day)!.push(item);
+    }
+
+    const result = [...byDay.entries()].map(([date, fixtures]) => ({ date, fixtures }));
+    await this.redis.set(cacheKey, JSON.stringify(result), 300);
     return result;
   }
 
@@ -169,6 +221,149 @@ export class FixturesService {
     const ttl = row.fixture.status === 'live' ? 30 : 300;
     await this.redis.set(cacheKey, JSON.stringify(detail), ttl);
     return detail;
+  }
+
+  async findContext(id: number): Promise<Record<string, unknown>> {
+    const cacheKey = `fixtures:context:${id}`;
+    const cached = await this.redis.get(cacheKey);
+    if (cached) return JSON.parse(cached) as Record<string, unknown>;
+
+    const homeTeamAlias = alias(schema.teams, 'home_team');
+    const awayTeamAlias = alias(schema.teams, 'away_team');
+
+    const [row] = await this.db.db
+      .select({ fixture: schema.fixtures, homeTeam: homeTeamAlias, awayTeam: awayTeamAlias })
+      .from(schema.fixtures)
+      .leftJoin(homeTeamAlias, eq(schema.fixtures.homeTeamId, homeTeamAlias.id))
+      .leftJoin(awayTeamAlias, eq(schema.fixtures.awayTeamId, awayTeamAlias.id))
+      .where(eq(schema.fixtures.id, id))
+      .limit(1);
+
+    if (!row) throw new NotFoundException(`Fixture ${id} not found`);
+
+    const homeId = row.fixture.homeTeamId;
+    const awayId = row.fixture.awayTeamId;
+    const WC_LEAGUE = 2000;
+
+    // WC group matches for both teams
+    const groupRows = await this.db.db
+      .select({ fixture: schema.fixtures, homeTeam: homeTeamAlias, awayTeam: awayTeamAlias })
+      .from(schema.fixtures)
+      .leftJoin(homeTeamAlias, eq(schema.fixtures.homeTeamId, homeTeamAlias.id))
+      .leftJoin(awayTeamAlias, eq(schema.fixtures.awayTeamId, awayTeamAlias.id))
+      .where(and(
+        eq(schema.fixtures.leagueId, WC_LEAGUE),
+        or(
+          eq(schema.fixtures.homeTeamId, homeId),
+          eq(schema.fixtures.awayTeamId, homeId),
+          eq(schema.fixtures.homeTeamId, awayId),
+          eq(schema.fixtures.awayTeamId, awayId),
+        ),
+      ))
+      .orderBy(asc(schema.fixtures.startsAt));
+
+    // H2H — WC matches between exactly these two teams (excluding current fixture)
+    const h2hRows = groupRows.filter(
+      (r) =>
+        r.fixture.id !== id &&
+        ((r.fixture.homeTeamId === homeId && r.fixture.awayTeamId === awayId) ||
+          (r.fixture.homeTeamId === awayId && r.fixture.awayTeamId === homeId)),
+    );
+
+    const homeMatches = groupRows.filter(
+      (r) => r.fixture.homeTeamId === homeId || r.fixture.awayTeamId === homeId,
+    );
+    const awayMatches = groupRows.filter(
+      (r) => r.fixture.homeTeamId === awayId || r.fixture.awayTeamId === awayId,
+    );
+
+    const toMatchSummary = (r: (typeof groupRows)[0]) => ({
+      id: r.fixture.id,
+      startsAt: r.fixture.startsAt,
+      status: r.fixture.status,
+      scoreHome: r.fixture.scoreHome,
+      scoreAway: r.fixture.scoreAway,
+      homeTeam: { id: r.homeTeam?.id, name: r.homeTeam?.name, shortName: r.homeTeam?.shortName, logo: r.homeTeam?.logo },
+      awayTeam: { id: r.awayTeam?.id, name: r.awayTeam?.name, shortName: r.awayTeam?.shortName, logo: r.awayTeam?.logo },
+    });
+
+    const homeName = row.homeTeam?.name ?? '';
+    const awayName = row.awayTeam?.name ?? '';
+
+    // Parallel fetch: squads, standings, H2H + form (FlashScore), lineups, news
+    const startsAtISO = row.fixture.startsAt.toISOString();
+    const [homeSquadData, awaySquadData, standingsData, h2hBundleData, lineupsData, newsData] =
+      await Promise.allSettled([
+        this.fdAdapter.getTeamWithSquad(homeId),
+        this.fdAdapter.getTeamWithSquad(awayId),
+        this.fdAdapter.getWcStandings(),
+        this.flashLiveAdapter.getBundle(homeName, awayName, startsAtISO),
+        this.flashLiveAdapter.getLineups(homeName, awayName, startsAtISO),
+        this.newsService.getTeamNews([homeName, awayName]),
+      ]);
+
+    // Find group for each team in standings
+    const standings = standingsData.status === 'fulfilled' ? standingsData.value.standings : [];
+    const totalStandings = standings.filter((s) => s.type === 'TOTAL');
+
+    const findTeamGroup = (teamId: number) => {
+      for (const group of totalStandings) {
+        const row = group.table.find((r) => r.team.id === teamId);
+        if (row) return { group: group.group, table: group.table, teamRow: row };
+      }
+      return null;
+    };
+
+    // H2H + recent form from FlashScore — already mapped to fixture shape
+    const bundle = h2hBundleData.status === 'fulfilled'
+      ? h2hBundleData.value
+      : { h2h: [], homeForm: [], awayForm: [] };
+
+    const result = {
+      homeForm: homeMatches.map(toMatchSummary),
+      awayForm: awayMatches.map(toMatchSummary),
+      homeFormFlash: bundle.homeForm.map(this.mapH2HFixture),
+      awayFormFlash: bundle.awayForm.map(this.mapH2HFixture),
+      h2hWc: h2hRows.map(toMatchSummary),
+      h2hAll: bundle.h2h.map(this.mapH2HFixture),
+      homeSquad: homeSquadData.status === 'fulfilled' ? homeSquadData.value.squad : [],
+      awaySquad: awaySquadData.status === 'fulfilled' ? awaySquadData.value.squad : [],
+      homeCoach: homeSquadData.status === 'fulfilled'
+        ? this.resolveCoachName(homeSquadData.value.coach)
+        : null,
+      awayCoach: awaySquadData.status === 'fulfilled'
+        ? this.resolveCoachName(awaySquadData.value.coach)
+        : null,
+      homeGroup: findTeamGroup(homeId),
+      awayGroup: findTeamGroup(awayId),
+      lineups: lineupsData.status === 'fulfilled' ? lineupsData.value : null,
+      news: newsData.status === 'fulfilled' ? newsData.value : [],
+    };
+
+    await this.redis.set(cacheKey, JSON.stringify(result), 1800);
+    return result;
+  }
+
+  private mapH2HFixture = (f: AfH2HFixture) => ({
+    id: f.fixture.id,
+    date: f.fixture.date,
+    status: f.fixture.status.short,
+    league: f.league.name,
+    country: f.league.country,
+    season: f.league.season,
+    venue: f.fixture.venue.name,
+    homeTeam: { name: f.teams.home.name, logo: f.teams.home.logo },
+    awayTeam: { name: f.teams.away.name, logo: f.teams.away.logo },
+    scoreHome: f.goals.home,
+    scoreAway: f.goals.away,
+    scoreHtHome: f.score.halftime.home,
+    scoreHtAway: f.score.halftime.away,
+  });
+
+  private resolveCoachName(coach: { name?: string | null; firstName?: string | null; lastName?: string | null } | null): { name: string } | null {
+    if (!coach) return null;
+    const name = coach.name || [coach.firstName, coach.lastName].filter(Boolean).join(' ') || null;
+    return name ? { name } : null;
   }
 
   private toListItem(

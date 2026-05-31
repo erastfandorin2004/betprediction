@@ -15,10 +15,10 @@ const FD_STATUS_MAP: Record<string, string> = {
 };
 
 interface FdTeam {
-  id: number;
-  name: string;
-  shortName: string;
-  tla: string;
+  id: number | null;
+  name: string | null;
+  shortName: string | null;
+  tla: string | null;
   crest: string | null;
   area?: { name: string; code: string };
 }
@@ -91,27 +91,34 @@ export class FootballDataAdapter {
       }));
   }
 
+  async getFixturesByCompetition(code: string): Promise<SportsDataFixture[]> {
+    const data = await this.fetch<{ matches: FdMatch[] }>(
+      `/competitions/${code}/matches`,
+    );
+    return data.matches.map((m) => this.mapMatch(m));
+  }
+
   async getFixturesByDate(dateFrom: string, dateTo: string): Promise<SportsDataFixture[]> {
     const data = await this.fetch<{ matches: FdMatch[] }>(
       `/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`,
     );
-    return data.matches.map((m) => ({
+    return data.matches.map((m) => this.mapMatch(m));
+  }
+
+  private mapMatch(m: FdMatch): SportsDataFixture {
+    const mapTeam = (t: FdTeam) => ({
+      providerId: t.id ?? 0,
+      name: t.name ?? 'TBD',
+      shortName: t.shortName || t.tla || (t.name ? t.name.slice(0, 20) : 'TBD'),
+      logo: t.crest,
+      country: t.area?.name ?? null,
+    });
+
+    return {
       providerId: m.id,
       leagueProviderId: m.competition.id,
-      homeTeam: {
-        providerId: m.homeTeam.id,
-        name: m.homeTeam.name,
-        shortName: m.homeTeam.shortName || m.homeTeam.tla || m.homeTeam.name.slice(0, 20),
-        logo: m.homeTeam.crest,
-        country: m.homeTeam.area?.name ?? null,
-      },
-      awayTeam: {
-        providerId: m.awayTeam.id,
-        name: m.awayTeam.name,
-        shortName: m.awayTeam.shortName || m.awayTeam.tla || m.awayTeam.name.slice(0, 20),
-        logo: m.awayTeam.crest,
-        country: m.awayTeam.area?.name ?? null,
-      },
+      homeTeam: mapTeam(m.homeTeam),
+      awayTeam: mapTeam(m.awayTeam),
       startsAt: new Date(m.utcDate),
       status: FD_STATUS_MAP[m.status] ?? 'scheduled',
       minute: null,
@@ -122,6 +129,6 @@ export class FootballDataAdapter {
       halfTimeAway: m.score.halfTime.away,
       venueName: m.venue ?? null,
       venueCity: null,
-    }));
+    };
   }
 }

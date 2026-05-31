@@ -29,6 +29,7 @@ export class IngestService implements OnModuleInit {
   private async runInitialIngest(): Promise<void> {
     this.logger.log('Running initial data ingest...');
     await this.ingestLeagues();
+    await this.ingestWorldCupFixtures();
     await this.ingestFixtures();
   }
 
@@ -52,6 +53,19 @@ export class IngestService implements OnModuleInit {
       this.logger.log(`Ingested ${leagues.length} leagues`);
     } catch (err) {
       this.logger.error('League ingest failed', err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_2AM)
+  async ingestWorldCupFixtures(): Promise<void> {
+    if (!this.config.get<string>('footballData.apiKey')) return;
+    this.logger.log('Ingesting World Cup fixtures...');
+    try {
+      const fixtures = await this.provider.getFixturesByCompetition('WC');
+      await this.upsertFixtures(fixtures);
+      this.logger.log(`Ingested ${fixtures.length} World Cup fixtures`);
+    } catch (err) {
+      this.logger.error('WC fixture ingest failed', err instanceof Error ? err.message : String(err));
     }
   }
 

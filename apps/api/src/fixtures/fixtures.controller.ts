@@ -15,6 +15,12 @@ export class FixturesController {
     return this.fixturesService.findAll(query);
   }
 
+  @Get('world-cup')
+  @ApiOperation({ summary: 'All FIFA World Cup 2026 fixtures grouped by day' })
+  findWorldCup() {
+    return this.fixturesService.findWorldCup();
+  }
+
   @Get('live')
   @ApiOperation({ summary: 'Currently live fixtures' })
   findLive() {
@@ -27,5 +33,12 @@ export class FixturesController {
   @ApiResponse({ status: 404, description: 'Fixture not found' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.fixturesService.findOne(id);
+  }
+
+  @Get(':id/context')
+  @ApiOperation({ summary: 'Fixture context: squads, form, H2H' })
+  @ApiParam({ name: 'id', type: Number })
+  findContext(@Param('id', ParseIntPipe) id: number) {
+    return this.fixturesService.findContext(id);
   }
 }

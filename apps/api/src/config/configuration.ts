@@ -31,6 +31,12 @@ export default () => {
     openrouter: {
       apiKey: process.env['OPENROUTER_API_KEY'] ?? '',
     },
+    newsApi: {
+      apiKey: process.env['NEWS_API_KEY'] ?? '',
+    },
+    rapidApi: {
+      footballApiKey: process.env['RAPIDAPI_FOOTBALL_KEY'] ?? '',
+    },
     cors: {
       origins: (process.env['CORS_ORIGINS'] ?? 'http://localhost:3000').split(','),
     },
