@@ -159,7 +159,10 @@ export class FlashLiveAdapter {
   private readonly logger = new Logger(FlashLiveAdapter.name);
   private readonly base = 'https://flashlive-sports.p.rapidapi.com/v1';
   private readonly host = 'flashlive-sports.p.rapidapi.com';
-  private readonly teamIdCache = new Map<string, string | null>();
+  // Promise caches dedupe concurrent calls (4 fetchers hit the same match) and
+  // survive the adapter lifetime; failures are evicted so they can be retried.
+  private readonly teamIdCache = new Map<string, Promise<string | null>>();
+  private readonly eventCache = new Map<string, Promise<{ id: string; homeId: string | null } | null>>();
 
   constructor(private readonly config: ConfigService) {}
 
@@ -171,7 +174,7 @@ export class FlashLiveAdapter {
     return !!this.apiKey;
   }
 
-  private async fetch<T>(path: string): Promise<T> {
+  private async fetch<T>(path: string, retries = 2): Promise<T> {
     if (!this.hasKey) throw new Error('RAPIDAPI_FOOTBALL_KEY not configured');
     const res = await fetch(`${this.base}${path}`, {
       headers: {
@@ -180,6 +183,11 @@ export class FlashLiveAdapter {
       },
       signal: AbortSignal.timeout(8000),
     });
+    // Back off and retry on rate limiting (free tier is easily tripped).
+    if (res.status === 429 && retries > 0) {
+      await new Promise((r) => setTimeout(r, 700 + Math.random() * 500));
+      return this.fetch<T>(path, retries - 1);
+    }
     if (!res.ok) throw new Error(`FlashLive ${res.status} on ${path}`);
     return res.json() as Promise<T>;
   }
@@ -204,9 +212,9 @@ export class FlashLiveAdapter {
 
   async getTeamId(teamName: string): Promise<string | null> {
     const cached = this.teamIdCache.get(teamName);
-    if (cached !== undefined) return cached;
+    if (cached) return cached;
 
-    try {
+    const p = (async () => {
       const data = await this.fetch<FlSearchItem[]>(
         `/search/multi-search?locale=en_INT&query=${encodeURIComponent(teamName)}&sport_id=1`,
       );
@@ -214,13 +222,15 @@ export class FlashLiveAdapter {
       const target = FlashLiveAdapter.norm(teamName);
       // Prefer an exact (normalized) name match — avoids U21/U23/Ol. youth sides.
       const exact = participants.find((p) => FlashLiveAdapter.norm(p.NAME) === target);
-      const id = (exact ?? participants[0])?.ID ?? null;
-      this.teamIdCache.set(teamName, id);
-      return id;
-    } catch (err) {
+      return (exact ?? participants[0])?.ID ?? null;
+    })().catch((err) => {
       this.logger.warn(`Team search failed for "${teamName}": ${err instanceof Error ? err.message : String(err)}`);
+      this.teamIdCache.delete(teamName); // allow a later retry
       return null;
-    }
+    });
+
+    this.teamIdCache.set(teamName, p);
+    return p;
   }
 
   /**
@@ -233,7 +243,11 @@ export class FlashLiveAdapter {
     opponentId: string | null,
     kickoffDay: string | null,
   ): Promise<{ id: string; homeId: string | null } | null> {
-    try {
+    const key = `${anchorId}:${opponentId ?? ''}:${kickoffDay ?? ''}`;
+    const cached = this.eventCache.get(key);
+    if (cached) return cached;
+
+    const p = (async () => {
       const data = await this.fetch<{ DATA?: FlFixtureGroup[] }>(
         `/teams/fixtures?locale=en_INT&team_id=${anchorId}&sport_id=1&page=1`,
       );
@@ -247,10 +261,14 @@ export class FlashLiveAdapter {
         }
       }
       return null;
-    } catch (err) {
+    })().catch((err) => {
       this.logger.warn(`Fixtures lookup failed for ${anchorId}: ${err instanceof Error ? err.message : String(err)}`);
+      this.eventCache.delete(key); // allow a later retry
       return null;
-    }
+    });
+
+    this.eventCache.set(key, p);
+    return p;
   }
 
   /** Backwards-compatible head-to-head only. */

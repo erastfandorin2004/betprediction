@@ -159,12 +159,15 @@ export function MiniMatchRowWc({ match }: { match: FixtureContext['homeForm'][0]
 }
 
 /* ── H2H summary stats ── */
-export function H2HStats({ matches, homeLabel, awayLabel, ofLabel }: {
+export function H2HStats({ matches, homeLabel, awayLabel, ofLabel, homeFlag, awayFlag }: {
   matches: H2HMatch[];
   homeLabel: string;
   awayLabel: string;
   ofLabel: string;
+  homeFlag?: string | null;
+  awayFlag?: string | null;
 }) {
+  const { locale } = useLocale();
   // Items are normalised so our home team is always the home side.
   let homeWins = 0, draws = 0, awayWins = 0;
   for (const m of matches) {
@@ -174,27 +177,39 @@ export function H2HStats({ matches, homeLabel, awayLabel, ofLabel }: {
     else awayWins++;
   }
   const total = homeWins + draws + awayWins;
+  const L = locale === 'ru' ? { w: 'Победы', d: 'Ничьи' } : { w: 'Wins', d: 'Draws' };
 
   return (
-    <div className="mb-1 rounded-xl p-3" style={{ background: 'rgb(var(--pitch-800))' }}>
-      <div className="flex items-center justify-between gap-2 text-xs font-medium">
-        <span className="truncate" style={{ color: 'rgb(var(--fg-secondary))' }}>{homeLabel}</span>
-        <span className="shrink-0" style={{ color: 'rgb(var(--fg-muted))' }}>{ofLabel} {total}</span>
-        <span className="truncate text-right" style={{ color: 'rgb(var(--fg-secondary))' }}>{awayLabel}</span>
+    <div className="mb-3 rounded-xl p-3.5" style={{ background: 'rgb(var(--pitch-800))' }}>
+      <div className="flex items-center justify-between gap-2 text-xs font-semibold">
+        <div className="flex min-w-0 items-center gap-1.5">
+          {homeFlag && <img src={homeFlag} alt="" className="h-4 w-4 shrink-0 rounded-sm object-cover" />}
+          <span className="truncate" style={{ color: 'rgb(var(--fg-card))' }}>{homeLabel}</span>
+        </div>
+        <span className="shrink-0 text-[10px]" style={{ color: 'rgb(var(--fg-muted))' }}>{ofLabel} {total}</span>
+        <div className="flex min-w-0 items-center justify-end gap-1.5">
+          <span className="truncate" style={{ color: 'rgb(var(--fg-card))' }}>{awayLabel}</span>
+          {awayFlag && <img src={awayFlag} alt="" className="h-4 w-4 shrink-0 rounded-sm object-cover" />}
+        </div>
       </div>
-      <div className="mt-2 flex items-center gap-1">
-        <div className="flex h-7 items-center justify-center rounded-lg text-xs font-bold"
-          style={{ width: `${total ? (homeWins / total) * 100 : 33}%`, minWidth: '2rem', background: '#22c55e22', color: '#4ade80' }}>
+      <div className="mt-2.5 flex items-center gap-1 overflow-hidden rounded-lg">
+        <div className="flex h-8 items-center justify-center text-xs font-bold"
+          style={{ width: `${total ? (homeWins / total) * 100 : 33}%`, minWidth: '2.25rem', background: '#16a34a', color: '#fff' }}>
           {homeWins}
         </div>
-        <div className="flex h-7 flex-1 items-center justify-center rounded-lg text-xs font-bold"
-          style={{ background: 'rgb(var(--pitch-700))', color: 'rgb(var(--fg-muted))' }}>
+        <div className="flex h-8 flex-1 items-center justify-center text-xs font-bold"
+          style={{ minWidth: '2.25rem', background: 'rgb(var(--pitch-600))', color: 'rgb(var(--fg-secondary))' }}>
           {draws}
         </div>
-        <div className="flex h-7 items-center justify-center rounded-lg text-xs font-bold"
-          style={{ width: `${total ? (awayWins / total) * 100 : 33}%`, minWidth: '2rem', background: '#3b82f622', color: '#60a5fa' }}>
+        <div className="flex h-8 items-center justify-center text-xs font-bold"
+          style={{ width: `${total ? (awayWins / total) * 100 : 33}%`, minWidth: '2.25rem', background: '#2563eb', color: '#fff' }}>
           {awayWins}
         </div>
+      </div>
+      <div className="mt-1.5 flex items-center justify-between text-[10px]" style={{ color: 'rgb(var(--fg-muted))' }}>
+        <span>{L.w}</span>
+        <span>{L.d}</span>
+        <span>{L.w}</span>
       </div>
     </div>
   );
@@ -980,11 +995,14 @@ export function MatchH2HForm({ ctx, homeTeam, awayTeam, espnH2h = [], espnHomeFo
   const [sub, setSub] = useState<'h2h' | 'home' | 'away'>('h2h');
   const homeShort = getTeamName(homeTeam.name, homeTeam.shortName, locale, true);
   const awayShort = getTeamName(awayTeam.name, awayTeam.shortName, locale, true);
+  // Focal team flag = the (normalised) home side of that team's own form list.
+  const homeFlag = ctx.homeFormFlash[0]?.homeTeam.logo || ctx.h2hAll[0]?.homeTeam.logo || null;
+  const awayFlag = ctx.awayFormFlash[0]?.homeTeam.logo || ctx.h2hAll[0]?.awayTeam.logo || null;
 
-  const pills: { id: 'h2h' | 'home' | 'away'; label: string }[] = [
-    { id: 'h2h', label: 'H2H' },
-    { id: 'home', label: homeShort },
-    { id: 'away', label: awayShort },
+  const pills: { id: 'h2h' | 'home' | 'away'; label: string; flag: string | null }[] = [
+    { id: 'h2h', label: 'H2H', flag: null },
+    { id: 'home', label: homeShort, flag: homeFlag },
+    { id: 'away', label: awayShort, flag: awayFlag },
   ];
 
   let h2hContent: React.ReactNode;
@@ -996,6 +1014,8 @@ export function MatchH2HForm({ ctx, homeTeam, awayTeam, espnH2h = [], espnHomeFo
           homeLabel={homeShort}
           awayLabel={awayShort}
           ofLabel={locale === 'ru' ? 'из' : 'of'}
+          homeFlag={homeFlag}
+          awayFlag={awayFlag}
         />
         <div className="mt-3 divide-y" style={{ borderColor: 'rgb(var(--pitch-700))' }}>
           {ctx.h2hAll.map((m) => <H2HRow key={m.id} match={m} />)}
@@ -1037,11 +1057,12 @@ export function MatchH2HForm({ ctx, homeTeam, awayTeam, espnH2h = [], espnHomeFo
               key={p.id}
               type="button"
               onClick={() => setSub(p.id)}
-              className="shrink-0 rounded-full px-3.5 py-1 text-xs font-semibold transition-colors"
+              className="flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors"
               style={active
-                ? { background: 'rgb(var(--pitch-700))', color: 'rgb(var(--fg-primary))' }
+                ? { background: 'rgb(var(--pitch-700))', color: 'rgb(var(--fg-primary))', boxShadow: 'inset 0 0 0 1px rgb(var(--pitch-600))' }
                 : { background: 'rgb(var(--pitch-800))', color: 'rgb(var(--fg-muted))' }}
             >
+              {p.flag && <img src={p.flag} alt="" className="h-4 w-4 rounded-sm object-cover" />}
               {p.label}
             </button>
           );
