@@ -1128,7 +1128,6 @@ export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHome
 
   const statsPanel = <StatsPanel stats={ctx.stats} />;
 
-  const hasSummary = (ctx.summary ?? []).some((e) => e.type !== 'marker');
   const summaryPanel = <SummaryPanel summary={ctx.summary} />;
 
   const newsPanel = (
@@ -1144,7 +1143,7 @@ export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHome
   );
 
   const tabs: { id: string; label: string; panel: React.ReactNode }[] = [
-    ...(hasSummary ? [{ id: 'summary', label: locale === 'ru' ? 'Ход матча' : 'Summary', panel: summaryPanel }] : []),
+    { id: 'summary', label: locale === 'ru' ? 'Ход матча' : 'Summary', panel: summaryPanel },
     { id: 'lineups', label: locale === 'ru' ? 'Составы' : 'Line-ups', panel: lineupsPanel },
     { id: 'stats', label: locale === 'ru' ? 'Статистика' : 'Stats', panel: statsPanel },
     { id: 'h2h', label: locale === 'ru' ? 'H2H / Форма' : 'H2H / Form', panel: h2hPanel },
