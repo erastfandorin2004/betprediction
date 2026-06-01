@@ -26,12 +26,17 @@ export function MatchCard({ fixture }: MatchCardProps) {
   return (
     <Link
       href={`/fixtures/${fixture.id}`}
-      className="group block rounded-2xl p-4 transition-all duration-150 hover:scale-[1.005]"
+      className="group relative block overflow-hidden rounded-2xl p-4 shadow-sm transition-all duration-150 hover:scale-[1.005] hover:[box-shadow:0_0_0_1.5px_rgb(var(--accent)/0.5),0_6px_22px_rgb(var(--accent)/0.1)]"
       style={{
         background: 'rgb(var(--pitch-900))',
         border: `1px solid ${isLive ? 'rgb(239 68 68 / 0.4)' : 'rgb(var(--pitch-700))'}`,
       }}
     >
+      {/* orange accent strip on the left */}
+      <span
+        className="absolute inset-y-0 left-0 w-1 opacity-60 transition-opacity group-hover:opacity-100"
+        style={{ background: 'rgb(var(--accent))' }}
+      />
       {/* Teams row */}
       <div className="flex items-center gap-3">
         {/* Home */}
@@ -50,7 +55,7 @@ export function MatchCard({ fixture }: MatchCardProps) {
           {hasStarted && fixture.score ? (
             <ScoreDisplay score={fixture.score} className="justify-center text-base font-bold" />
           ) : (
-            <span className="tabular text-sm font-semibold" style={{ color: 'rgb(var(--fg-secondary))' }}>
+            <span className="tabular text-sm font-bold" style={{ color: 'rgb(var(--accent))' }}>
               {formatTime(fixture.startsAt)}
             </span>
           )}
@@ -74,11 +79,6 @@ export function MatchCard({ fixture }: MatchCardProps) {
           {isLive && <LiveBadge minute={fixture.minute} />}
           {isFinished && (
             <span className="text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>{t.match.finished}</span>
-          )}
-          {!hasStarted && (
-            <span className="text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
-              {formatTime(fixture.startsAt)}
-            </span>
           )}
         </div>
         <div className="flex items-center gap-2">
