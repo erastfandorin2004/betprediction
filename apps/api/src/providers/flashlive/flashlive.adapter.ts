@@ -94,6 +94,28 @@ export interface LineupBundle {
   away: TeamLineup;
 }
 
+interface FlStatItem {
+  INCIDENT_NAME: string;
+  VALUE_HOME: string;
+  VALUE_AWAY: string;
+}
+
+interface FlStatGroup {
+  GROUP_LABEL: string;
+  ITEMS: FlStatItem[];
+}
+
+interface FlStatStage {
+  STAGE_NAME: string; // "Match" | "1st Half" | "2nd Half"
+  GROUPS: FlStatGroup[];
+}
+
+export interface MatchStat {
+  name: string; // FlashScore incident name, e.g. "Shots on target"
+  home: string;
+  away: string;
+}
+
 /**
  * FlashLive Sports adapter (flashlive-sports.p.rapidapi.com) — FlashScore's own
  * data backend. Produces head-to-head history in the same shape as the
@@ -325,6 +347,55 @@ export class FlashLiveAdapter {
       return { home: build(homeLine), away: build(awayLine) };
     } catch (err) {
       this.logger.warn(`Lineups fetch failed for event ${event.id}: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    }
+  }
+
+  /**
+   * Full-match statistics (possession, shots, corners, cards…). Returns null
+   * when not available yet (future matches). Values aligned to fixture sides.
+   */
+  async getStats(homeTeamName: string, awayTeamName: string, kickoffISO?: string): Promise<MatchStat[] | null> {
+    if (!this.hasKey) return null;
+
+    const [homeId, awayId] = await Promise.all([
+      this.getTeamId(homeTeamName),
+      this.getTeamId(awayTeamName),
+    ]);
+    const anchorId = homeId ?? awayId;
+    if (!anchorId) return null;
+    const opponentId = anchorId === homeId ? awayId : homeId;
+    const kickoffDay = kickoffISO ? kickoffISO.slice(0, 10) : null;
+
+    const event = await this.findEvent(anchorId, opponentId, kickoffDay);
+    if (!event) return null;
+
+    try {
+      const data = await this.fetch<{ DATA?: FlStatStage[] }>(
+        `/events/statistics?locale=en_INT&event_id=${event.id}`,
+      );
+      const match = data?.DATA?.find((s) => s.STAGE_NAME === 'Match') ?? data?.DATA?.[0];
+      if (!match) return null;
+
+      // VALUE_HOME is the event home → swap when our fixture home is the event away.
+      const swap = !!homeId && !!event.homeId && event.homeId !== homeId;
+
+      const seen = new Set<string>();
+      const out: MatchStat[] = [];
+      for (const g of match.GROUPS ?? []) {
+        for (const it of g.ITEMS ?? []) {
+          if (seen.has(it.INCIDENT_NAME)) continue;
+          seen.add(it.INCIDENT_NAME);
+          out.push({
+            name: it.INCIDENT_NAME,
+            home: swap ? it.VALUE_AWAY : it.VALUE_HOME,
+            away: swap ? it.VALUE_HOME : it.VALUE_AWAY,
+          });
+        }
+      }
+      return out.length ? out : null;
+    } catch (err) {
+      this.logger.warn(`Stats fetch failed for event ${event.id}: ${err instanceof Error ? err.message : String(err)}`);
       return null;
     }
   }

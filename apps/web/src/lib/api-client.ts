@@ -135,6 +135,12 @@ export interface MatchLineups {
   away: TeamLineup;
 }
 
+export interface MatchStat {
+  name: string;
+  home: string;
+  away: string;
+}
+
 export interface FixtureContext {
   homeForm: MatchSummary[];
   awayForm: MatchSummary[];
@@ -143,6 +149,7 @@ export interface FixtureContext {
   h2hWc: MatchSummary[];
   h2hAll: H2HMatch[];
   lineups: MatchLineups | null;
+  stats: MatchStat[] | null;
   homeSquad: SquadPlayer[];
   awaySquad: SquadPlayer[];
   homeCoach: { name: string } | null;

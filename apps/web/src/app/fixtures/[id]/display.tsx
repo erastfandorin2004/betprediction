@@ -9,7 +9,7 @@ import { getPlayerNameRu } from '@/lib/player-names-ru';
 import { getCoach } from '@/lib/coaches-wc2026';
 import type { EspnMatch } from '@/lib/espn';
 import { cn } from '@/lib/utils';
-import type { FixtureContext, StandingRow, H2HMatch, NewsArticle, TeamLineup, LineupPlayer } from '@/lib/api-client';
+import type { FixtureContext, StandingRow, H2HMatch, NewsArticle, TeamLineup, LineupPlayer, MatchStat } from '@/lib/api-client';
 import type { MatchEvent } from '@ai-score/shared';
 
 /* ── Section wrapper ── */
@@ -291,6 +291,72 @@ export function FlashFormList({ matches, focalName }: { matches: H2HMatch[]; foc
         );
       })}
     </div>
+  );
+}
+
+/* ── Match statistics (LiveScore-style bars; zeros before kickoff) ── */
+const STAT_DEFS: { key: string; ru: string; en: string }[] = [
+  { key: 'Ball possession', ru: 'Владение (%)', en: 'Possession (%)' },
+  { key: 'Total shots', ru: 'Удары всего', en: 'Total shots' },
+  { key: 'Shots on target', ru: 'Удары в створ', en: 'Shots on target' },
+  { key: 'Shots off target', ru: 'Удары мимо', en: 'Shots off target' },
+  { key: 'Blocked shots', ru: 'Заблок. удары', en: 'Blocked shots' },
+  { key: 'Corner kicks', ru: 'Угловые', en: 'Corner kicks' },
+  { key: 'Offsides', ru: 'Офсайды', en: 'Offsides' },
+  { key: 'Fouls', ru: 'Фолы', en: 'Fouls' },
+  { key: 'Yellow cards', ru: 'Жёлтые карточки', en: 'Yellow cards' },
+  { key: 'Goalkeeper saves', ru: 'Сэйвы вратаря', en: 'Goalkeeper saves' },
+  { key: 'Throw ins', ru: 'Ауты', en: 'Throw ins' },
+];
+
+function statNum(v: string): number {
+  const n = parseFloat(v.replace('%', '').trim());
+  return isNaN(n) ? 0 : n;
+}
+
+function StatRow({ label, home, away }: { label: string; home: string; away: string }) {
+  const h = statNum(home), a = statNum(away);
+  const tot = h + a;
+  const hp = tot ? (h / tot) * 100 : 0;
+  const ap = tot ? (a / tot) * 100 : 0;
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-xs">
+        <span className="tabular font-bold" style={{ color: h >= a && tot ? 'rgb(var(--fg-primary))' : 'rgb(var(--fg-secondary))' }}>{home}</span>
+        <span style={{ color: 'rgb(var(--fg-muted))' }}>{label}</span>
+        <span className="tabular font-bold" style={{ color: a >= h && tot ? 'rgb(var(--fg-primary))' : 'rgb(var(--fg-secondary))' }}>{away}</span>
+      </div>
+      <div className="flex h-1.5 gap-1">
+        <div className="relative flex-1 overflow-hidden rounded-full" style={{ background: 'rgb(var(--pitch-800))' }}>
+          <div className="absolute right-0 top-0 h-full rounded-full" style={{ width: `${hp}%`, background: '#f97316' }} />
+        </div>
+        <div className="relative flex-1 overflow-hidden rounded-full" style={{ background: 'rgb(var(--pitch-800))' }}>
+          <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: `${ap}%`, background: '#64748b' }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function StatsPanel({ stats }: { stats: MatchStat[] | null }) {
+  const { locale } = useLocale();
+  const map = new Map((stats ?? []).map((s) => [s.name, s]));
+  return (
+    <SectionCard title={locale === 'ru' ? 'Статистика матча' : 'Match Statistics'}>
+      <div className="space-y-3">
+        {STAT_DEFS.map((def) => {
+          const s = map.get(def.key);
+          return (
+            <StatRow
+              key={def.key}
+              label={locale === 'ru' ? def.ru : def.en}
+              home={s?.home ?? '0'}
+              away={s?.away ?? '0'}
+            />
+          );
+        })}
+      </div>
+    </SectionCard>
   );
 }
 
@@ -905,6 +971,8 @@ export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHome
 
   const h2hPanel = <H2HSection ctx={ctx} homeTeam={homeTeam} awayTeam={awayTeam} espnH2h={espnH2h} />;
 
+  const statsPanel = <StatsPanel stats={ctx.stats} />;
+
   const newsPanel = (
     <SectionCard title={t.fixture.news}>
       {ctx.news.length > 0 ? (
@@ -919,6 +987,7 @@ export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHome
 
   const tabs: { id: string; label: string; panel: React.ReactNode }[] = [
     { id: 'lineups', label: locale === 'ru' ? 'Составы' : 'Line-ups', panel: lineupsPanel },
+    { id: 'stats', label: locale === 'ru' ? 'Статистика' : 'Stats', panel: statsPanel },
     { id: 'h2h', label: 'H2H', panel: h2hPanel },
     ...(formPanel ? [{ id: 'form', label: locale === 'ru' ? 'Форма' : 'Form', panel: formPanel }] : []),
     ...(groupPanel ? [{ id: 'table', label: locale === 'ru' ? 'Таблица' : 'Table', panel: groupPanel }] : []),

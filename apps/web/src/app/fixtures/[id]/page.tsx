@@ -131,6 +131,7 @@ async function ContextSections({ fixtureId, homeTeam, awayTeam }: {
     homeGroup: raw.homeGroup ?? null,
     awayGroup: raw.awayGroup ?? null,
     lineups: raw.lineups ?? null,
+    stats: raw.stats ?? null,
     news: raw.news ?? [],
   };
 
