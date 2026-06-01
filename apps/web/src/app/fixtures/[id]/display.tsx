@@ -508,13 +508,42 @@ function PitchRow({ players, side }: { players: LineupPlayer[]; side: 'home' | '
   );
 }
 
-function PitchCrest({ src }: { src: string }) {
+/* ── Realistic pitch line markings (SVG overlay, viewBox 3:4) ── */
+function PitchMarkings() {
+  const L = { fill: 'none' as const, stroke: 'rgba(255,255,255,0.34)', strokeWidth: 1.3 };
+  const SPOT = { fill: 'rgba(255,255,255,0.34)', stroke: 'none' as const };
+  return (
+    <svg viewBox="0 0 300 400" preserveAspectRatio="xMidYMid meet" className="absolute inset-0 h-full w-full" style={{ zIndex: 1 }}>
+      <rect x="9" y="9" width="282" height="382" rx="2" {...L} />
+      <line x1="9" y1="200" x2="291" y2="200" {...L} />
+      <circle cx="150" cy="200" r="42" {...L} />
+      <circle cx="150" cy="200" r="1.8" {...SPOT} />
+      {/* top box (home goal) */}
+      <rect x="78" y="9" width="144" height="68" {...L} />
+      <rect x="116" y="9" width="68" height="28" {...L} />
+      <circle cx="150" cy="55" r="1.8" {...SPOT} />
+      <path d="M 116 77 A 42 42 0 0 0 184 77" {...L} />
+      {/* bottom box (away goal) */}
+      <rect x="78" y="323" width="144" height="68" {...L} />
+      <rect x="116" y="363" width="68" height="28" {...L} />
+      <circle cx="150" cy="345" r="1.8" {...SPOT} />
+      <path d="M 116 323 A 42 42 0 0 1 184 323" {...L} />
+      {/* corner arcs */}
+      <path d="M 9 17 A 8 8 0 0 0 17 9" {...L} />
+      <path d="M 283 9 A 8 8 0 0 0 291 17" {...L} />
+      <path d="M 17 391 A 8 8 0 0 0 9 383" {...L} />
+      <path d="M 291 383 A 8 8 0 0 0 283 391" {...L} />
+    </svg>
+  );
+}
+
+function PitchCrest({ src, top }: { src: string; top: string }) {
   return (
     <img
       src={src}
       alt=""
-      className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 object-contain"
-      style={{ width: '52%', maxHeight: '70%', opacity: 0.1, filter: 'grayscale(0.2)' }}
+      className="pointer-events-none absolute left-1/2 -translate-x-1/2 -translate-y-1/2 object-contain"
+      style={{ top, width: '46%', maxHeight: '32%', opacity: 0.09, filter: 'grayscale(0.3)', zIndex: 0 }}
     />
   );
 }
@@ -531,34 +560,31 @@ export function LineupPitch({ home, away, homeFlag, awayFlag }: {
 
   return (
     <div
-      className="mx-auto flex w-full max-w-[420px] flex-col overflow-hidden rounded-xl"
+      className="relative mx-auto w-full max-w-[420px] overflow-hidden rounded-xl"
       style={{
         aspectRatio: '3 / 4',
-        background:
-          'repeating-linear-gradient(180deg, #1f7a44 0, #1f7a44 12.5%, #1c7040 12.5%, #1c7040 25%)',
-        border: '1px solid rgba(0,0,0,0.35)',
+        background: [
+          'radial-gradient(135% 95% at 50% 42%, rgba(255,255,255,0.06), rgba(255,255,255,0) 58%)',
+          'linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0) 22%, rgba(0,0,0,0) 78%, rgba(0,0,0,0.22))',
+          'repeating-linear-gradient(180deg, #2c774a 0, #2c774a 9.09%, #276c43 9.09%, #276c43 18.18%)',
+        ].join(', '),
+        boxShadow: 'inset 0 0 60px rgba(0,0,0,0.35)',
+        border: '1px solid rgba(0,0,0,0.4)',
       }}
     >
-      {/* Home half — faint team crest watermark behind the players */}
-      <div className="relative flex-1">
-        {homeFlag && <PitchCrest src={homeFlag} />}
-        <div className="relative flex h-full flex-col justify-evenly py-2">
+      {/* Faint team crests, one per half */}
+      {homeFlag && <PitchCrest src={homeFlag} top="25%" />}
+      {awayFlag && <PitchCrest src={awayFlag} top="75%" />}
+
+      {/* Field markings */}
+      <PitchMarkings />
+
+      {/* Players (above markings & crests) */}
+      <div className="relative flex h-full flex-col" style={{ zIndex: 2 }}>
+        <div className="flex flex-1 flex-col justify-evenly py-2">
           {homeGroups.map((row, i) => <PitchRow key={`h${i}`} players={row} side="home" />)}
         </div>
-      </div>
-
-      {/* Centre line + circle */}
-      <div className="relative h-0 z-10" style={{ borderTop: '1px solid rgba(255,255,255,0.28)' }}>
-        <div
-          className="absolute left-1/2 top-0 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full"
-          style={{ border: '1px solid rgba(255,255,255,0.28)' }}
-        />
-      </div>
-
-      {/* Away half */}
-      <div className="relative flex-1">
-        {awayFlag && <PitchCrest src={awayFlag} />}
-        <div className="relative flex h-full flex-col justify-evenly py-2">
+        <div className="flex flex-1 flex-col justify-evenly py-2">
           {awayGroups.map((row, i) => <PitchRow key={`a${i}`} players={row} side="away" />)}
         </div>
       </div>
