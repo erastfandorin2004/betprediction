@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 import { useLocale } from '@/components/i18n/locale-provider';
@@ -833,86 +834,125 @@ export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHome
 }) {
   const { t, locale } = useLocale();
 
+  const [activeTab, setActiveTab] = useState('lineups');
+
   const homeRu = getTeamName(homeTeam.name, homeTeam.shortName, locale);
   const awayRu = getTeamName(awayTeam.name, awayTeam.shortName, locale);
   const homeRuShort = getTeamName(homeTeam.name, homeTeam.shortName, locale, true);
   const awayRuShort = getTeamName(awayTeam.name, awayTeam.shortName, locale, true);
 
+  /* ── Build each section panel ── */
+  const lineupsPanel = (() => {
+    if (ctx.lineups) {
+      return <LineupSection lineups={ctx.lineups} homeName={homeRuShort} awayName={awayRuShort} />;
+    }
+    const homeCoach = getCoach(homeTeam.name, homeTeam.id, ctx.homeCoach, locale);
+    const awayCoach = getCoach(awayTeam.name, awayTeam.id, ctx.awayCoach, locale);
+    const homeProb = squadToProbableLineup(ctx.homeSquad, homeCoach);
+    const awayProb = squadToProbableLineup(ctx.awaySquad, awayCoach);
+    if (homeProb && awayProb) {
+      return (
+        <LineupSection
+          lineups={{ home: homeProb, away: awayProb }}
+          homeName={homeRuShort}
+          awayName={awayRuShort}
+          probable
+        />
+      );
+    }
+    return (
+      <div className="grid gap-4 sm:grid-cols-2">
+        <SquadCard title={homeRu} squad={ctx.homeSquad} coach={ctx.homeCoach}
+          teamNameEn={homeTeam.name} teamId={homeTeam.id} />
+        <SquadCard title={awayRu} squad={ctx.awaySquad} coach={ctx.awayCoach}
+          teamNameEn={awayTeam.name} teamId={awayTeam.id} />
+      </div>
+    );
+  })();
+
+  const hasForm = ctx.homeFormFlash.length > 0 || ctx.awayFormFlash.length > 0 ||
+    espnHomeForm.length > 0 || espnAwayForm.length > 0 || ctx.homeForm.length > 0;
+  const formPanel = hasForm ? (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <SectionCard title={`${locale === 'ru' ? 'Последние матчи' : 'Last Matches'} · ${homeRu}`}>
+        {ctx.homeFormFlash.length > 0
+          ? <FlashFormList matches={ctx.homeFormFlash} focalName={homeRuShort} />
+          : <EspnFormList matches={espnHomeForm} dbMatches={ctx.homeForm} focalTeamId={homeTeam.id} />}
+      </SectionCard>
+      <SectionCard title={`${locale === 'ru' ? 'Последние матчи' : 'Last Matches'} · ${awayRu}`}>
+        {ctx.awayFormFlash.length > 0
+          ? <FlashFormList matches={ctx.awayFormFlash} focalName={awayRuShort} />
+          : <EspnFormList matches={espnAwayForm} dbMatches={ctx.awayForm} focalTeamId={awayTeam.id} />}
+      </SectionCard>
+    </div>
+  ) : null;
+
+  const hasGroup = !!(ctx.homeGroup || ctx.awayGroup);
+  const groupPanel = hasGroup ? (
+    <div className="grid gap-4 sm:grid-cols-2">
+      {ctx.homeGroup && (
+        <SectionCard title={`${t.fixture.table} · ${groupLabel(ctx.homeGroup.group, locale, t.fixture.group)}`}>
+          <GroupTable rows={ctx.homeGroup.table} highlightTeamId={ctx.homeGroup.teamRow.team.id} />
+        </SectionCard>
+      )}
+      {ctx.awayGroup && ctx.awayGroup.group !== ctx.homeGroup?.group && (
+        <SectionCard title={`${t.fixture.table} · ${groupLabel(ctx.awayGroup.group, locale, t.fixture.group)}`}>
+          <GroupTable rows={ctx.awayGroup.table} highlightTeamId={ctx.awayGroup.teamRow.team.id} />
+        </SectionCard>
+      )}
+    </div>
+  ) : null;
+
+  const h2hPanel = <H2HSection ctx={ctx} homeTeam={homeTeam} awayTeam={awayTeam} espnH2h={espnH2h} />;
+
+  const newsPanel = (
+    <SectionCard title={t.fixture.news}>
+      {ctx.news.length > 0 ? (
+        <div className="space-y-3">
+          {ctx.news.map((article, i) => <NewsCard key={i} article={article} />)}
+        </div>
+      ) : (
+        <p className="text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>{t.fixture.newsEmpty}</p>
+      )}
+    </SectionCard>
+  );
+
+  const tabs: { id: string; label: string; panel: React.ReactNode }[] = [
+    { id: 'lineups', label: locale === 'ru' ? 'Составы' : 'Line-ups', panel: lineupsPanel },
+    { id: 'h2h', label: 'H2H', panel: h2hPanel },
+    ...(formPanel ? [{ id: 'form', label: locale === 'ru' ? 'Форма' : 'Form', panel: formPanel }] : []),
+    ...(groupPanel ? [{ id: 'table', label: locale === 'ru' ? 'Таблица' : 'Table', panel: groupPanel }] : []),
+    { id: 'news', label: locale === 'ru' ? 'Новости' : 'News', panel: newsPanel },
+  ];
+  const active = tabs.find((tb) => tb.id === activeTab) ?? tabs[0];
+
   return (
     <div className="space-y-4">
-      {/* Group tables */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        {ctx.homeGroup && (
-          <SectionCard title={`${t.fixture.table} · ${groupLabel(ctx.homeGroup.group, locale, t.fixture.group)}`}>
-            <GroupTable rows={ctx.homeGroup.table} highlightTeamId={ctx.homeGroup.teamRow.team.id} />
-          </SectionCard>
-        )}
-        {ctx.awayGroup && ctx.awayGroup.group !== ctx.homeGroup?.group && (
-          <SectionCard title={`${t.fixture.table} · ${groupLabel(ctx.awayGroup.group, locale, t.fixture.group)}`}>
-            <GroupTable rows={ctx.awayGroup.table} highlightTeamId={ctx.awayGroup.teamRow.team.id} />
-          </SectionCard>
-        )}
+      {/* Tab bar */}
+      <div
+        className="flex gap-1 overflow-x-auto rounded-xl p-1"
+        style={{ background: 'rgb(var(--pitch-900))', border: '1px solid rgb(var(--pitch-700))' }}
+      >
+        {tabs.map((tb) => {
+          const isActive = tb.id === active?.id;
+          return (
+            <button
+              key={tb.id}
+              type="button"
+              onClick={() => setActiveTab(tb.id)}
+              className="shrink-0 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors"
+              style={isActive
+                ? { background: 'rgb(var(--pitch-700))', color: 'rgb(var(--fg-primary))' }
+                : { color: 'rgb(var(--fg-muted))' }}
+            >
+              {tb.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Last matches — FlashScore form (all teams), ESPN/WC fallback */}
-      {(ctx.homeFormFlash.length > 0 || ctx.awayFormFlash.length > 0 ||
-        espnHomeForm.length > 0 || espnAwayForm.length > 0 || ctx.homeForm.length > 0) && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <SectionCard title={`${locale === 'ru' ? 'Последние матчи' : 'Last Matches'} · ${homeRu}`}>
-            {ctx.homeFormFlash.length > 0
-              ? <FlashFormList matches={ctx.homeFormFlash} focalName={homeRuShort} />
-              : <EspnFormList matches={espnHomeForm} dbMatches={ctx.homeForm} focalTeamId={homeTeam.id} />}
-          </SectionCard>
-          <SectionCard title={`${locale === 'ru' ? 'Последние матчи' : 'Last Matches'} · ${awayRu}`}>
-            {ctx.awayFormFlash.length > 0
-              ? <FlashFormList matches={ctx.awayFormFlash} focalName={awayRuShort} />
-              : <EspnFormList matches={espnAwayForm} dbMatches={ctx.awayForm} focalTeamId={awayTeam.id} />}
-          </SectionCard>
-        </div>
-      )}
-
-      {/* H2H */}
-      <H2HSection ctx={ctx} homeTeam={homeTeam} awayTeam={awayTeam} espnH2h={espnH2h} />
-
-      {/* Lineups: real formation pitch → probable XI pitch → squad rosters */}
-      {(() => {
-        if (ctx.lineups) {
-          return <LineupSection lineups={ctx.lineups} homeName={homeRuShort} awayName={awayRuShort} />;
-        }
-        const homeCoach = getCoach(homeTeam.name, homeTeam.id, ctx.homeCoach, locale);
-        const awayCoach = getCoach(awayTeam.name, awayTeam.id, ctx.awayCoach, locale);
-        const homeProb = squadToProbableLineup(ctx.homeSquad, homeCoach);
-        const awayProb = squadToProbableLineup(ctx.awaySquad, awayCoach);
-        if (homeProb && awayProb) {
-          return (
-            <LineupSection
-              lineups={{ home: homeProb, away: awayProb }}
-              homeName={homeRuShort}
-              awayName={awayRuShort}
-              probable
-            />
-          );
-        }
-        return (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <SquadCard title={homeRu} squad={ctx.homeSquad} coach={ctx.homeCoach}
-              teamNameEn={homeTeam.name} teamId={homeTeam.id} />
-            <SquadCard title={awayRu} squad={ctx.awaySquad} coach={ctx.awayCoach}
-              teamNameEn={awayTeam.name} teamId={awayTeam.id} />
-          </div>
-        );
-      })()}
-
-      {/* News */}
-      <SectionCard title={t.fixture.news}>
-        {ctx.news.length > 0 ? (
-          <div className="space-y-3">
-            {ctx.news.map((article, i) => <NewsCard key={i} article={article} />)}
-          </div>
-        ) : (
-          <p className="text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>{t.fixture.newsEmpty}</p>
-        )}
-      </SectionCard>
+      {/* Active panel */}
+      <div>{active?.panel}</div>
     </div>
   );
 }
