@@ -34,6 +34,9 @@ type PredictionRow = typeof schema.predictions.$inferSelect;
 @Injectable()
 export class FixturesService {
   private readonly logger = new Logger(FixturesService.name);
+  // In-memory fallback for the match-context payload when Redis is unavailable,
+  // so repeat views don't re-hit the rate-limited provider.
+  private readonly contextMemo = new Map<number, { at: number; data: Record<string, unknown> }>();
 
   constructor(
     private readonly db: DatabaseService,
@@ -227,6 +230,8 @@ export class FixturesService {
     const cacheKey = `fixtures:context:${id}`;
     const cached = await this.redis.get(cacheKey);
     if (cached) return JSON.parse(cached) as Record<string, unknown>;
+    const memo = this.contextMemo.get(id);
+    if (memo && Date.now() - memo.at < 30 * 60 * 1000) return memo.data;
 
     const homeTeamAlias = alias(schema.teams, 'home_team');
     const awayTeamAlias = alias(schema.teams, 'away_team');
@@ -290,17 +295,26 @@ export class FixturesService {
     const homeName = row.homeTeam?.name ?? '';
     const awayName = row.awayTeam?.name ?? '';
 
-    // Parallel fetch: squads, standings, H2H + form, lineups, stats, summary, news
+    // Live data (lineups/stats/summary) only exists near kickoff — skip those
+    // calls for far-future matches to stay well under the provider rate limit.
     const startsAtISO = row.fixture.startsAt.toISOString();
-    const [homeSquadData, awaySquadData, standingsData, h2hBundleData, lineupsData, statsData, summaryData, newsData] =
-      await Promise.allSettled([
+    const msToKickoff = row.fixture.startsAt.getTime() - Date.now();
+    const wantLive = row.fixture.status === 'live' || row.fixture.status === 'finished'
+      || msToKickoff < 3 * 60 * 60 * 1000;
+
+    const [
+      homeSquadData, awaySquadData, standingsData, h2hBundleData,
+      homeFormData, awayFormData, lineupsData, statsData, summaryData, newsData,
+    ] = await Promise.allSettled([
         this.fdAdapter.getTeamWithSquad(homeId),
         this.fdAdapter.getTeamWithSquad(awayId),
         this.fdAdapter.getWcStandings(),
         this.flashLiveAdapter.getBundle(homeName, awayName, startsAtISO),
-        this.flashLiveAdapter.getLineups(homeName, awayName, startsAtISO),
-        this.flashLiveAdapter.getStats(homeName, awayName, startsAtISO),
-        this.flashLiveAdapter.getSummary(homeName, awayName, startsAtISO),
+        this.flashLiveAdapter.getTeamForm(homeName),
+        this.flashLiveAdapter.getTeamForm(awayName),
+        wantLive ? this.flashLiveAdapter.getLineups(homeName, awayName, startsAtISO) : Promise.resolve(null),
+        wantLive ? this.flashLiveAdapter.getStats(homeName, awayName, startsAtISO) : Promise.resolve(null),
+        wantLive ? this.flashLiveAdapter.getSummary(homeName, awayName, startsAtISO) : Promise.resolve(null),
         this.newsService.getTeamNews([homeName, awayName]),
       ]);
 
@@ -316,16 +330,23 @@ export class FixturesService {
       return null;
     };
 
-    // H2H + recent form from FlashScore — already mapped to fixture shape
+    // H2H from FlashScore; per-team form from /teams/results (reliable for all
+    // teams), falling back to the h2h "Last matches" groups when results are empty.
     const bundle = h2hBundleData.status === 'fulfilled'
       ? h2hBundleData.value
       : { h2h: [], homeForm: [], awayForm: [] };
+    const homeFormFlash = homeFormData.status === 'fulfilled' && homeFormData.value.length
+      ? homeFormData.value
+      : bundle.homeForm;
+    const awayFormFlash = awayFormData.status === 'fulfilled' && awayFormData.value.length
+      ? awayFormData.value
+      : bundle.awayForm;
 
     const result = {
       homeForm: homeMatches.map(toMatchSummary),
       awayForm: awayMatches.map(toMatchSummary),
-      homeFormFlash: bundle.homeForm.map(this.mapH2HFixture),
-      awayFormFlash: bundle.awayForm.map(this.mapH2HFixture),
+      homeFormFlash: homeFormFlash.map(this.mapH2HFixture),
+      awayFormFlash: awayFormFlash.map(this.mapH2HFixture),
       h2hWc: h2hRows.map(toMatchSummary),
       h2hAll: bundle.h2h.map(this.mapH2HFixture),
       homeSquad: homeSquadData.status === 'fulfilled' ? homeSquadData.value.squad : [],
@@ -345,6 +366,11 @@ export class FixturesService {
     };
 
     await this.redis.set(cacheKey, JSON.stringify(result), 1800);
+    // Memoise in-process too, but only a healthy payload — don't pin an empty
+    // result produced by a transient provider rate-limit.
+    if (homeFormFlash.length > 0 && awayFormFlash.length > 0) {
+      this.contextMemo.set(id, { at: Date.now(), data: result });
+    }
     return result;
   }
 

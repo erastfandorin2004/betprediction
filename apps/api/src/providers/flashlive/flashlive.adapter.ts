@@ -23,6 +23,26 @@ interface FlFixtureGroup {
   EVENTS?: FlFixtureEvent[];
 }
 
+interface FlResultEvent {
+  EVENT_ID: string;
+  START_TIME: number;
+  HOME_PARTICIPANT_IDS?: string[];
+  AWAY_PARTICIPANT_IDS?: string[];
+  HOME_PARTICIPANT_NAME_ONE?: string;
+  AWAY_PARTICIPANT_NAME_ONE?: string;
+  HOME_SCORE_CURRENT?: string | number;
+  AWAY_SCORE_CURRENT?: string | number;
+  HOME_IMAGES?: string[];
+  AWAY_IMAGES?: string[];
+}
+
+interface FlResultGroup {
+  NAME?: string;
+  SHORT_NAME?: string;
+  COUNTRY_NAME?: string;
+  EVENTS?: FlResultEvent[];
+}
+
 interface FlH2HItem {
   START_TIME: number;
   EVENT_ID: string;
@@ -163,6 +183,7 @@ export class FlashLiveAdapter {
   // survive the adapter lifetime; failures are evicted so they can be retried.
   private readonly teamIdCache = new Map<string, Promise<string | null>>();
   private readonly eventCache = new Map<string, Promise<{ id: string; homeId: string | null } | null>>();
+  private readonly formCache = new Map<string, Promise<AfH2HFixture[]>>();
 
   constructor(private readonly config: ConfigService) {}
 
@@ -339,6 +360,83 @@ export class FlashLiveAdapter {
       this.logger.warn(`H2H fetch failed for event ${event.id}: ${err instanceof Error ? err.message : String(err)}`);
       return empty;
     }
+  }
+
+  /**
+   * A team's recent results straight from /teams/results — only needs the team
+   * to resolve by name (no event lookup), so it fills form for every team even
+   * when the upcoming fixture isn't found. Normalised so the team is `home`.
+   */
+  async getTeamForm(teamName: string): Promise<AfH2HFixture[]> {
+    if (!this.hasKey) return [];
+    const id = await this.getTeamId(teamName);
+    if (!id) return [];
+
+    const cached = this.formCache.get(id);
+    if (cached) return cached;
+
+    const p = (async () => {
+      const data = await this.fetch<{ DATA?: FlResultGroup[] }>(
+        `/teams/results?locale=en_INT&team_id=${id}&sport_id=1&page=1`,
+      );
+      const events: { ev: FlResultEvent; comp: string; country: string }[] = [];
+      for (const g of data?.DATA ?? []) {
+        for (const ev of g.EVENTS ?? []) {
+          events.push({ ev, comp: g.SHORT_NAME || g.NAME || '', country: g.COUNTRY_NAME || '' });
+        }
+      }
+      events.sort((a, b) => b.ev.START_TIME - a.ev.START_TIME);
+      return events.slice(0, 10).map(({ ev, comp, country }) => this.mapResultEvent(ev, comp, country, id));
+    })().catch((err) => {
+      this.logger.warn(`Team form failed for "${teamName}": ${err instanceof Error ? err.message : String(err)}`);
+      this.formCache.delete(id);
+      return [];
+    });
+
+    this.formCache.set(id, p);
+    return p;
+  }
+
+  private mapResultEvent(ev: FlResultEvent, comp: string, country: string, focalId: string): AfH2HFixture {
+    const num = (v: string | number | undefined) => {
+      const n = typeof v === 'number' ? v : parseInt(v ?? '', 10);
+      return isNaN(n) ? null : n;
+    };
+    let home = num(ev.HOME_SCORE_CURRENT);
+    let away = num(ev.AWAY_SCORE_CURRENT);
+    let homeName = ev.HOME_PARTICIPANT_NAME_ONE ?? '';
+    let awayName = ev.AWAY_PARTICIPANT_NAME_ONE ?? '';
+    let homeLogo = ev.HOME_IMAGES?.[0] ?? '';
+    let awayLogo = ev.AWAY_IMAGES?.[0] ?? '';
+
+    // Normalise so the focal team is the home side.
+    if (!(ev.HOME_PARTICIPANT_IDS ?? []).includes(focalId) && (ev.AWAY_PARTICIPANT_IDS ?? []).includes(focalId)) {
+      [home, away] = [away, home];
+      [homeName, awayName] = [awayName, homeName];
+      [homeLogo, awayLogo] = [awayLogo, homeLogo];
+    }
+
+    return {
+      fixture: {
+        id: FlashLiveAdapter.numericId(ev.EVENT_ID),
+        date: new Date(ev.START_TIME * 1000).toISOString(),
+        status: { short: 'FT', elapsed: null },
+        venue: { name: null, city: null },
+      },
+      league: {
+        id: 0,
+        name: comp,
+        country,
+        logo: '',
+        season: new Date(ev.START_TIME * 1000).getFullYear(),
+      },
+      teams: {
+        home: { id: 0, name: homeName, logo: homeLogo, winner: null },
+        away: { id: 0, name: awayName, logo: awayLogo, winner: null },
+      },
+      goals: { home, away },
+      score: { halftime: { home: null, away: null }, fulltime: { home, away } },
+    };
   }
 
   /**
