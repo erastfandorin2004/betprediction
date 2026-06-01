@@ -199,26 +199,26 @@ export class FlashLiveAdapter {
     return this.keys.some((_, i) => !this.exhaustedKeys.has(i));
   }
 
-  /** The current usable key, advancing past any that hit their monthly quota. */
-  private activeKey(): string | null {
+  /** Index of the current usable key, advancing past monthly-exhausted ones. */
+  private activeIndex(): number {
     const ks = this.keys;
     for (let i = 0; i < ks.length; i++) {
       const idx = (this.keyIndex + i) % ks.length;
       if (!this.exhaustedKeys.has(idx)) {
         this.keyIndex = idx;
-        return ks[idx] ?? null;
+        return idx;
       }
     }
-    return null;
+    return -1;
   }
 
   private async fetch<T>(path: string, retries = 2): Promise<T> {
-    const key = this.activeKey();
-    if (!key) throw new Error('No FlashLive key available (all monthly quotas exhausted)');
+    const idx = this.activeIndex();
+    if (idx < 0) throw new Error('No FlashLive key available (all monthly quotas exhausted)');
 
     const res = await fetch(`${this.base}${path}`, {
       headers: {
-        'x-rapidapi-key': key,
+        'x-rapidapi-key': this.keys[idx] ?? '',
         'x-rapidapi-host': this.host,
       },
       signal: AbortSignal.timeout(8000),
@@ -227,13 +227,13 @@ export class FlashLiveAdapter {
     if (res.status === 429) {
       const remaining = res.headers.get('x-ratelimit-requests-remaining');
       const monthlyExhausted = remaining === '0' || /monthly quota|exceeded/i.test(await res.clone().text().catch(() => ''));
-      if (monthlyExhausted && this.keys.length > 1 && !this.exhaustedKeys.has(this.keyIndex)) {
-        // This key's monthly quota is spent — drop it and retry on the next.
-        this.exhaustedKeys.add(this.keyIndex);
-        this.logger.warn(`Key #${this.keyIndex + 1}/${this.keys.length} monthly quota exhausted — rotating`);
-        if (this.activeKey()) return this.fetch<T>(path, retries);
+      // Mark exactly the key THIS request used (concurrent calls may have moved keyIndex).
+      if (monthlyExhausted && this.keys.length > 1 && !this.exhaustedKeys.has(idx)) {
+        this.exhaustedKeys.add(idx);
+        this.logger.warn(`Key #${idx + 1}/${this.keys.length} monthly quota exhausted — rotating`);
+        if (this.activeIndex() >= 0) return this.fetch<T>(path, retries);
       } else if (retries > 0) {
-        // Transient per-second limit — back off and retry on the same key.
+        // Transient per-second limit — back off and retry.
         await new Promise((r) => setTimeout(r, 700 + Math.random() * 500));
         return this.fetch<T>(path, retries - 1);
       }
