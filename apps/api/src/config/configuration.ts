@@ -37,6 +37,10 @@ export default () => {
     rapidApi: {
       footballApiKey: process.env['RAPIDAPI_FOOTBALL_KEY'] ?? '',
     },
+    // Direct API-Football account (api-sports.io) — free 100 req/day, daily reset.
+    apiFootball: {
+      apiKey: process.env['API_FOOTBALL_KEY'] ?? '',
+    },
     cors: {
       origins: (process.env['CORS_ORIGINS'] ?? 'http://localhost:3000').split(','),
     },
