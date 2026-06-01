@@ -889,6 +889,91 @@ function EspnH2HList({ matches, homeTeamName, awayTeamName }: {
   );
 }
 
+/* ── H2H + form combined (LiveScore-style: H2H · Team1 · Team2 pills) ── */
+export function MatchH2HForm({ ctx, homeTeam, awayTeam, espnH2h = [], espnHomeForm = [], espnAwayForm = [] }: {
+  ctx: FixtureContext;
+  homeTeam: { id?: number; name: string; shortName: string };
+  awayTeam: { id?: number; name: string; shortName: string };
+  espnH2h?: EspnMatch[];
+  espnHomeForm?: EspnMatch[];
+  espnAwayForm?: EspnMatch[];
+}) {
+  const { locale } = useLocale();
+  const [sub, setSub] = useState<'h2h' | 'home' | 'away'>('h2h');
+  const homeShort = getTeamName(homeTeam.name, homeTeam.shortName, locale, true);
+  const awayShort = getTeamName(awayTeam.name, awayTeam.shortName, locale, true);
+
+  const pills: { id: 'h2h' | 'home' | 'away'; label: string }[] = [
+    { id: 'h2h', label: 'H2H' },
+    { id: 'home', label: homeShort },
+    { id: 'away', label: awayShort },
+  ];
+
+  let h2hContent: React.ReactNode;
+  if (ctx.h2hAll.length > 0) {
+    h2hContent = (
+      <>
+        <H2HStats
+          matches={ctx.h2hAll}
+          homeLabel={homeShort}
+          awayLabel={awayShort}
+          ofLabel={locale === 'ru' ? 'из' : 'of'}
+        />
+        <div className="mt-3 divide-y" style={{ borderColor: 'rgb(var(--pitch-700))' }}>
+          {ctx.h2hAll.map((m) => <H2HRow key={m.id} match={m} />)}
+        </div>
+      </>
+    );
+  } else if (espnH2h.length > 0) {
+    h2hContent = <EspnH2HList matches={espnH2h} homeTeamName={homeTeam.name} awayTeamName={awayTeam.name} />;
+  } else if (ctx.h2hWc.length > 0) {
+    h2hContent = (
+      <div className="space-y-1">
+        {ctx.h2hWc.map((m) => <FormMatchRow key={m.id} match={m} />)}
+      </div>
+    );
+  } else {
+    h2hContent = (
+      <p className="text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>
+        {locale === 'ru' ? 'Команды ещё не встречались' : 'These teams have never met'}
+      </p>
+    );
+  }
+
+  const homeForm = ctx.homeFormFlash.length > 0
+    ? <FlashFormList matches={ctx.homeFormFlash} focalName={homeShort} />
+    : <EspnFormList matches={espnHomeForm} dbMatches={ctx.homeForm} focalTeamId={homeTeam.id} />;
+  const awayForm = ctx.awayFormFlash.length > 0
+    ? <FlashFormList matches={ctx.awayFormFlash} focalName={awayShort} />
+    : <EspnFormList matches={espnAwayForm} dbMatches={ctx.awayForm} focalTeamId={awayTeam.id} />;
+
+  const content = sub === 'h2h' ? h2hContent : sub === 'home' ? homeForm : awayForm;
+
+  return (
+    <SectionCard title={locale === 'ru' ? 'Очные встречи и форма' : 'Head-to-head & form'}>
+      <div className="mb-3 flex gap-2 overflow-x-auto">
+        {pills.map((p) => {
+          const active = p.id === sub;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setSub(p.id)}
+              className="shrink-0 rounded-full px-3.5 py-1 text-xs font-semibold transition-colors"
+              style={active
+                ? { background: 'rgb(var(--pitch-700))', color: 'rgb(var(--fg-primary))' }
+                : { background: 'rgb(var(--pitch-800))', color: 'rgb(var(--fg-muted))' }}
+            >
+              {p.label}
+            </button>
+          );
+        })}
+      </div>
+      {content}
+    </SectionCard>
+  );
+}
+
 /* ── Context sections wrapper ── */
 export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHomeForm = [], espnAwayForm = [] }: {
   ctx: FixtureContext;
@@ -936,23 +1021,6 @@ export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHome
     );
   })();
 
-  const hasForm = ctx.homeFormFlash.length > 0 || ctx.awayFormFlash.length > 0 ||
-    espnHomeForm.length > 0 || espnAwayForm.length > 0 || ctx.homeForm.length > 0;
-  const formPanel = hasForm ? (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <SectionCard title={`${locale === 'ru' ? 'Последние матчи' : 'Last Matches'} · ${homeRu}`}>
-        {ctx.homeFormFlash.length > 0
-          ? <FlashFormList matches={ctx.homeFormFlash} focalName={homeRuShort} />
-          : <EspnFormList matches={espnHomeForm} dbMatches={ctx.homeForm} focalTeamId={homeTeam.id} />}
-      </SectionCard>
-      <SectionCard title={`${locale === 'ru' ? 'Последние матчи' : 'Last Matches'} · ${awayRu}`}>
-        {ctx.awayFormFlash.length > 0
-          ? <FlashFormList matches={ctx.awayFormFlash} focalName={awayRuShort} />
-          : <EspnFormList matches={espnAwayForm} dbMatches={ctx.awayForm} focalTeamId={awayTeam.id} />}
-      </SectionCard>
-    </div>
-  ) : null;
-
   const hasGroup = !!(ctx.homeGroup || ctx.awayGroup);
   const groupPanel = hasGroup ? (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -969,7 +1037,16 @@ export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHome
     </div>
   ) : null;
 
-  const h2hPanel = <H2HSection ctx={ctx} homeTeam={homeTeam} awayTeam={awayTeam} espnH2h={espnH2h} />;
+  const h2hPanel = (
+    <MatchH2HForm
+      ctx={ctx}
+      homeTeam={homeTeam}
+      awayTeam={awayTeam}
+      espnH2h={espnH2h}
+      espnHomeForm={espnHomeForm}
+      espnAwayForm={espnAwayForm}
+    />
+  );
 
   const statsPanel = <StatsPanel stats={ctx.stats} />;
 
@@ -988,8 +1065,7 @@ export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHome
   const tabs: { id: string; label: string; panel: React.ReactNode }[] = [
     { id: 'lineups', label: locale === 'ru' ? 'Составы' : 'Line-ups', panel: lineupsPanel },
     { id: 'stats', label: locale === 'ru' ? 'Статистика' : 'Stats', panel: statsPanel },
-    { id: 'h2h', label: 'H2H', panel: h2hPanel },
-    ...(formPanel ? [{ id: 'form', label: locale === 'ru' ? 'Форма' : 'Form', panel: formPanel }] : []),
+    { id: 'h2h', label: locale === 'ru' ? 'H2H / Форма' : 'H2H / Form', panel: h2hPanel },
     ...(groupPanel ? [{ id: 'table', label: locale === 'ru' ? 'Таблица' : 'Table', panel: groupPanel }] : []),
     { id: 'news', label: locale === 'ru' ? 'Новости' : 'News', panel: newsPanel },
   ];
