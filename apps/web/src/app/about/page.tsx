@@ -16,7 +16,7 @@ export default function AboutPage() {
     <div className="mx-auto max-w-4xl px-4 py-12 sm:py-16">
       {/* Hero */}
       <section className="text-center">
-        <p className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: '#e2823c' }}>AI-SCORE</p>
+        <p className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--accent))' }}>AI-SCORE</p>
         <h1 className="mt-4 text-4xl font-extrabold leading-tight tracking-tight sm:text-6xl" style={{ color: 'rgb(var(--fg-primary))' }}>
           {L.heroTitle}
         </h1>
@@ -45,9 +45,9 @@ export default function AboutPage() {
             >
               <div
                 className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl"
-                style={{ background: 'rgba(226,130,60,0.12)' }}
+                style={{ background: 'rgb(var(--accent) / 0.12)' }}
               >
-                <Icon className="h-6 w-6" style={{ color: '#e2823c' }} />
+                <Icon className="h-6 w-6" style={{ color: 'rgb(var(--accent))' }} />
               </div>
               <h3 className="text-sm font-bold" style={{ color: 'rgb(var(--fg-card))' }}>{f.title}</h3>
               <p className="mt-2 text-xs leading-relaxed" style={{ color: 'rgb(var(--fg-muted))' }}>{f.desc}</p>

@@ -16,20 +16,22 @@
     --fg-secondary: 162 172 200;
     --fg-muted: 104 116 148;
     --fg-card: 224 230 244;
+    --accent: 226 130 60;     /* warm orange — readable on navy */
   }
 
-  /* ── Light theme ── */
+  /* ── Light theme ── soft off-white (+ deeper orange so it reads on white) */
   .light {
     color-scheme: light;
-    --pitch-950: 240 240 240;
-    --pitch-900: 255 255 255;
-    --pitch-800: 248 248 248;
-    --pitch-700: 224 224 224;
-    --pitch-600: 200 200 200;
-    --fg-primary: 15 15 15;
-    --fg-secondary: 80 80 80;
-    --fg-muted: 140 140 140;
-    --fg-card: 30 30 30;
+    --pitch-950: 244 245 248;  /* soft off-white page (not harsh pure white) */
+    --pitch-900: 255 255 255;  /* white cards */
+    --pitch-800: 240 242 246;  /* subtle fills */
+    --pitch-700: 223 226 232;  /* soft borders */
+    --pitch-600: 196 200 209;  /* muted fills */
+    --fg-primary: 28 32 40;    /* dark slate (softer than pure black) */
+    --fg-secondary: 92 99 110;
+    --fg-muted: 142 148 160;
+    --fg-card: 40 45 54;
+    --accent: 194 96 26;       /* deeper orange — readable on white */
   }
 
   * { box-sizing: border-box; }

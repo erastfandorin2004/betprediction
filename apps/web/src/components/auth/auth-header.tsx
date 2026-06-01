@@ -9,7 +9,7 @@ import { useLocale } from '@/components/i18n/locale-provider';
 import { cn } from '@/lib/utils';
 import { Goal, Trophy, Info, Gem, Zap, type LucideIcon } from 'lucide-react';
 
-const ACCENT = '#e2823c';
+const ACCENT = 'rgb(var(--accent))';
 
 export function AuthHeader() {
   const { user, signOut } = useAuth();
@@ -41,7 +41,7 @@ export function AuthHeader() {
       {/* gradient hairline */}
       <div
         className="h-px w-full"
-        style={{ background: `linear-gradient(90deg, transparent, ${ACCENT}99, #3b82f699, transparent)` }}
+        style={{ background: 'linear-gradient(90deg, transparent, rgb(var(--accent) / 0.6), rgba(59,130,246,0.6), transparent)' }}
       />
 
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4">
@@ -49,7 +49,7 @@ export function AuthHeader() {
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <span
             className="flex h-7 w-7 items-center justify-center rounded-lg text-sm"
-            style={{ background: 'rgba(226,130,60,0.15)', boxShadow: '0 0 14px rgba(226,130,60,0.4)' }}
+            style={{ background: 'rgb(var(--accent) / 0.15)', boxShadow: '0 0 14px rgb(var(--accent) / 0.4)' }}
           >
             ⚡
           </span>
@@ -139,7 +139,7 @@ export function AuthHeader() {
               <Link
                 href="/register"
                 className="rounded-full px-4 py-1.5 text-sm font-semibold transition-transform hover:scale-[1.03]"
-                style={{ background: `linear-gradient(90deg, #e2823c, #c46a2c)`, color: '#04140a' }}
+                style={{ background: `linear-gradient(90deg, rgb(var(--accent)), #c46a2c)`, color: '#04140a' }}
               >
                 {t.auth.register}
               </Link>

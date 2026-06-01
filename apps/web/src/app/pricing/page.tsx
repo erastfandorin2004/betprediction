@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Check, Zap, Crown } from 'lucide-react';
 import { useLocale } from '@/components/i18n/locale-provider';
 
-const ACCENT = '#e2823c';
+const ACCENT = 'rgb(var(--accent))';
 
 export default function PricingPage() {
   const { t } = useLocale();
@@ -55,18 +55,18 @@ export default function PricingPage() {
           className="relative flex flex-col overflow-hidden rounded-3xl p-6"
           style={{
             background: 'rgb(var(--pitch-900))',
-            border: '1px solid rgba(226,130,60,0.4)',
-            boxShadow: '0 0 40px rgba(226,130,60,0.12)',
+            border: '1px solid rgb(var(--accent) / 0.4)',
+            boxShadow: '0 0 40px rgb(var(--accent) / 0.12)',
           }}
         >
           {/* corner glow */}
           <div
             className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full"
-            style={{ background: 'radial-gradient(circle, rgba(226,130,60,0.25), transparent 70%)' }}
+            style={{ background: 'radial-gradient(circle, rgb(var(--accent) / 0.25), transparent 70%)' }}
           />
           <span
             className="absolute right-5 top-6 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider"
-            style={{ background: 'rgba(226,130,60,0.2)', color: ACCENT }}
+            style={{ background: 'rgb(var(--accent) / 0.2)', color: ACCENT }}
           >
             {P.soon}
           </span>
@@ -91,7 +91,7 @@ export default function PricingPage() {
             type="button"
             disabled
             className="mt-6 cursor-not-allowed rounded-full py-2.5 text-center text-sm font-bold"
-            style={{ background: `linear-gradient(90deg, #e2823c, #c46a2c)`, color: '#04140a', opacity: 0.85 }}
+            style={{ background: `linear-gradient(90deg, rgb(var(--accent)), #c46a2c)`, color: '#04140a', opacity: 0.85 }}
           >
             {P.pro.cta}
           </button>
