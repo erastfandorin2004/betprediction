@@ -9,7 +9,7 @@ import { getPlayerNameRu } from '@/lib/player-names-ru';
 import { getCoach } from '@/lib/coaches-wc2026';
 import type { EspnMatch } from '@/lib/espn';
 import { cn } from '@/lib/utils';
-import type { FixtureContext, StandingRow, H2HMatch, NewsArticle, TeamLineup, LineupPlayer, MatchStat } from '@/lib/api-client';
+import type { FixtureContext, StandingRow, H2HMatch, NewsArticle, TeamLineup, LineupPlayer, MatchStat, SummaryEvent } from '@/lib/api-client';
 import type { MatchEvent } from '@ai-score/shared';
 
 /* ── Section wrapper ── */
@@ -291,6 +291,84 @@ export function FlashFormList({ matches, focalName }: { matches: H2HMatch[]; foc
         );
       })}
     </div>
+  );
+}
+
+/* ── Match summary timeline (goals, cards, penalties) ── */
+const SUMMARY_ICON: Record<string, string> = {
+  goal: '⚽',
+  penalty_goal: '⚽',
+  penalty_missed: '❌',
+  yellow: '🟨',
+  red: '🟥',
+};
+
+function SummaryEventContent({ ev, align }: { ev: SummaryEvent; align: 'left' | 'right' }) {
+  const { locale } = useLocale();
+  const isPen = ev.type === 'penalty_goal' || ev.type === 'penalty_missed';
+  return (
+    <div className={cn('flex items-center gap-1.5', align === 'right' && 'flex-row-reverse')}>
+      <span className="shrink-0">{SUMMARY_ICON[ev.type] ?? '•'}</span>
+      <div className={cn('min-w-0', align === 'right' && 'text-right')}>
+        <div className="truncate font-medium" style={{ color: 'rgb(var(--fg-card))' }}>
+          {ev.player ? getPlayerNameRu(ev.player, locale) : ''}
+          {isPen && <span style={{ color: 'rgb(var(--fg-muted))' }}> ({locale === 'ru' ? 'пен' : 'pen'})</span>}
+        </div>
+        {ev.assist && (
+          <div className="truncate text-[10px]" style={{ color: 'rgb(var(--fg-muted))' }}>
+            {getPlayerNameRu(ev.assist, locale)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function SummaryPanel({ summary }: { summary: SummaryEvent[] | null }) {
+  const { locale } = useLocale();
+  const events = (summary ?? []).filter((e) => e.type !== 'marker' || (e.scoreHome ?? 0) + (e.scoreAway ?? 0) >= 0);
+  // hide bare 0-0 markers when there are no real events (match not started)
+  const realEvents = (summary ?? []).filter((e) => e.type !== 'marker');
+
+  return (
+    <SectionCard title={locale === 'ru' ? 'Ход матча' : 'Match Summary'}>
+      {realEvents.length === 0 ? (
+        <p className="text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>
+          {locale === 'ru' ? 'Матч ещё не начался — события появятся по ходу игры' : 'Match has not started — events will appear live'}
+        </p>
+      ) : (
+        <div className="divide-y" style={{ borderColor: 'rgb(var(--pitch-700))' }}>
+          {events.map((ev, i) => {
+            if (ev.type === 'marker') {
+              return (
+                <div key={`m${i}`} className="flex items-center justify-center gap-2 py-2">
+                  <span className="rounded px-2 py-0.5 text-[10px] font-bold"
+                    style={{ background: 'rgb(var(--pitch-700))', color: 'rgb(var(--fg-muted))' }}>{ev.time}</span>
+                  <span className="text-sm font-bold tabular" style={{ color: 'rgb(var(--fg-primary))' }}>
+                    {ev.scoreHome}–{ev.scoreAway}
+                  </span>
+                </div>
+              );
+            }
+            const isGoal = ev.type === 'goal' || ev.type === 'penalty_goal';
+            return (
+              <div key={i} className="flex items-center gap-2 py-2 text-xs">
+                <span className="w-10 shrink-0 tabular text-[10px]" style={{ color: 'rgb(var(--fg-muted))' }}>{ev.time}</span>
+                <div className="flex-1 min-w-0">
+                  {ev.team === 'home' && <SummaryEventContent ev={ev} align="right" />}
+                </div>
+                <span className="w-10 shrink-0 text-center font-mono font-bold tabular" style={{ color: 'rgb(var(--fg-primary))' }}>
+                  {isGoal ? `${ev.scoreHome}-${ev.scoreAway}` : ''}
+                </span>
+                <div className="flex-1 min-w-0">
+                  {ev.team === 'away' && <SummaryEventContent ev={ev} align="left" />}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </SectionCard>
   );
 }
 
@@ -1050,6 +1128,9 @@ export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHome
 
   const statsPanel = <StatsPanel stats={ctx.stats} />;
 
+  const hasSummary = (ctx.summary ?? []).some((e) => e.type !== 'marker');
+  const summaryPanel = <SummaryPanel summary={ctx.summary} />;
+
   const newsPanel = (
     <SectionCard title={t.fixture.news}>
       {ctx.news.length > 0 ? (
@@ -1063,6 +1144,7 @@ export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHome
   );
 
   const tabs: { id: string; label: string; panel: React.ReactNode }[] = [
+    ...(hasSummary ? [{ id: 'summary', label: locale === 'ru' ? 'Ход матча' : 'Summary', panel: summaryPanel }] : []),
     { id: 'lineups', label: locale === 'ru' ? 'Составы' : 'Line-ups', panel: lineupsPanel },
     { id: 'stats', label: locale === 'ru' ? 'Статистика' : 'Stats', panel: statsPanel },
     { id: 'h2h', label: locale === 'ru' ? 'H2H / Форма' : 'H2H / Form', panel: h2hPanel },

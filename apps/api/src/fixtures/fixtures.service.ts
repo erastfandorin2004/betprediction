@@ -290,9 +290,9 @@ export class FixturesService {
     const homeName = row.homeTeam?.name ?? '';
     const awayName = row.awayTeam?.name ?? '';
 
-    // Parallel fetch: squads, standings, H2H + form, lineups, stats, news
+    // Parallel fetch: squads, standings, H2H + form, lineups, stats, summary, news
     const startsAtISO = row.fixture.startsAt.toISOString();
-    const [homeSquadData, awaySquadData, standingsData, h2hBundleData, lineupsData, statsData, newsData] =
+    const [homeSquadData, awaySquadData, standingsData, h2hBundleData, lineupsData, statsData, summaryData, newsData] =
       await Promise.allSettled([
         this.fdAdapter.getTeamWithSquad(homeId),
         this.fdAdapter.getTeamWithSquad(awayId),
@@ -300,6 +300,7 @@ export class FixturesService {
         this.flashLiveAdapter.getBundle(homeName, awayName, startsAtISO),
         this.flashLiveAdapter.getLineups(homeName, awayName, startsAtISO),
         this.flashLiveAdapter.getStats(homeName, awayName, startsAtISO),
+        this.flashLiveAdapter.getSummary(homeName, awayName, startsAtISO),
         this.newsService.getTeamNews([homeName, awayName]),
       ]);
 
@@ -339,6 +340,7 @@ export class FixturesService {
       awayGroup: findTeamGroup(awayId),
       lineups: lineupsData.status === 'fulfilled' ? lineupsData.value : null,
       stats: statsData.status === 'fulfilled' ? statsData.value : null,
+      summary: summaryData.status === 'fulfilled' ? summaryData.value : null,
       news: newsData.status === 'fulfilled' ? newsData.value : [],
     };
 

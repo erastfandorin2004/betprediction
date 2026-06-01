@@ -141,6 +141,18 @@ export interface MatchStat {
   away: string;
 }
 
+export type SummaryEventType = 'goal' | 'penalty_goal' | 'penalty_missed' | 'yellow' | 'red' | 'marker';
+
+export interface SummaryEvent {
+  time: string;
+  team: 'home' | 'away' | null;
+  type: SummaryEventType;
+  player: string | null;
+  assist: string | null;
+  scoreHome: number | null;
+  scoreAway: number | null;
+}
+
 export interface FixtureContext {
   homeForm: MatchSummary[];
   awayForm: MatchSummary[];
@@ -150,6 +162,7 @@ export interface FixtureContext {
   h2hAll: H2HMatch[];
   lineups: MatchLineups | null;
   stats: MatchStat[] | null;
+  summary: SummaryEvent[] | null;
   homeSquad: SquadPlayer[];
   awaySquad: SquadPlayer[];
   homeCoach: { name: string } | null;

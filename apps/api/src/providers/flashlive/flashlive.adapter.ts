@@ -116,6 +116,36 @@ export interface MatchStat {
   away: string;
 }
 
+interface FlSummaryParticipant {
+  INCIDENT_TYPE: string; // GOAL, PENALTY_SCORED, YELLOW_CARD, RED_CARD, ASSISTANCE…
+  PARTICIPANT_NAME: string;
+  HOME_SCORE?: string;
+  AWAY_SCORE?: string;
+}
+
+interface FlSummaryItem {
+  INCIDENT_TEAM: number; // 1 = event home, 2 = event away
+  INCIDENT_TIME: string; // "45+2'"
+  INCIDENT_PARTICIPANTS: FlSummaryParticipant[];
+}
+
+interface FlSummaryStage {
+  STAGE_NAME: string; // "1st Half" | "2nd Half" | …
+  ITEMS: FlSummaryItem[];
+}
+
+export type SummaryEventType = 'goal' | 'penalty_goal' | 'penalty_missed' | 'yellow' | 'red' | 'marker';
+
+export interface SummaryEvent {
+  time: string;
+  team: 'home' | 'away' | null; // null for HT/FT markers
+  type: SummaryEventType;
+  player: string | null;
+  assist: string | null;
+  scoreHome: number | null;
+  scoreAway: number | null;
+}
+
 /**
  * FlashLive Sports adapter (flashlive-sports.p.rapidapi.com) — FlashScore's own
  * data backend. Produces head-to-head history in the same shape as the
@@ -396,6 +426,89 @@ export class FlashLiveAdapter {
       return out.length ? out : null;
     } catch (err) {
       this.logger.warn(`Stats fetch failed for event ${event.id}: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    }
+  }
+
+  /**
+   * Match summary timeline — goals (with running score + assist), cards,
+   * penalties, plus HT/FT markers. Null when no events yet (future matches).
+   */
+  async getSummary(homeTeamName: string, awayTeamName: string, kickoffISO?: string): Promise<SummaryEvent[] | null> {
+    if (!this.hasKey) return null;
+
+    const [homeId, awayId] = await Promise.all([
+      this.getTeamId(homeTeamName),
+      this.getTeamId(awayTeamName),
+    ]);
+    const anchorId = homeId ?? awayId;
+    if (!anchorId) return null;
+    const opponentId = anchorId === homeId ? awayId : homeId;
+    const kickoffDay = kickoffISO ? kickoffISO.slice(0, 10) : null;
+
+    const event = await this.findEvent(anchorId, opponentId, kickoffDay);
+    if (!event) return null;
+
+    const KEEP: Record<string, SummaryEventType> = {
+      GOAL: 'goal',
+      PENALTY_SCORED: 'penalty_goal',
+      PENALTY_MISSED: 'penalty_missed',
+      YELLOW_CARD: 'yellow',
+      RED_CARD: 'red',
+      YELLOW_RED_CARD: 'red',
+    };
+
+    try {
+      const data = await this.fetch<{ DATA?: FlSummaryStage[] }>(
+        `/events/summary?locale=en_INT&event_id=${event.id}`,
+      );
+      const stages = data?.DATA ?? [];
+      if (!stages.length) return null;
+
+      // INCIDENT_TEAM 1 = event home → flip when fixture home is the event away.
+      const swap = !!homeId && !!event.homeId && event.homeId !== homeId;
+
+      const out: SummaryEvent[] = [];
+      let rh = 0, ra = 0; // running score in event orientation
+      const mark = (time: string): SummaryEvent => ({
+        time, team: null, type: 'marker', player: null, assist: null,
+        scoreHome: swap ? ra : rh, scoreAway: swap ? rh : ra,
+      });
+
+      for (const st of stages) {
+        for (const it of st.ITEMS ?? []) {
+          const ps = it.INCIDENT_PARTICIPANTS ?? [];
+          const main = ps.find((p) => KEEP[p.INCIDENT_TYPE]);
+          const type = main && KEEP[main.INCIDENT_TYPE];
+          if (!main || !type) continue;
+          let team: 'home' | 'away' = it.INCIDENT_TEAM === 1 ? 'home' : 'away';
+          if (swap) team = team === 'home' ? 'away' : 'home';
+          const assist = ps.find((p) => p.INCIDENT_TYPE === 'ASSISTANCE')?.PARTICIPANT_NAME ?? null;
+
+          let scoreHome: number | null = null;
+          let scoreAway: number | null = null;
+          if (type === 'goal' || type === 'penalty_goal') {
+            if (main.HOME_SCORE != null && main.AWAY_SCORE != null) {
+              rh = parseInt(main.HOME_SCORE, 10);
+              ra = parseInt(main.AWAY_SCORE, 10);
+            } else if (it.INCIDENT_TEAM === 1) {
+              rh++;
+            } else {
+              ra++;
+            }
+            scoreHome = swap ? ra : rh;
+            scoreAway = swap ? rh : ra;
+          }
+
+          out.push({ time: it.INCIDENT_TIME, team, type, player: main.PARTICIPANT_NAME, assist, scoreHome, scoreAway });
+        }
+        if (st.STAGE_NAME === '1st Half') out.push(mark('HT'));
+      }
+      out.push(mark('FT'));
+
+      return out;
+    } catch (err) {
+      this.logger.warn(`Summary fetch failed for event ${event.id}: ${err instanceof Error ? err.message : String(err)}`);
       return null;
     }
   }
