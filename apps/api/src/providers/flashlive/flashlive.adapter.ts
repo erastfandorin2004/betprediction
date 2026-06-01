@@ -226,7 +226,10 @@ export class FlashLiveAdapter {
 
     if (res.status === 429) {
       const remaining = res.headers.get('x-ratelimit-requests-remaining');
-      const monthlyExhausted = remaining === '0' || /monthly quota|exceeded/i.test(await res.clone().text().catch(() => ''));
+      // Only the MONTHLY-quota message means the key is truly spent — the word
+      // "exceeded" also appears in the transient per-second limit, so match the
+      // specific phrase (or a remaining counter of exactly 0).
+      const monthlyExhausted = remaining === '0' || /monthly quota/i.test(await res.clone().text().catch(() => ''));
       // Mark exactly the key THIS request used (concurrent calls may have moved keyIndex).
       if (monthlyExhausted && this.keys.length > 1 && !this.exhaustedKeys.has(idx)) {
         this.exhaustedKeys.add(idx);
@@ -249,6 +252,12 @@ export class FlashLiveAdapter {
       .replace(/[̀-ͯ]/g, '')
       .replace(/\*/g, '')
       .trim();
+  }
+
+  /** Unix-seconds → ISO, tolerant of missing/invalid timestamps. */
+  private static isoDate(startTime: number | undefined): string {
+    const ms = Number.isFinite(startTime) ? (startTime as number) * 1000 : Date.now();
+    return new Date(ms).toISOString();
   }
 
   /** Stable positive 32-bit numeric id derived from a FlashScore event id string. */
@@ -284,41 +293,57 @@ export class FlashLiveAdapter {
   }
 
   /**
-   * Find a FlashScore event id from the anchor team's fixtures, matching either
-   * the opponent id or — when names differ between providers (e.g. Czechia vs
-   * Czech Republic) — the kickoff date, since a team plays at most once per day.
+   * Find the FlashScore event id for a fixture by scanning BOTH teams' upcoming
+   * fixtures (a smaller nation may have none listed, so the other side covers
+   * it), matching on the opponent id or — when provider names diverge — the
+   * kickoff date, since a team plays at most once per day.
    */
   private async findEvent(
-    anchorId: string,
-    opponentId: string | null,
+    homeId: string | null,
+    awayId: string | null,
     kickoffDay: string | null,
   ): Promise<{ id: string; homeId: string | null } | null> {
-    const key = `${anchorId}:${opponentId ?? ''}:${kickoffDay ?? ''}`;
+    const key = `${homeId ?? ''}:${awayId ?? ''}:${kickoffDay ?? ''}`;
     const cached = this.eventCache.get(key);
     if (cached) return cached;
 
     const p = (async () => {
-      const data = await this.fetch<{ DATA?: FlFixtureGroup[] }>(
-        `/teams/fixtures?locale=en_INT&team_id=${anchorId}&sport_id=1&page=1`,
-      );
-      for (const group of data?.DATA ?? []) {
-        for (const ev of group.EVENTS ?? []) {
-          const ids = [...(ev.HOME_PARTICIPANT_IDS ?? []), ...(ev.AWAY_PARTICIPANT_IDS ?? [])];
-          const matched =
-            (opponentId && ids.includes(opponentId)) ||
-            (kickoffDay && new Date(ev.START_TIME * 1000).toISOString().slice(0, 10) === kickoffDay);
-          if (matched) return { id: ev.EVENT_ID, homeId: ev.HOME_PARTICIPANT_IDS?.[0] ?? null };
-        }
+      for (const [anchor, opponent] of [[homeId, awayId], [awayId, homeId]] as const) {
+        if (!anchor) continue;
+        const found = await this.lookupEvent(anchor, opponent, kickoffDay);
+        if (found) return found;
       }
       return null;
     })().catch((err) => {
-      this.logger.warn(`Fixtures lookup failed for ${anchorId}: ${err instanceof Error ? err.message : String(err)}`);
+      this.logger.warn(`Event lookup failed (${homeId}/${awayId}): ${err instanceof Error ? err.message : String(err)}`);
       this.eventCache.delete(key); // allow a later retry
       return null;
     });
 
     this.eventCache.set(key, p);
     return p;
+  }
+
+  private async lookupEvent(
+    anchorId: string,
+    opponentId: string | null,
+    kickoffDay: string | null,
+  ): Promise<{ id: string; homeId: string | null } | null> {
+    const data = await this.fetch<{ DATA?: FlFixtureGroup[] }>(
+      `/teams/fixtures?locale=en_INT&team_id=${anchorId}&sport_id=1&page=1`,
+    );
+    for (const group of data?.DATA ?? []) {
+      for (const ev of group.EVENTS ?? []) {
+        const ids = [...(ev.HOME_PARTICIPANT_IDS ?? []), ...(ev.AWAY_PARTICIPANT_IDS ?? [])];
+        const sameDay =
+          !!kickoffDay && Number.isFinite(ev.START_TIME) &&
+          FlashLiveAdapter.isoDate(ev.START_TIME).slice(0, 10) === kickoffDay;
+        if ((opponentId && ids.includes(opponentId)) || sameDay) {
+          return { id: ev.EVENT_ID, homeId: ev.HOME_PARTICIPANT_IDS?.[0] ?? null };
+        }
+      }
+    }
+    return null;
   }
 
   /** Backwards-compatible head-to-head only. */
@@ -341,17 +366,13 @@ export class FlashLiveAdapter {
       this.getTeamId(awayTeamName),
     ]);
 
-    // Anchor on whichever team resolved; the kickoff date covers the other one
-    // when provider names diverge (e.g. Czechia vs Czech Republic).
-    const anchorId = homeId ?? awayId;
-    if (!anchorId) {
+    if (!homeId && !awayId) {
       this.logger.warn(`Could not resolve team ids: ${homeTeamName}=${homeId}, ${awayTeamName}=${awayId}`);
       return empty;
     }
-    const opponentId = anchorId === homeId ? awayId : homeId;
     const kickoffDay = kickoffISO ? kickoffISO.slice(0, 10) : null;
 
-    const event = await this.findEvent(anchorId, opponentId, kickoffDay);
+    const event = await this.findEvent(homeId, awayId, kickoffDay);
     if (!event) {
       this.logger.warn(`No FlashScore event found for ${homeTeamName} vs ${awayTeamName}`);
       return empty;
@@ -448,7 +469,7 @@ export class FlashLiveAdapter {
     return {
       fixture: {
         id: FlashLiveAdapter.numericId(ev.EVENT_ID),
-        date: new Date(ev.START_TIME * 1000).toISOString(),
+        date: FlashLiveAdapter.isoDate(ev.START_TIME),
         status: { short: 'FT', elapsed: null },
         venue: { name: null, city: null },
       },
@@ -480,12 +501,10 @@ export class FlashLiveAdapter {
       this.getTeamId(homeTeamName),
       this.getTeamId(awayTeamName),
     ]);
-    const anchorId = homeId ?? awayId;
-    if (!anchorId) return null;
-    const opponentId = anchorId === homeId ? awayId : homeId;
+    if (!homeId && !awayId) return null;
     const kickoffDay = kickoffISO ? kickoffISO.slice(0, 10) : null;
 
-    const event = await this.findEvent(anchorId, opponentId, kickoffDay);
+    const event = await this.findEvent(homeId, awayId, kickoffDay);
     if (!event) return null;
 
     try {
@@ -537,12 +556,10 @@ export class FlashLiveAdapter {
       this.getTeamId(homeTeamName),
       this.getTeamId(awayTeamName),
     ]);
-    const anchorId = homeId ?? awayId;
-    if (!anchorId) return null;
-    const opponentId = anchorId === homeId ? awayId : homeId;
+    if (!homeId && !awayId) return null;
     const kickoffDay = kickoffISO ? kickoffISO.slice(0, 10) : null;
 
-    const event = await this.findEvent(anchorId, opponentId, kickoffDay);
+    const event = await this.findEvent(homeId, awayId, kickoffDay);
     if (!event) return null;
 
     try {
@@ -586,12 +603,10 @@ export class FlashLiveAdapter {
       this.getTeamId(homeTeamName),
       this.getTeamId(awayTeamName),
     ]);
-    const anchorId = homeId ?? awayId;
-    if (!anchorId) return null;
-    const opponentId = anchorId === homeId ? awayId : homeId;
+    if (!homeId && !awayId) return null;
     const kickoffDay = kickoffISO ? kickoffISO.slice(0, 10) : null;
 
-    const event = await this.findEvent(anchorId, opponentId, kickoffDay);
+    const event = await this.findEvent(homeId, awayId, kickoffDay);
     if (!event) return null;
 
     const KEEP: Record<string, SummaryEventType> = {
@@ -715,7 +730,7 @@ export class FlashLiveAdapter {
     return {
       fixture: {
         id: FlashLiveAdapter.numericId(m.EVENT_ID),
-        date: new Date(m.START_TIME * 1000).toISOString(),
+        date: FlashLiveAdapter.isoDate(m.START_TIME),
         status: { short: 'FT', elapsed: null },
         venue: { name: null, city: null },
       },
