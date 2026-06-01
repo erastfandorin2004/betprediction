@@ -7,6 +7,9 @@ import { useRouter, usePathname } from 'next/navigation';
 import { ThemeToggle } from '@/components/theme/theme-toggle';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { cn } from '@/lib/utils';
+import { Goal, Trophy, Info, Gem, Zap, type LucideIcon } from 'lucide-react';
+
+const ACCENT = '#22c55e';
 
 export function AuthHeader() {
   const { user, signOut } = useAuth();
@@ -14,9 +17,11 @@ export function AuthHeader() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const NAV_LINKS = [
-    { href: '/', label: t.nav.matches },
-    { href: '/track-record', label: t.nav.trackRecord },
+  const NAV: { href: string; label: string; Icon: LucideIcon }[] = [
+    { href: '/', label: t.nav.matches, Icon: Goal },
+    { href: '/track-record', label: t.nav.trackRecord, Icon: Trophy },
+    { href: '/about', label: t.nav.about, Icon: Info },
+    { href: '/pricing', label: t.nav.pricing, Icon: Gem },
   ];
 
   async function handleLogout() {
@@ -26,74 +31,117 @@ export function AuthHeader() {
     router.push('/');
   }
 
-  return (
-    <header className="sticky top-0 z-50 border-b border-zinc-200 bg-zinc-50/90 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/90">
-      <div className="relative mx-auto flex h-14 max-w-7xl items-center px-4">
+  const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
+  return (
+    <header
+      className="sticky top-0 z-50 backdrop-blur-xl"
+      style={{ background: 'rgb(var(--pitch-950) / 0.78)', borderBottom: '1px solid rgb(var(--pitch-700))' }}
+    >
+      {/* gradient hairline */}
+      <div
+        className="h-px w-full"
+        style={{ background: `linear-gradient(90deg, transparent, ${ACCENT}99, #3b82f699, transparent)` }}
+      />
+
+      <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <span className="text-lg">⚡</span>
-          <span className="text-sm font-bold tracking-widest text-zinc-900 dark:text-white">
+        <Link href="/" className="flex shrink-0 items-center gap-2">
+          <span
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-sm"
+            style={{ background: 'rgba(34,197,94,0.15)', boxShadow: '0 0 14px rgba(34,197,94,0.4)' }}
+          >
+            ⚡
+          </span>
+          <span className="text-sm font-extrabold tracking-widest" style={{ color: 'rgb(var(--fg-primary))' }}>
             AI-SCORE
           </span>
         </Link>
 
-        {/* Nav — centered */}
-        <div className="absolute left-1/2 -translate-x-1/2">
-          <nav className="flex items-center gap-0.5 rounded-full border border-zinc-200 bg-zinc-100 p-1 dark:border-zinc-800 dark:bg-zinc-900">
-            {NAV_LINKS.map(({ href, label }) => (
+        {/* Nav — icons + gradient underline indicator */}
+        <nav className="ml-2 hidden items-center gap-0.5 md:flex">
+          {NAV.map(({ href, label, Icon }) => {
+            const active = isActive(href);
+            return (
               <Link
                 key={href}
                 href={href}
-                className={cn(
-                  'rounded-full px-4 py-1.5 text-sm font-medium transition-all',
-                  pathname === href
-                    ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-white'
-                    : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200',
-                )}
+                className="group relative flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors"
+                style={{ color: active ? 'rgb(var(--fg-primary))' : 'rgb(var(--fg-muted))' }}
               >
-                {label}
+                <Icon className="h-4 w-4 transition-colors" style={active ? { color: ACCENT } : undefined} />
+                <span>{label}</span>
+                <span
+                  className={cn(
+                    'absolute inset-x-2.5 bottom-0 h-0.5 origin-center rounded-full transition-transform duration-200',
+                    active ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-50',
+                  )}
+                  style={{ background: `linear-gradient(90deg, ${ACCENT}, #3b82f6)` }}
+                />
               </Link>
-            ))}
-          </nav>
-        </div>
+            );
+          })}
+        </nav>
 
-        {/* Right */}
+        {/* Right cluster */}
         <div className="ml-auto flex items-center gap-2">
+          {/* Requests-left badge */}
+          <div
+            className="hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold sm:flex"
+            title={t.nav.quotaTitle}
+            style={{
+              background: 'rgba(34,197,94,0.12)',
+              color: ACCENT,
+              border: '1px solid rgba(34,197,94,0.3)',
+              boxShadow: '0 0 14px rgba(34,197,94,0.18)',
+            }}
+          >
+            <Zap className="h-3.5 w-3.5" />
+            <span className="tabular">3</span>
+            <span className="rounded px-1 text-[9px] font-extrabold tracking-wider" style={{ background: 'rgba(34,197,94,0.22)' }}>
+              FREE
+            </span>
+          </div>
+
           {/* Language toggle */}
           <button
             onClick={() => setLocale(locale === 'ru' ? 'en' : 'ru')}
-            className="flex items-center gap-0.5 rounded-full border border-zinc-200 bg-zinc-100 px-2.5 py-1.5 text-xs font-semibold transition-all dark:border-zinc-800 dark:bg-zinc-900"
+            className="flex items-center gap-0.5 rounded-full px-2.5 py-1.5 text-xs font-semibold"
+            style={{ background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}
             title={locale === 'ru' ? 'Switch to English' : 'Переключить на русский'}
           >
-            <span className={cn('transition-opacity', locale === 'ru' ? 'text-zinc-900 dark:text-white' : 'text-zinc-400')}>RU</span>
-            <span className="mx-0.5 text-zinc-300 dark:text-zinc-700">/</span>
-            <span className={cn('transition-opacity', locale === 'en' ? 'text-zinc-900 dark:text-white' : 'text-zinc-400')}>EN</span>
+            <span style={{ color: locale === 'ru' ? 'rgb(var(--fg-primary))' : 'rgb(var(--fg-muted))' }}>RU</span>
+            <span style={{ color: 'rgb(var(--pitch-600))' }}>/</span>
+            <span style={{ color: locale === 'en' ? 'rgb(var(--fg-primary))' : 'rgb(var(--fg-muted))' }}>EN</span>
           </button>
 
           <ThemeToggle />
 
           {user ? (
-            <div className="flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1.5 dark:border-zinc-800 dark:bg-zinc-900">
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">{user.email}</span>
+            <div
+              className="flex items-center gap-2 rounded-full px-3 py-1.5"
+              style={{ background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}
+            >
+              <span className="hidden max-w-[160px] truncate text-xs sm:inline" style={{ color: 'rgb(var(--fg-secondary))' }}>
+                {user.email}
+              </span>
               <button
                 onClick={() => { void handleLogout(); }}
-                className="text-xs text-zinc-400 transition-opacity hover:opacity-60 dark:text-zinc-500"
+                className="text-xs transition-opacity hover:opacity-60"
+                style={{ color: 'rgb(var(--fg-muted))' }}
               >
                 {t.auth.signOut}
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <Link
-                href="/login"
-                className="text-sm text-zinc-500 transition-opacity hover:opacity-70 dark:text-zinc-400"
-              >
+              <Link href="/login" className="text-sm transition-opacity hover:opacity-70" style={{ color: 'rgb(var(--fg-muted))' }}>
                 {t.auth.signIn}
               </Link>
               <Link
                 href="/register"
-                className="rounded-full bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 dark:bg-white dark:text-zinc-900"
+                className="rounded-full px-4 py-1.5 text-sm font-semibold transition-transform hover:scale-[1.03]"
+                style={{ background: `linear-gradient(90deg, ${ACCENT}, #16a34a)`, color: '#04140a' }}
               >
                 {t.auth.register}
               </Link>

@@ -20,6 +20,9 @@ export function Footer() {
         <Link href="/about" className="transition-colors hover:opacity-80" style={{ color: 'rgb(var(--fg-secondary))' }}>
           {t.nav.about}
         </Link>
+        <Link href="/pricing" className="transition-colors hover:opacity-80" style={{ color: 'rgb(var(--fg-secondary))' }}>
+          {t.nav.pricing}
+        </Link>
       </div>
       <p>{t.footer}</p>
       <p className="mt-1.5">© 2026 AI-Score</p>
