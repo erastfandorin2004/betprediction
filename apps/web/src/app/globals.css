@@ -7,15 +7,15 @@
   :root,
   .dark {
     color-scheme: dark;
-    --pitch-950: 7 12 28;     /* deepest navy — page bg */
-    --pitch-900: 14 21 44;    /* cards */
-    --pitch-800: 22 32 60;    /* raised surfaces */
-    --pitch-700: 37 50 84;    /* borders */
-    --pitch-600: 56 73 116;   /* muted fills */
-    --fg-primary: 248 250 255;
-    --fg-secondary: 165 178 204;
-    --fg-muted: 108 122 152;
-    --fg-card: 226 232 245;
+    --pitch-950: 8 9 22;      /* deepest indigo-navy — page bg */
+    --pitch-900: 14 16 40;    /* cards */
+    --pitch-800: 23 27 56;    /* raised surfaces */
+    --pitch-700: 38 44 82;    /* borders */
+    --pitch-600: 58 66 112;   /* muted fills */
+    --fg-primary: 246 248 255;
+    --fg-secondary: 162 172 200;
+    --fg-muted: 104 116 148;
+    --fg-card: 224 230 244;
   }
 
   /* ── Light theme ── */

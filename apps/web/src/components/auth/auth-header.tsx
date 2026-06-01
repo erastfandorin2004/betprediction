@@ -9,7 +9,7 @@ import { useLocale } from '@/components/i18n/locale-provider';
 import { cn } from '@/lib/utils';
 import { Goal, Trophy, Info, Gem, Zap, type LucideIcon } from 'lucide-react';
 
-const ACCENT = '#f97316';
+const ACCENT = '#e2823c';
 
 export function AuthHeader() {
   const { user, signOut } = useAuth();
@@ -49,7 +49,7 @@ export function AuthHeader() {
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <span
             className="flex h-7 w-7 items-center justify-center rounded-lg text-sm"
-            style={{ background: 'rgba(249,115,22,0.15)', boxShadow: '0 0 14px rgba(249,115,22,0.4)' }}
+            style={{ background: 'rgba(226,130,60,0.15)', boxShadow: '0 0 14px rgba(226,130,60,0.4)' }}
           >
             ⚡
           </span>
@@ -90,15 +90,15 @@ export function AuthHeader() {
             className="hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold sm:flex"
             title={t.nav.quotaTitle}
             style={{
-              background: 'rgba(249,115,22,0.12)',
+              background: 'rgba(226,130,60,0.12)',
               color: ACCENT,
-              border: '1px solid rgba(249,115,22,0.3)',
-              boxShadow: '0 0 14px rgba(249,115,22,0.18)',
+              border: '1px solid rgba(226,130,60,0.3)',
+              boxShadow: '0 0 14px rgba(226,130,60,0.18)',
             }}
           >
             <Zap className="h-3.5 w-3.5" />
             <span className="tabular">3</span>
-            <span className="rounded px-1 text-[9px] font-extrabold tracking-wider" style={{ background: 'rgba(249,115,22,0.22)' }}>
+            <span className="rounded px-1 text-[9px] font-extrabold tracking-wider" style={{ background: 'rgba(226,130,60,0.22)' }}>
               FREE
             </span>
           </div>
@@ -141,7 +141,7 @@ export function AuthHeader() {
               <Link
                 href="/register"
                 className="rounded-full px-4 py-1.5 text-sm font-semibold transition-transform hover:scale-[1.03]"
-                style={{ background: `linear-gradient(90deg, #f97316, #ea580c)`, color: '#04140a' }}
+                style={{ background: `linear-gradient(90deg, #e2823c, #c46a2c)`, color: '#04140a' }}
               >
                 {t.auth.register}
               </Link>

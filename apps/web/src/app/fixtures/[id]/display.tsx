@@ -13,9 +13,9 @@ import type { FixtureContext, StandingRow, H2HMatch, NewsArticle, TeamLineup, Li
 import type { MatchEvent } from '@ai-score/shared';
 
 /* ── Accent palette (orange on black) ── */
-const ACCENT = '#f97316';        // brand / home side
-const ACCENT_SOFT = 'rgba(249,115,22,0.14)';
-const ACCENT_RING = 'rgba(249,115,22,0.45)';
+const ACCENT = '#e2823c';        // brand / home side
+const ACCENT_SOFT = 'rgba(226,130,60,0.14)';
+const ACCENT_RING = 'rgba(226,130,60,0.45)';
 const AWAY_C = '#3b82f6';        // away side in two-team comparisons
 
 /* ── Section wrapper ── */
@@ -485,7 +485,7 @@ function PitchToken({ p, side }: { p: LineupPlayer; side: 'home' | 'away' }) {
           background: side === 'home' ? 'rgba(10,12,16,0.82)' : '#f8fafc',
           color: side === 'home' ? '#fff' : '#0a0c10',
           border: side === 'home' ? `1.5px solid ${ACCENT}` : '1.5px solid rgba(255,255,255,0.65)',
-          boxShadow: side === 'home' ? '0 0 8px rgba(249,115,22,0.4)' : '0 1px 3px rgba(0,0,0,0.35)',
+          boxShadow: side === 'home' ? '0 0 8px rgba(226,130,60,0.4)' : '0 1px 3px rgba(0,0,0,0.35)',
         }}
       >
         {p.number ?? ''}
