@@ -184,30 +184,59 @@ export class FlashLiveAdapter {
   private readonly teamIdCache = new Map<string, Promise<string | null>>();
   private readonly eventCache = new Map<string, Promise<{ id: string; homeId: string | null } | null>>();
   private readonly formCache = new Map<string, Promise<AfH2HFixture[]>>();
+  // Rotating pool of RapidAPI keys — index advances when a key hits its monthly
+  // quota; exhausted indices are skipped for the rest of this process lifetime.
+  private keyIndex = 0;
+  private readonly exhaustedKeys = new Set<number>();
 
   constructor(private readonly config: ConfigService) {}
 
-  private get apiKey(): string {
-    return this.config.get<string>('rapidApi.footballApiKey') ?? '';
+  private get keys(): string[] {
+    return this.config.get<string[]>('rapidApi.footballApiKeys') ?? [];
   }
 
   private get hasKey(): boolean {
-    return !!this.apiKey;
+    return this.keys.some((_, i) => !this.exhaustedKeys.has(i));
+  }
+
+  /** The current usable key, advancing past any that hit their monthly quota. */
+  private activeKey(): string | null {
+    const ks = this.keys;
+    for (let i = 0; i < ks.length; i++) {
+      const idx = (this.keyIndex + i) % ks.length;
+      if (!this.exhaustedKeys.has(idx)) {
+        this.keyIndex = idx;
+        return ks[idx] ?? null;
+      }
+    }
+    return null;
   }
 
   private async fetch<T>(path: string, retries = 2): Promise<T> {
-    if (!this.hasKey) throw new Error('RAPIDAPI_FOOTBALL_KEY not configured');
+    const key = this.activeKey();
+    if (!key) throw new Error('No FlashLive key available (all monthly quotas exhausted)');
+
     const res = await fetch(`${this.base}${path}`, {
       headers: {
-        'x-rapidapi-key': this.apiKey,
+        'x-rapidapi-key': key,
         'x-rapidapi-host': this.host,
       },
       signal: AbortSignal.timeout(8000),
     });
-    // Back off and retry on rate limiting (free tier is easily tripped).
-    if (res.status === 429 && retries > 0) {
-      await new Promise((r) => setTimeout(r, 700 + Math.random() * 500));
-      return this.fetch<T>(path, retries - 1);
+
+    if (res.status === 429) {
+      const remaining = res.headers.get('x-ratelimit-requests-remaining');
+      const monthlyExhausted = remaining === '0' || /monthly quota|exceeded/i.test(await res.clone().text().catch(() => ''));
+      if (monthlyExhausted && this.keys.length > 1 && !this.exhaustedKeys.has(this.keyIndex)) {
+        // This key's monthly quota is spent — drop it and retry on the next.
+        this.exhaustedKeys.add(this.keyIndex);
+        this.logger.warn(`Key #${this.keyIndex + 1}/${this.keys.length} monthly quota exhausted — rotating`);
+        if (this.activeKey()) return this.fetch<T>(path, retries);
+      } else if (retries > 0) {
+        // Transient per-second limit — back off and retry on the same key.
+        await new Promise((r) => setTimeout(r, 700 + Math.random() * 500));
+        return this.fetch<T>(path, retries - 1);
+      }
     }
     if (!res.ok) throw new Error(`FlashLive ${res.status} on ${path}`);
     return res.json() as Promise<T>;

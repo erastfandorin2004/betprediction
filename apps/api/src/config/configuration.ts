@@ -34,9 +34,15 @@ export default () => {
     newsApi: {
       apiKey: process.env['NEWS_API_KEY'] ?? '',
     },
-    rapidApi: {
-      footballApiKey: process.env['RAPIDAPI_FOOTBALL_KEY'] ?? '',
-    },
+    rapidApi: (() => {
+      // Comma-separated list of RapidAPI keys — the FlashLive adapter rotates to
+      // the next when one hits its monthly quota (pool several free accounts).
+      const footballApiKeys = (process.env['RAPIDAPI_FOOTBALL_KEY'] ?? '')
+        .split(',')
+        .map((k) => k.trim())
+        .filter(Boolean);
+      return { footballApiKeys, footballApiKey: footballApiKeys[0] ?? '' };
+    })(),
     // Direct API-Football account (api-sports.io) — free 100 req/day, daily reset.
     apiFootball: {
       apiKey: process.env['API_FOOTBALL_KEY'] ?? '',
