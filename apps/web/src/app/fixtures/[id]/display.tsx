@@ -602,10 +602,13 @@ export function LineupPitch({ home, away, homeFlag, awayFlag }: {
 function SubColumn({ players }: { players: LineupPlayer[] }) {
   const { locale } = useLocale();
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       {players.map((p) => (
         <div key={p.id || p.name} className="flex items-center gap-2 text-xs">
-          <span className="w-5 shrink-0 text-right font-mono" style={{ color: 'rgb(var(--fg-muted))' }}>
+          <span
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold tabular"
+            style={{ background: 'rgb(var(--pitch-800))', color: 'rgb(var(--fg-muted))', border: '1px solid rgb(var(--pitch-700))' }}
+          >
             {p.number ?? ''}
           </span>
           <span style={{ color: 'rgb(var(--fg-card))' }}>{getPlayerNameRu(p.name, locale)}</span>
