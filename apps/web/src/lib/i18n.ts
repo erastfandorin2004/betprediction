@@ -5,6 +5,27 @@ export const translations = {
     nav: {
       matches: 'Матчи',
       trackRecord: 'Трек-рекорд',
+      about: 'О проекте',
+    },
+    landing: {
+      heroTitle: 'AI-прогнозы на футбол',
+      heroSubtitle: 'Прогнозы на основе реальных данных и ансамбля нейросетей. Превращаем статистику матча в структурированный анализ за секунды.',
+      heroCta: 'Смотреть матчи',
+      heroTagline: 'Данные матчей + мульти-LLM анализ в один клик',
+      features: [
+        { title: 'Статистика и H2H', desc: 'Личные встречи, форма команд, составы и статистика матча — данные FlashScore' },
+        { title: 'Мульти-LLM консенсус', desc: 'ChatGPT, Claude, Gemini, DeepSeek анализируют каждый матч и дают совместный прогноз' },
+        { title: 'Честный трек-рекорд', desc: 'Каждый прогноз фиксируется до матча и никогда не меняется — публичная точность' },
+      ],
+      bannerTitle: 'Чемпионат мира 2026 уже на сайте!',
+      bannerText: 'Расписание, составы, H2H и AI-прогнозы на все матчи ЧМ. 11 июня — 19 июля · США, Канада, Мексика.',
+      faqTitle: 'Частые вопросы',
+      faq: [
+        { q: 'Что такое AI-Score?', a: 'AI-Score — аналитический сервис: live-матчи, статистика и AI-прогнозы от ансамбля нейросетей с публичным трек-рекордом точности. AI-Score не является букмекером и не даёт финансовых советов.' },
+        { q: 'Какие AI-модели используются?', a: 'Ведущие LLM: ChatGPT, Claude, Gemini, DeepSeek. Каждая модель анализирует матч независимо, а итог — их совместный консенсус.' },
+        { q: 'Как формируются прогнозы?', a: 'Сервис собирает данные матча (форма, H2H, составы, статистика) и передаёт их ансамблю нейросетей за 1–2 часа до старта. Прогноз фиксируется и больше не меняется.' },
+        { q: 'Это ставки или финансовый совет?', a: 'Нет. Сервис носит информационный характер и не гарантирует результат. 18+. Играй ответственно.' },
+      ],
     },
     auth: {
       signIn: 'Войти',
@@ -127,6 +148,27 @@ export const translations = {
     nav: {
       matches: 'Matches',
       trackRecord: 'Track Record',
+      about: 'About',
+    },
+    landing: {
+      heroTitle: 'AI-Powered Football Predictions',
+      heroSubtitle: 'Predictions built on real-time data and an ensemble of LLMs. Turn match stats into structured analysis in seconds.',
+      heroCta: 'Browse Matches',
+      heroTagline: 'Match data + Multi-LLM analysis at your fingertips',
+      features: [
+        { title: 'Stats & H2H', desc: 'Head-to-head, team form, lineups and match statistics — powered by FlashScore' },
+        { title: 'Multi-LLM Consensus', desc: 'ChatGPT, Claude, Gemini, DeepSeek analyze every match and produce a combined prediction' },
+        { title: 'Transparent Track Record', desc: 'Every prediction is locked before kickoff and never changed — public accuracy' },
+      ],
+      bannerTitle: 'World Cup 2026 is live!',
+      bannerText: 'Schedule, lineups, H2H and AI predictions for every World Cup match. Jun 11 – Jul 19 · USA, Canada, Mexico.',
+      faqTitle: 'Frequently Asked Questions',
+      faq: [
+        { q: 'What is AI-Score?', a: 'AI-Score is an analytics service: live matches, statistics and AI predictions from an ensemble of LLMs with a public accuracy track record. AI-Score is not a bookmaker and does not provide financial advice.' },
+        { q: 'Which AI models are used?', a: 'Leading LLMs: ChatGPT, Claude, Gemini, DeepSeek. Each model analyzes a match independently, and the result is their combined consensus.' },
+        { q: 'How are predictions made?', a: 'The service collects match data (form, H2H, lineups, statistics) and feeds it to the LLM ensemble 1–2 hours before kickoff. The prediction is then locked and never changed.' },
+        { q: 'Is this betting or financial advice?', a: 'No. The service is for informational purposes only and does not guarantee results. 18+. Bet responsibly.' },
+      ],
     },
     auth: {
       signIn: 'Sign in',
