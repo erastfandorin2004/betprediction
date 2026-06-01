@@ -681,12 +681,12 @@ export function LineupSection({ lineups, homeName, awayName, homeFlag, awayFlag,
       {/* Substitutes — labelled per team */}
       {(lineups.home.substitutes.length > 0 || lineups.away.substitutes.length > 0) && (
         <SectionCard title={L.subs}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl p-3" style={{ background: 'rgb(var(--pitch-950))', border: '1px solid rgb(var(--pitch-700))' }}>
               <p className="mb-2 text-xs font-semibold" style={{ color: 'rgb(var(--fg-secondary))' }}>{homeName}</p>
               <SubColumn players={lineups.home.substitutes} />
             </div>
-            <div>
+            <div className="rounded-xl p-3" style={{ background: 'rgb(var(--pitch-950))', border: '1px solid rgb(var(--pitch-700))' }}>
               <p className="mb-2 text-xs font-semibold" style={{ color: 'rgb(var(--fg-secondary))' }}>{awayName}</p>
               <SubColumn players={lineups.away.substitutes} />
             </div>
