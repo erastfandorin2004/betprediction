@@ -85,20 +85,18 @@ export function AuthHeader() {
 
         {/* Right cluster */}
         <div className="ml-auto flex items-center gap-2">
-          {/* Requests-left badge */}
+          {/* Requests-left badge — subtle, neutral surface with a soft accent icon */}
           <div
-            className="hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold sm:flex"
+            className="hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold sm:flex"
             title={t.nav.quotaTitle}
-            style={{
-              background: 'rgba(226,130,60,0.12)',
-              color: ACCENT,
-              border: '1px solid rgba(226,130,60,0.3)',
-              boxShadow: '0 0 14px rgba(226,130,60,0.18)',
-            }}
+            style={{ background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}
           >
-            <Zap className="h-3.5 w-3.5" />
-            <span className="tabular">3</span>
-            <span className="rounded px-1 text-[9px] font-extrabold tracking-wider" style={{ background: 'rgba(226,130,60,0.22)' }}>
+            <Zap className="h-3.5 w-3.5" style={{ color: ACCENT, opacity: 0.8 }} />
+            <span className="tabular" style={{ color: 'rgb(var(--fg-secondary))' }}>3</span>
+            <span
+              className="rounded px-1 text-[9px] font-bold tracking-wider"
+              style={{ color: 'rgb(var(--fg-muted))', background: 'rgb(var(--pitch-700))' }}
+            >
               FREE
             </span>
           </div>
