@@ -537,13 +537,16 @@ function PitchMarkings() {
   );
 }
 
-function PitchCrest({ src, top }: { src: string; top: string }) {
+function CornerFlag({ src, pos }: { src: string; pos: 'tl' | 'br' }) {
   return (
     <img
       src={src}
       alt=""
-      className="pointer-events-none absolute left-1/2 -translate-x-1/2 -translate-y-1/2 object-contain"
-      style={{ top, width: '46%', maxHeight: '32%', opacity: 0.09, filter: 'grayscale(0.3)', zIndex: 0 }}
+      className={cn(
+        'pointer-events-none absolute h-6 w-8 rounded-sm object-contain',
+        pos === 'tl' ? 'left-2.5 top-2.5' : 'bottom-2.5 right-2.5',
+      )}
+      style={{ zIndex: 3, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.65))' }}
     />
   );
 }
@@ -572,9 +575,9 @@ export function LineupPitch({ home, away, homeFlag, awayFlag }: {
         border: '1px solid rgba(0,0,0,0.4)',
       }}
     >
-      {/* Faint team crests, one per half */}
-      {homeFlag && <PitchCrest src={homeFlag} top="25%" />}
-      {awayFlag && <PitchCrest src={awayFlag} top="75%" />}
+      {/* Team flags in the corners — home top-left, away bottom-right */}
+      {homeFlag && <CornerFlag src={homeFlag} pos="tl" />}
+      {awayFlag && <CornerFlag src={awayFlag} pos="br" />}
 
       {/* Field markings */}
       <PitchMarkings />
