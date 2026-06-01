@@ -304,7 +304,8 @@ export class FixturesService {
 
     const [
       homeSquadData, awaySquadData, standingsData, h2hBundleData,
-      homeFormData, awayFormData, lineupsData, statsData, summaryData, newsData,
+      homeFormData, awayFormData, homeSquadFlashData, awaySquadFlashData,
+      lineupsData, statsData, summaryData, newsData,
     ] = await Promise.allSettled([
         this.fdAdapter.getTeamWithSquad(homeId),
         this.fdAdapter.getTeamWithSquad(awayId),
@@ -312,6 +313,8 @@ export class FixturesService {
         this.flashLiveAdapter.getBundle(homeName, awayName, startsAtISO),
         this.flashLiveAdapter.getTeamForm(homeName),
         this.flashLiveAdapter.getTeamForm(awayName),
+        this.flashLiveAdapter.getSquad(homeName),
+        this.flashLiveAdapter.getSquad(awayName),
         wantLive ? this.flashLiveAdapter.getLineups(homeName, awayName, startsAtISO) : Promise.resolve(null),
         wantLive ? this.flashLiveAdapter.getStats(homeName, awayName, startsAtISO) : Promise.resolve(null),
         wantLive ? this.flashLiveAdapter.getSummary(homeName, awayName, startsAtISO) : Promise.resolve(null),
@@ -359,6 +362,8 @@ export class FixturesService {
         : null,
       homeGroup: findTeamGroup(homeId),
       awayGroup: findTeamGroup(awayId),
+      homeSquadFlash: homeSquadFlashData.status === 'fulfilled' ? homeSquadFlashData.value : [],
+      awaySquadFlash: awaySquadFlashData.status === 'fulfilled' ? awaySquadFlashData.value : [],
       lineups: lineupsData.status === 'fulfilled' ? lineupsData.value : null,
       stats: statsData.status === 'fulfilled' ? statsData.value : null,
       summary: summaryData.status === 'fulfilled' ? summaryData.value : null,

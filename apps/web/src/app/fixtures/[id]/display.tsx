@@ -624,24 +624,28 @@ function squadLineIndex(position: string | null): 0 | 1 | 2 | 3 {
   return 3; // forward / winger / offence / striker / unknown
 }
 
+type RosterPlayer = { id: string | number; name: string; position: string | null; shirtNumber: number | null };
+
 /** Approximate XI from a full roster (no starter data) — a 4-3-3 by position. */
 export function squadToProbableLineup(
-  squad: FixtureContext['homeSquad'],
+  squad: RosterPlayer[],
   coach: string | null,
 ): TeamLineup | null {
   if (squad.length < 11) return null;
-  type Sq = FixtureContext['homeSquad'];
-  const gk: Sq = [], def: Sq = [], mid: Sq = [], fwd: Sq = [];
+  const gk: RosterPlayer[] = [], def: RosterPlayer[] = [], mid: RosterPlayer[] = [], fwd: RosterPlayer[] = [];
   for (const p of squad) {
     const i = squadLineIndex(p.position);
     (i === 0 ? gk : i === 1 ? def : i === 2 ? mid : fwd).push(p);
   }
+  // Lower shirt numbers ≈ first-choice players → pick them for the probable XI.
+  const byNum = (a: RosterPlayer, b: RosterPlayer) => (a.shirtNumber ?? 99) - (b.shirtNumber ?? 99);
+  gk.sort(byNum); def.sort(byNum); mid.sort(byNum); fwd.sort(byNum);
   const groups = [gk.slice(0, 1), def.slice(0, 4), mid.slice(0, 3), fwd.slice(0, 3)];
   const lines = groups.map((g) => g.length);
   const xi = groups.flat();
   const chosen = new Set(xi.map((p) => p.id));
   const subs = squad.filter((p) => !chosen.has(p.id));
-  const toP = (p: FixtureContext['homeSquad'][0]): LineupPlayer => ({
+  const toP = (p: RosterPlayer): LineupPlayer => ({
     id: String(p.id), name: p.name, number: p.shirtNumber,
   });
   return {
@@ -1167,8 +1171,9 @@ export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHome
     }
     const homeCoach = getCoach(homeTeam.name, homeTeam.id, ctx.homeCoach, locale);
     const awayCoach = getCoach(awayTeam.name, awayTeam.id, ctx.awayCoach, locale);
-    const homeProb = squadToProbableLineup(ctx.homeSquad, homeCoach);
-    const awayProb = squadToProbableLineup(ctx.awaySquad, awayCoach);
+    // Prefer FlashScore roster (has shirt numbers); fall back to football-data.
+    const homeProb = squadToProbableLineup(ctx.homeSquadFlash.length ? ctx.homeSquadFlash : ctx.homeSquad, homeCoach);
+    const awayProb = squadToProbableLineup(ctx.awaySquadFlash.length ? ctx.awaySquadFlash : ctx.awaySquad, awayCoach);
     if (homeProb && awayProb) {
       return (
         <LineupSection

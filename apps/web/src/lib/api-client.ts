@@ -68,6 +68,14 @@ export interface SquadPlayer {
   nationality: string | null;
 }
 
+/** Roster member from FlashScore squad (has shirt number). */
+export interface SquadMember {
+  id: string;
+  name: string;
+  position: string;
+  shirtNumber: number | null;
+}
+
 export interface MatchSummary {
   id: number;
   startsAt: string;
@@ -165,6 +173,8 @@ export interface FixtureContext {
   summary: SummaryEvent[] | null;
   homeSquad: SquadPlayer[];
   awaySquad: SquadPlayer[];
+  homeSquadFlash: SquadMember[];
+  awaySquadFlash: SquadMember[];
   homeCoach: { name: string } | null;
   awayCoach: { name: string } | null;
   homeGroup: { group: string | null; table: StandingRow[]; teamRow: StandingRow } | null;

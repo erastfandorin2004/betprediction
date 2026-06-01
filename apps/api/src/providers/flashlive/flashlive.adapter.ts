@@ -43,6 +43,26 @@ interface FlResultGroup {
   EVENTS?: FlResultEvent[];
 }
 
+interface FlSquadItem {
+  PLAYER_ID: string;
+  PLAYER_NAME: string;
+  PLAYER_TYPE_ID: string; // GOALKEEPER | DEFENDER | MIDFIELDER | FORWARD | COACH
+  PLAYER_JERSEY_NUMBER?: number | null;
+}
+
+interface FlSquadGroup {
+  GROUP_LABEL: string;
+  ITEMS?: FlSquadItem[];
+}
+
+/** Roster player with shirt number (from /teams/squad). */
+export interface SquadMember {
+  id: string;
+  name: string;
+  position: string; // FlashScore type id, maps to GK/DEF/MID/FWD
+  shirtNumber: number | null;
+}
+
 interface FlH2HItem {
   START_TIME: number;
   EVENT_ID: string;
@@ -184,6 +204,7 @@ export class FlashLiveAdapter {
   private readonly teamIdCache = new Map<string, Promise<string | null>>();
   private readonly eventCache = new Map<string, Promise<{ id: string; homeId: string | null } | null>>();
   private readonly formCache = new Map<string, Promise<AfH2HFixture[]>>();
+  private readonly squadCache = new Map<string, Promise<SquadMember[]>>();
   // Rotating pool of RapidAPI keys — index advances when a key hits its monthly
   // quota; exhausted indices are skipped for the rest of this process lifetime.
   private keyIndex = 0;
@@ -444,6 +465,42 @@ export class FlashLiveAdapter {
     });
 
     this.formCache.set(id, p);
+    return p;
+  }
+
+  /** Full team roster with shirt numbers (from /teams/squad), coach excluded. */
+  async getSquad(teamName: string): Promise<SquadMember[]> {
+    if (!this.hasKey) return [];
+    const id = await this.getTeamId(teamName);
+    if (!id) return [];
+
+    const cached = this.squadCache.get(id);
+    if (cached) return cached;
+
+    const p = (async () => {
+      const data = await this.fetch<{ DATA?: FlSquadGroup[] }>(
+        `/teams/squad?locale=en_INT&team_id=${id}&sport_id=1`,
+      );
+      const out: SquadMember[] = [];
+      for (const g of data?.DATA ?? []) {
+        for (const it of g.ITEMS ?? []) {
+          if (it.PLAYER_TYPE_ID === 'COACH') continue;
+          out.push({
+            id: it.PLAYER_ID,
+            name: it.PLAYER_NAME,
+            position: it.PLAYER_TYPE_ID,
+            shirtNumber: it.PLAYER_JERSEY_NUMBER ?? null,
+          });
+        }
+      }
+      return out;
+    })().catch((err) => {
+      this.logger.warn(`Squad fetch failed for "${teamName}": ${err instanceof Error ? err.message : String(err)}`);
+      this.squadCache.delete(id);
+      return [];
+    });
+
+    this.squadCache.set(id, p);
     return p;
   }
 

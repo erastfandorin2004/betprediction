@@ -126,6 +126,8 @@ async function ContextSections({ fixtureId, homeTeam, awayTeam }: {
     h2hAll: raw.h2hAll ?? [],
     homeSquad: raw.homeSquad ?? [],
     awaySquad: raw.awaySquad ?? [],
+    homeSquadFlash: raw.homeSquadFlash ?? [],
+    awaySquadFlash: raw.awaySquadFlash ?? [],
     homeCoach: raw.homeCoach ?? null,
     awayCoach: raw.awayCoach ?? null,
     homeGroup: raw.homeGroup ?? null,
