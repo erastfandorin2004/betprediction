@@ -18,15 +18,18 @@ const ACCENT_SOFT = 'rgb(var(--accent) / 0.14)';
 const ACCENT_RING = 'rgb(var(--accent) / 0.45)';
 const AWAY_C = '#3b82f6';        // away side in two-team comparisons
 
-/* ── Section wrapper ── */
+/* ── Section wrapper — dark header band + orange tick, then content ── */
 export function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl p-4" style={{ background: 'rgb(var(--pitch-900))', border: '1px solid rgb(var(--pitch-700))' }}>
-      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold" style={{ color: 'rgb(var(--fg-secondary))' }}>
+    <div className="overflow-hidden rounded-2xl" style={{ background: 'rgb(var(--pitch-900))', border: '1px solid rgb(var(--pitch-700))' }}>
+      <div
+        className="flex items-center gap-2 px-4 py-2.5"
+        style={{ background: 'rgb(var(--pitch-950))', borderBottom: '1px solid rgb(var(--pitch-700))' }}
+      >
         <span className="h-3.5 w-1 shrink-0 rounded-full" style={{ background: ACCENT }} />
-        {title}
-      </h3>
-      {children}
+        <h3 className="text-sm font-semibold" style={{ color: 'rgb(var(--fg-card))' }}>{title}</h3>
+      </div>
+      <div className="p-4">{children}</div>
     </div>
   );
 }

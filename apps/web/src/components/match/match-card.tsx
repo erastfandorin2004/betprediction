@@ -55,7 +55,7 @@ export function MatchCard({ fixture }: MatchCardProps) {
           {hasStarted && fixture.score ? (
             <ScoreDisplay score={fixture.score} className="justify-center text-base font-bold" />
           ) : (
-            <span className="tabular text-sm font-bold" style={{ color: 'rgb(var(--accent))' }}>
+            <span className="tabular text-sm font-bold" style={{ color: 'rgb(var(--fg-primary))' }}>
               {formatTime(fixture.startsAt)}
             </span>
           )}
