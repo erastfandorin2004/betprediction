@@ -12,11 +12,20 @@ import { cn } from '@/lib/utils';
 import type { FixtureContext, StandingRow, H2HMatch, NewsArticle, TeamLineup, LineupPlayer, MatchStat, SummaryEvent } from '@/lib/api-client';
 import type { MatchEvent } from '@ai-score/shared';
 
+/* ── Accent palette (orange on black) ── */
+const ACCENT = '#f97316';        // brand / home side
+const ACCENT_SOFT = 'rgba(249,115,22,0.14)';
+const ACCENT_RING = 'rgba(249,115,22,0.45)';
+const AWAY_C = '#3b82f6';        // away side in two-team comparisons
+
 /* ── Section wrapper ── */
 export function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl p-4" style={{ background: 'rgb(var(--pitch-900))', border: '1px solid rgb(var(--pitch-700))' }}>
-      <h3 className="mb-3 text-sm font-semibold" style={{ color: 'rgb(var(--fg-secondary))' }}>{title}</h3>
+      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold" style={{ color: 'rgb(var(--fg-secondary))' }}>
+        <span className="h-3.5 w-1 shrink-0 rounded-full" style={{ background: ACCENT }} />
+        {title}
+      </h3>
       {children}
     </div>
   );
@@ -194,7 +203,7 @@ export function H2HStats({ matches, homeLabel, awayLabel, ofLabel, homeFlag, awa
       </div>
       <div className="mt-2.5 flex items-center gap-1 overflow-hidden rounded-lg">
         <div className="flex h-8 items-center justify-center text-xs font-bold"
-          style={{ width: `${total ? (homeWins / total) * 100 : 33}%`, minWidth: '2.25rem', background: '#16a34a', color: '#fff' }}>
+          style={{ width: `${total ? (homeWins / total) * 100 : 33}%`, minWidth: '2.25rem', background: ACCENT, color: '#1a0c02' }}>
           {homeWins}
         </div>
         <div className="flex h-8 flex-1 items-center justify-center text-xs font-bold"
@@ -202,7 +211,7 @@ export function H2HStats({ matches, homeLabel, awayLabel, ofLabel, homeFlag, awa
           {draws}
         </div>
         <div className="flex h-8 items-center justify-center text-xs font-bold"
-          style={{ width: `${total ? (awayWins / total) * 100 : 33}%`, minWidth: '2.25rem', background: '#2563eb', color: '#fff' }}>
+          style={{ width: `${total ? (awayWins / total) * 100 : 33}%`, minWidth: '2.25rem', background: AWAY_C, color: '#fff' }}>
           {awayWins}
         </div>
       </div>
@@ -421,10 +430,10 @@ function StatRow({ label, home, away }: { label: string; home: string; away: str
       </div>
       <div className="flex h-1.5 gap-1">
         <div className="relative flex-1 overflow-hidden rounded-full" style={{ background: 'rgb(var(--pitch-800))' }}>
-          <div className="absolute right-0 top-0 h-full rounded-full" style={{ width: `${hp}%`, background: '#f97316' }} />
+          <div className="absolute right-0 top-0 h-full rounded-full" style={{ width: `${hp}%`, background: ACCENT }} />
         </div>
         <div className="relative flex-1 overflow-hidden rounded-full" style={{ background: 'rgb(var(--pitch-800))' }}>
-          <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: `${ap}%`, background: '#64748b' }} />
+          <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: `${ap}%`, background: AWAY_C }} />
         </div>
       </div>
     </div>
@@ -473,10 +482,10 @@ function PitchToken({ p, side }: { p: LineupPlayer; side: 'home' | 'away' }) {
       <div
         className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold"
         style={{
-          background: side === 'home' ? 'rgba(10,12,16,0.8)' : '#f8fafc',
+          background: side === 'home' ? 'rgba(10,12,16,0.82)' : '#f8fafc',
           color: side === 'home' ? '#fff' : '#0a0c10',
-          border: '1.5px solid rgba(255,255,255,0.6)',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.35)',
+          border: side === 'home' ? `1.5px solid ${ACCENT}` : '1.5px solid rgba(255,255,255,0.65)',
+          boxShadow: side === 'home' ? '0 0 8px rgba(249,115,22,0.4)' : '0 1px 3px rgba(0,0,0,0.35)',
         }}
       >
         {p.number ?? ''}
@@ -1059,7 +1068,7 @@ export function MatchH2HForm({ ctx, homeTeam, awayTeam, espnH2h = [], espnHomeFo
               onClick={() => setSub(p.id)}
               className="flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors"
               style={active
-                ? { background: 'rgb(var(--pitch-700))', color: 'rgb(var(--fg-primary))', boxShadow: 'inset 0 0 0 1px rgb(var(--pitch-600))' }
+                ? { background: ACCENT_SOFT, color: ACCENT, boxShadow: `inset 0 0 0 1px ${ACCENT_RING}` }
                 : { background: 'rgb(var(--pitch-800))', color: 'rgb(var(--fg-muted))' }}
             >
               {p.flag && <img src={p.flag} alt="" className="h-4 w-4 rounded-sm object-cover" />}
@@ -1187,9 +1196,9 @@ export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHome
               key={tb.id}
               type="button"
               onClick={() => setActiveTab(tb.id)}
-              className="shrink-0 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors"
+              className="shrink-0 rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors"
               style={isActive
-                ? { background: 'rgb(var(--pitch-700))', color: 'rgb(var(--fg-primary))' }
+                ? { background: ACCENT_SOFT, color: ACCENT, boxShadow: `inset 0 0 0 1px ${ACCENT_RING}` }
                 : { color: 'rgb(var(--fg-muted))' }}
             >
               {tb.label}
