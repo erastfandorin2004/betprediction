@@ -508,7 +508,23 @@ function PitchRow({ players, side }: { players: LineupPlayer[]; side: 'home' | '
   );
 }
 
-export function LineupPitch({ home, away }: { home: TeamLineup; away: TeamLineup }) {
+function PitchCrest({ src }: { src: string }) {
+  return (
+    <img
+      src={src}
+      alt=""
+      className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 object-contain"
+      style={{ width: '52%', maxHeight: '70%', opacity: 0.1, filter: 'grayscale(0.2)' }}
+    />
+  );
+}
+
+export function LineupPitch({ home, away, homeFlag, awayFlag }: {
+  home: TeamLineup;
+  away: TeamLineup;
+  homeFlag?: string | null;
+  awayFlag?: string | null;
+}) {
   const homeGroups = splitLines(home.startingXI, home.lines);
   // Away attacks upward → GK nearest the bottom edge.
   const awayGroups = splitLines(away.startingXI, away.lines).reverse();
@@ -523,13 +539,16 @@ export function LineupPitch({ home, away }: { home: TeamLineup; away: TeamLineup
         border: '1px solid rgba(0,0,0,0.35)',
       }}
     >
-      {/* Home half */}
-      <div className="flex flex-1 flex-col justify-evenly py-2">
-        {homeGroups.map((row, i) => <PitchRow key={`h${i}`} players={row} side="home" />)}
+      {/* Home half — faint team crest watermark behind the players */}
+      <div className="relative flex-1">
+        {homeFlag && <PitchCrest src={homeFlag} />}
+        <div className="relative flex h-full flex-col justify-evenly py-2">
+          {homeGroups.map((row, i) => <PitchRow key={`h${i}`} players={row} side="home" />)}
+        </div>
       </div>
 
       {/* Centre line + circle */}
-      <div className="relative h-0" style={{ borderTop: '1px solid rgba(255,255,255,0.28)' }}>
+      <div className="relative h-0 z-10" style={{ borderTop: '1px solid rgba(255,255,255,0.28)' }}>
         <div
           className="absolute left-1/2 top-0 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full"
           style={{ border: '1px solid rgba(255,255,255,0.28)' }}
@@ -537,8 +556,11 @@ export function LineupPitch({ home, away }: { home: TeamLineup; away: TeamLineup
       </div>
 
       {/* Away half */}
-      <div className="flex flex-1 flex-col justify-evenly py-2">
-        {awayGroups.map((row, i) => <PitchRow key={`a${i}`} players={row} side="away" />)}
+      <div className="relative flex-1">
+        {awayFlag && <PitchCrest src={awayFlag} />}
+        <div className="relative flex h-full flex-col justify-evenly py-2">
+          {awayGroups.map((row, i) => <PitchRow key={`a${i}`} players={row} side="away" />)}
+        </div>
       </div>
     </div>
   );
@@ -599,10 +621,12 @@ export function squadToProbableLineup(
   };
 }
 
-export function LineupSection({ lineups, homeName, awayName, probable = false }: {
+export function LineupSection({ lineups, homeName, awayName, homeFlag, awayFlag, probable = false }: {
   lineups: NonNullable<FixtureContext['lineups']>;
   homeName: string;
   awayName: string;
+  homeFlag?: string | null;
+  awayFlag?: string | null;
   probable?: boolean;
 }) {
   const { locale } = useLocale();
@@ -619,7 +643,7 @@ export function LineupSection({ lineups, homeName, awayName, probable = false }:
         {probable && (
           <p className="mb-3 text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>⚠ {L.note}</p>
         )}
-        <LineupPitch home={lineups.home} away={lineups.away} />
+        <LineupPitch home={lineups.home} away={lineups.away} homeFlag={homeFlag} awayFlag={awayFlag} />
       </SectionCard>
 
       {/* Substitutes — labelled per team */}
@@ -1100,10 +1124,14 @@ export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHome
   const homeRuShort = getTeamName(homeTeam.name, homeTeam.shortName, locale, true);
   const awayRuShort = getTeamName(awayTeam.name, awayTeam.shortName, locale, true);
 
+  // Team crests/flags for the pitch watermark, derived from the loaded data.
+  const homeFlag = ctx.homeFormFlash[0]?.homeTeam.logo || ctx.h2hAll[0]?.homeTeam.logo || null;
+  const awayFlag = ctx.awayFormFlash[0]?.homeTeam.logo || ctx.h2hAll[0]?.awayTeam.logo || null;
+
   /* ── Build each section panel ── */
   const lineupsPanel = (() => {
     if (ctx.lineups) {
-      return <LineupSection lineups={ctx.lineups} homeName={homeRuShort} awayName={awayRuShort} />;
+      return <LineupSection lineups={ctx.lineups} homeName={homeRuShort} awayName={awayRuShort} homeFlag={homeFlag} awayFlag={awayFlag} />;
     }
     const homeCoach = getCoach(homeTeam.name, homeTeam.id, ctx.homeCoach, locale);
     const awayCoach = getCoach(awayTeam.name, awayTeam.id, ctx.awayCoach, locale);
@@ -1115,6 +1143,8 @@ export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHome
           lineups={{ home: homeProb, away: awayProb }}
           homeName={homeRuShort}
           awayName={awayRuShort}
+          homeFlag={homeFlag}
+          awayFlag={awayFlag}
           probable
         />
       );
