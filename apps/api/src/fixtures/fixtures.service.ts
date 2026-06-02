@@ -226,11 +226,12 @@ export class FixturesService {
     return detail;
   }
 
-  async findContext(id: number): Promise<Record<string, unknown>> {
-    const cacheKey = `fixtures:context:${id}`;
+  async findContext(id: number, locale = 'en'): Promise<Record<string, unknown>> {
+    const cacheKey = `fixtures:context:${id}:${locale}`;
     const cached = await this.redis.get(cacheKey);
     if (cached) return JSON.parse(cached) as Record<string, unknown>;
-    const memo = this.contextMemo.get(id);
+    const memoKey = id * 10 + (locale === 'ru' ? 1 : 0);
+    const memo = this.contextMemo.get(memoKey);
     if (memo && Date.now() - memo.at < 30 * 60 * 1000) return memo.data;
 
     const homeTeamAlias = alias(schema.teams, 'home_team');
@@ -318,7 +319,7 @@ export class FixturesService {
         wantLive ? this.flashLiveAdapter.getLineups(homeName, awayName, startsAtISO) : Promise.resolve(null),
         wantLive ? this.flashLiveAdapter.getStats(homeName, awayName, startsAtISO) : Promise.resolve(null),
         wantLive ? this.flashLiveAdapter.getSummary(homeName, awayName, startsAtISO) : Promise.resolve(null),
-        this.newsService.getTeamNews([homeName, awayName]),
+        this.newsService.getTeamNews([homeName, awayName], locale),
       ]);
 
     // Find group for each team in standings
@@ -374,7 +375,7 @@ export class FixturesService {
     // Memoise in-process too, but only a healthy payload — don't pin an empty
     // result produced by a transient provider rate-limit.
     if (homeFormFlash.length > 0 && awayFormFlash.length > 0) {
-      this.contextMemo.set(id, { at: Date.now(), data: result });
+      this.contextMemo.set(memoKey, { at: Date.now(), data: result });
     }
     return result;
   }

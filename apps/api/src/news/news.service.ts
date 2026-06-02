@@ -9,23 +9,39 @@ export interface NewsArticle {
   urlToImage: string | null;
 }
 
+
 @Injectable()
 export class NewsService {
   private readonly logger = new Logger(NewsService.name);
 
-  async getTeamNews(teamNames: string[]): Promise<NewsArticle[]> {
-    const query = teamNames
-      .filter(Boolean)
-      .map((n) => `"${n}"`)
-      .join(' OR ');
+  async getTeamNews(teamNames: string[], locale = 'en'): Promise<NewsArticle[]> {
+    if (locale === 'ru') {
+      return this.getTeamNewsRu(teamNames);
+    }
+    return this.getTeamNewsEn(teamNames);
+  }
 
+  private async getTeamNewsEn(teamNames: string[]): Promise<NewsArticle[]> {
+    const query = teamNames.filter(Boolean).map((n) => `"${n}"`).join(' OR ');
     const fullQuery = `${query} (football OR soccer OR injury OR squad OR World Cup 2026)`;
     const url = `https://news.google.com/rss/search?q=${encodeURIComponent(fullQuery)}&hl=en-US&gl=US&ceid=US:en`;
+    return this.fetchRss(url);
+  }
 
+  private async getTeamNewsRu(teamNames: string[]): Promise<NewsArticle[]> {
+    // Google News returns Russian-language articles when locale params are RU,
+    // even with English team names in the query. No need to transliterate.
+    const query = teamNames.filter(Boolean).map((n) => `"${n}"`).join(' OR ');
+    const fullQuery = `${query} (football OR soccer OR World Cup 2026)`;
+    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(fullQuery)}&hl=ru&gl=RU&ceid=RU:ru`;
+    return this.fetchRss(url);
+  }
+
+  private async fetchRss(url: string): Promise<NewsArticle[]> {
     try {
       const res = await fetch(url, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ai-score-bot/1.0)' },
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(8000),
       });
 
       if (!res.ok) {
@@ -34,7 +50,9 @@ export class NewsService {
       }
 
       const xml = await res.text();
-      return this.parseRss(xml).slice(0, 8);
+      const parsed = this.parseRss(xml).slice(0, 8);
+      this.logger.log(`News fetched: ${parsed.length} articles (${url.includes('ceid=RU') ? 'ru' : 'en'})`);
+      return parsed;
     } catch (err) {
       this.logger.error('Google News RSS fetch failed', err instanceof Error ? err.message : String(err));
       return [];

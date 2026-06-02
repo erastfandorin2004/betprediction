@@ -38,7 +38,10 @@ export class FixturesController {
   @Get(':id/context')
   @ApiOperation({ summary: 'Fixture context: squads, form, H2H' })
   @ApiParam({ name: 'id', type: Number })
-  findContext(@Param('id', ParseIntPipe) id: number) {
-    return this.fixturesService.findContext(id);
+  findContext(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('locale') locale?: string,
+  ) {
+    return this.fixturesService.findContext(id, locale);
   }
 }

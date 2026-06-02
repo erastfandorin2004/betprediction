@@ -201,10 +201,10 @@ export const api = {
         revalidate: 60,
         tags: [`fixture-${id}`],
       }),
-    context: (id: number) =>
-      apiFetch<FixtureContext>(`/v1/fixtures/${id}/context`, {
+    context: (id: number, locale = 'en') =>
+      apiFetch<FixtureContext>(`/v1/fixtures/${id}/context?locale=${locale}`, {
         revalidate: 1800,
-        tags: [`fixture-context-${id}`],
+        tags: [`fixture-context-${id}-${locale}`],
       }),
     worldCup: () =>
       apiFetch<WorldCupDay[]>('/v1/fixtures/world-cup', {

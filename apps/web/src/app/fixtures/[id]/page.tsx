@@ -13,6 +13,7 @@ import { ContextDisplay } from './display';
 import { FixtureLabels, FixtureEventsWrapper, TeamBlockClient } from './fixture-labels';
 import { getEspnH2H, getEspnTeamForm } from '@/lib/espn';
 import { getVenue } from '@/lib/venues-wc2026';
+import { cookies } from 'next/headers';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -117,9 +118,12 @@ async function ContextSections({ fixtureId, homeTeam, awayTeam }: {
   homeTeam: { id: number; name: string; shortName: string };
   awayTeam: { id: number; name: string; shortName: string };
 }) {
+  const cookieStore = await cookies();
+  const locale = cookieStore.get('ai-score-locale')?.value === 'ru' ? 'ru' : 'en';
+
   let raw: FixtureContext;
   try {
-    raw = await api.fixtures.context(fixtureId);
+    raw = await api.fixtures.context(fixtureId, locale);
   } catch {
     return null;
   }
