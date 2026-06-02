@@ -12,6 +12,7 @@ import type { FixtureDetail } from '@ai-score/shared';
 import { ContextDisplay } from './display';
 import { FixtureLabels, FixtureEventsWrapper, TeamBlockClient } from './fixture-labels';
 import { getEspnH2H, getEspnTeamForm } from '@/lib/espn';
+import { getVenue } from '@/lib/venues-wc2026';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -33,6 +34,12 @@ export default async function FixturePage({ params }: Props) {
   const isLive = fixture.status === 'live';
   const isFinished = fixture.status === 'finished';
   const hasStarted = isLive || isFinished;
+
+  const staticVenue = getVenue(fixtureId);
+  const venueInfo = fixture.venue ?? (staticVenue ? {
+    name: staticVenue.stadium,
+    city: `${staticVenue.city}, ${staticVenue.country}`,
+  } : null);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 space-y-4">
@@ -76,10 +83,10 @@ export default async function FixturePage({ params }: Props) {
             <Calendar className="h-3.5 w-3.5" />
             {formatDateLabel(fixture.startsAt)}, {formatTime(fixture.startsAt)} <FixtureLabels type="msk" />
           </span>
-          {fixture.venue && (
+          {venueInfo && (
             <span className="flex items-center gap-1.5">
               <MapPin className="h-3.5 w-3.5" />
-              {fixture.venue.name}{fixture.venue.city ? `, ${fixture.venue.city}` : ''}
+              {venueInfo.name}{venueInfo.city ? `, ${venueInfo.city}` : ''}
             </span>
           )}
         </div>
