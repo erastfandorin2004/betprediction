@@ -119,7 +119,8 @@ async function ContextSections({ fixtureId, homeTeam, awayTeam }: {
   awayTeam: { id: number; name: string; shortName: string };
 }) {
   const cookieStore = await cookies();
-  const locale = cookieStore.get('ai-score-locale')?.value === 'ru' ? 'ru' : 'en';
+  // App default is Russian; only switch to EN when the user explicitly chose it.
+  const locale = cookieStore.get('ai-score-locale')?.value === 'en' ? 'en' : 'ru';
 
   let raw: FixtureContext;
   try {

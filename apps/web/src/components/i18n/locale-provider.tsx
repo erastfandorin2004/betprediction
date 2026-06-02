@@ -15,17 +15,29 @@ const LocaleContext = createContext<LocaleContextValue>({
   t: translations.ru,
 });
 
+function writeLocaleCookie(l: Locale) {
+  // 1 year; readable by the server component that fetches localised news
+  document.cookie = `ai-score-locale=${l}; path=/; max-age=31536000; samesite=lax`;
+}
+
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('ru');
 
   useEffect(() => {
     const stored = localStorage.getItem('ai-score-locale') as Locale | null;
-    if (stored === 'ru' || stored === 'en') setLocaleState(stored);
+    if (stored === 'ru' || stored === 'en') {
+      setLocaleState(stored);
+      writeLocaleCookie(stored);
+    } else {
+      // First visit — persist the default so the server (news, etc.) agrees
+      writeLocaleCookie('ru');
+    }
   }, []);
 
   function setLocale(l: Locale) {
     setLocaleState(l);
     localStorage.setItem('ai-score-locale', l);
+    writeLocaleCookie(l);
   }
 
   return (

@@ -22,8 +22,10 @@ export class NewsService {
   }
 
   private async getTeamNewsEn(teamNames: string[]): Promise<NewsArticle[]> {
-    const query = teamNames.filter(Boolean).map((n) => `"${n}"`).join(' OR ');
-    const fullQuery = `${query} (football OR soccer OR injury OR squad OR World Cup 2026)`;
+    // Parenthesise the team group so the football anchor applies to BOTH teams,
+    // otherwise a bare "South Korea" matches esports (LCK), gymnastics, etc.
+    const teams = teamNames.filter(Boolean).map((n) => `"${n}"`).join(' OR ');
+    const fullQuery = `(${teams}) (football OR soccer OR FIFA OR "World Cup") -esports -киберспорт -LoL -Dota`;
     const url = `https://news.google.com/rss/search?q=${encodeURIComponent(fullQuery)}&hl=en-US&gl=US&ceid=US:en`;
     return this.fetchRss(url);
   }
@@ -31,8 +33,8 @@ export class NewsService {
   private async getTeamNewsRu(teamNames: string[]): Promise<NewsArticle[]> {
     // Google News returns Russian-language articles when locale params are RU,
     // even with English team names in the query. No need to transliterate.
-    const query = teamNames.filter(Boolean).map((n) => `"${n}"`).join(' OR ');
-    const fullQuery = `${query} (football OR soccer OR World Cup 2026)`;
+    const teams = teamNames.filter(Boolean).map((n) => `"${n}"`).join(' OR ');
+    const fullQuery = `(${teams}) (football OR soccer OR FIFA OR "World Cup") -esports -киберспорт -LoL -Dota`;
     const url = `https://news.google.com/rss/search?q=${encodeURIComponent(fullQuery)}&hl=ru&gl=RU&ceid=RU:ru`;
     return this.fetchRss(url);
   }
@@ -66,13 +68,27 @@ export class NewsService {
       const block = match[1] ?? '';
 
       const clean = (s: string | null) =>
-        s ? s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/<[^>]+>/g, '').trim() : '';
+        s
+          ? this.decodeEntities(s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1'))
+              .replace(/<[^>]+>/g, '')
+              .replace(/\s+/g, ' ')
+              .trim()
+          : '';
 
-      const title = clean(this.extractTag(block, 'title'));
+      const source = clean(this.extractTag(block, 'source')) || 'Google News';
+
+      let title = clean(this.extractTag(block, 'title'));
+      // Google News appends " - {source}" to every title — drop the duplication.
+      if (source !== 'Google News' && title.endsWith(` - ${source}`)) {
+        title = title.slice(0, -(source.length + 3)).trim();
+      }
+
       const link = this.extractTag(block, 'link') ?? '';
       const pubDate = this.extractTag(block, 'pubDate') ?? '';
-      const source = clean(this.extractTag(block, 'source')) || 'Google News';
-      const description = clean(this.extractTag(block, 'description')) || null;
+
+      // Google News descriptions are just the title repeated as an <a> link +
+      // the source — no real summary. They render as raw markup, so drop them.
+      const description = null;
 
       const imgUrl =
         this.extractAttr(block, 'enclosure', 'url') ??
@@ -88,6 +104,16 @@ export class NewsService {
         urlToImage: imgUrl,
       };
     }).filter((a) => a.title && a.url);
+  }
+
+  private decodeEntities(s: string): string {
+    return s
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&');
   }
 
   private extractTag(xml: string, tag: string): string | null {
