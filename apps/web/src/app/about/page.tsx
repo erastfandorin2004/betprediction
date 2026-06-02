@@ -135,7 +135,11 @@ function FaqItem({ q, a, defaultOpen = false }: { q: string; a: string; defaultO
         />
       </button>
       {open && (
-        <div className="px-5 pb-4 text-sm leading-relaxed" style={{ color: 'rgb(var(--fg-secondary))' }}>{a}</div>
+        <div className="space-y-2.5 px-5 pb-4">
+          {a.split('\n\n').map((para, i) => (
+            <p key={i} className="text-sm leading-relaxed" style={{ color: 'rgb(var(--fg-secondary))' }}>{para}</p>
+          ))}
+        </div>
       )}
     </div>
   );
