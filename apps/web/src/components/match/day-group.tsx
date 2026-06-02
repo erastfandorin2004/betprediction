@@ -17,23 +17,24 @@ export function DayGroup({
 
   return (
     <section>
-      <div className="mb-2 flex items-center gap-2.5 px-0.5">
+      <div className="mb-2.5 flex items-center gap-2 px-1">
         {isToday ? (
           <span
-            className="rounded-full px-3 py-0.5 text-xs font-bold"
-            style={{ background: 'rgb(var(--fg-primary))', color: 'rgb(var(--pitch-950))' }}
+            className="rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide"
+            style={{ background: 'rgb(var(--accent))', color: 'rgb(var(--pitch-950))' }}
           >
             {t.match.today}
           </span>
         ) : (
           <span
-            className="text-sm font-semibold capitalize"
-            style={{ color: 'rgb(var(--fg-secondary))' }}
+            className="text-[11px] font-bold uppercase tracking-[0.08em]"
+            style={{ color: 'rgb(var(--fg-muted))' }}
           >
             {formatDayLabel(date, locale)}
           </span>
         )}
-        <span className="text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
+        <span style={{ color: 'rgb(var(--pitch-600))' }}>·</span>
+        <span className="text-[11px] font-medium" style={{ color: 'rgb(var(--fg-muted))' }}>
           {fixtures.length} {t.match.countSuffix(fixtures.length)}
         </span>
       </div>

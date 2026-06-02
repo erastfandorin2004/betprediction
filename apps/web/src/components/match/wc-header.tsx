@@ -1,22 +1,23 @@
 'use client';
 
+import { Trophy } from 'lucide-react';
 import { useLocale } from '@/components/i18n/locale-provider';
 
 export function WcHeader() {
   const { t } = useLocale();
   return (
-    <div className="mb-8 flex items-center gap-4">
+    <div className="mb-8 flex items-center gap-3.5">
       <div
-        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
-        style={{ background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
+        style={{ background: 'rgb(var(--accent) / 0.12)', border: '1px solid rgb(var(--accent) / 0.25)' }}
       >
-        <span className="text-3xl">🏆</span>
+        <Trophy className="h-5 w-5" style={{ color: 'rgb(var(--accent))' }} />
       </div>
       <div>
-        <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'rgb(var(--fg-primary))' }}>
+        <h1 className="text-[1.7rem] font-bold leading-none tracking-tight" style={{ color: 'rgb(var(--fg-primary))' }}>
           FIFA World Cup 2026
         </h1>
-        <p className="text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>
+        <p className="mt-1.5 text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>
           {t.wc.subtitle}
         </p>
       </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Lock, TrendingUp } from 'lucide-react';
+import { Lock, TrendingUp, Bot } from 'lucide-react';
 import type { PredictionDetail } from '@ai-score/shared';
 import { cn } from '@/lib/utils';
 import { formatPct } from '@/lib/format';
@@ -26,7 +26,7 @@ export function PredictionCard({ prediction }: PredictionCardProps) {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-pitch-800 px-5 py-3">
         <div className="flex items-center gap-2">
-          <span className="text-base">🤖</span>
+          <Bot className="h-4 w-4" style={{ color: 'rgb(var(--accent))' }} />
           <span className="text-sm font-semibold text-zinc-300">{t.prediction.title}</span>
         </div>
         {prediction.modelConsensus && (
@@ -140,7 +140,7 @@ function LockedCard({ confidence, stars }: { confidence: number; stars: number }
     <div className="card-surface overflow-hidden">
       <div className="flex items-center justify-between border-b border-pitch-800 px-5 py-3">
         <div className="flex items-center gap-2">
-          <span>🤖</span>
+          <Bot className="h-4 w-4" style={{ color: 'rgb(var(--accent))' }} />
           <span className="text-sm font-semibold text-zinc-300">{t.prediction.title}</span>
         </div>
         <Badge variant="value">Pro</Badge>

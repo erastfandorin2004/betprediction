@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Bot } from 'lucide-react';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { getTeamName } from '@/lib/team-names-ru';
 import { Badge } from '@/components/ui/badge';
@@ -48,9 +48,12 @@ export function FixtureLabels({ type, hasStarted, home, away }: Props) {
 
   if (type === 'no-prediction') {
     return (
-      <div className="rounded-2xl p-5 text-center" style={{ background: 'rgb(var(--pitch-900))', border: '1px solid rgb(var(--pitch-700))' }}>
-        <p className="text-sm font-semibold" style={{ color: 'rgb(var(--fg-secondary))' }}>🤖 {t.prediction.title}</p>
-        <p className="mt-2 text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
+      <div className="flex flex-col items-center rounded-2xl px-5 py-6 text-center" style={{ background: 'rgb(var(--pitch-900))', border: '1px solid rgb(var(--pitch-700))' }}>
+        <div className="mb-2.5 flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: 'rgb(var(--accent) / 0.12)' }}>
+          <Bot className="h-5 w-5" style={{ color: 'rgb(var(--accent))' }} />
+        </div>
+        <p className="text-sm font-semibold" style={{ color: 'rgb(var(--fg-secondary))' }}>{t.prediction.title}</p>
+        <p className="mt-1 max-w-xs text-xs leading-relaxed" style={{ color: 'rgb(var(--fg-muted))' }}>
           {hasStarted ? t.prediction.noPredict : t.prediction.noPredictWorker}
         </p>
       </div>
