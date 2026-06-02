@@ -65,20 +65,48 @@ export default function AboutPage() {
         <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed" style={{ color: 'rgb(var(--fg-secondary))' }}>{L.bannerText}</p>
       </section>
 
-      {/* What is AI-Score */}
+      {/* What is AI-Score + FAQ — unified accordion list */}
       <section className="mt-14">
-        <h2 className="text-2xl font-bold sm:text-3xl" style={{ color: 'rgb(var(--fg-primary))' }}>{L.aboutTitle}</h2>
-        <div className="mt-5 space-y-4">
-          {L.aboutParagraphs.map((p, i) => (
+        <h2 className="text-center text-2xl font-bold sm:text-3xl" style={{ color: 'rgb(var(--fg-primary))' }}>{L.faqTitle}</h2>
+        <div className="mt-6 space-y-3">
+          {/* About block as first accordion item, open by default */}
+          <AboutItem title={L.aboutTitle} paragraphs={L.aboutParagraphs} />
+          {L.faq.map((item, i) => (
+            <FaqItem key={i} q={item.q} a={item.a} defaultOpen={false} />
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AboutItem({ title, paragraphs }: { title: string; paragraphs: readonly string[] }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="overflow-hidden rounded-2xl" style={{ background: 'rgb(var(--pitch-900))', border: '1px solid rgb(var(--pitch-700))' }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
+      >
+        <span className="text-sm font-semibold sm:text-base" style={{ color: 'rgb(var(--fg-card))' }}>{title}</span>
+        <ChevronDown
+          className={cn('h-5 w-5 shrink-0 transition-transform', open && 'rotate-180')}
+          style={{ color: 'rgb(var(--fg-muted))' }}
+        />
+      </button>
+      {open && (
+        <div className="space-y-3 px-5 pb-5">
+          {paragraphs.map((p, i) => (
             <p
               key={i}
               className={cn(
-                'text-base leading-relaxed',
-                i === L.aboutParagraphs.length - 1 && 'rounded-2xl p-4',
+                'text-sm leading-relaxed',
+                i === paragraphs.length - 1 && 'mt-1 rounded-xl px-3 py-2.5',
               )}
               style={
-                i === L.aboutParagraphs.length - 1
-                  ? { color: 'rgb(var(--fg-muted))', background: 'rgb(var(--pitch-900))', border: '1px solid rgb(var(--pitch-700))' }
+                i === paragraphs.length - 1
+                  ? { color: 'rgb(var(--fg-muted))', background: 'rgb(var(--pitch-800))' }
                   : { color: 'rgb(var(--fg-secondary))' }
               }
             >
@@ -86,17 +114,7 @@ export default function AboutPage() {
             </p>
           ))}
         </div>
-      </section>
-
-      {/* FAQ */}
-      <section className="mt-14">
-        <h2 className="text-center text-2xl font-bold sm:text-3xl" style={{ color: 'rgb(var(--fg-primary))' }}>{L.faqTitle}</h2>
-        <div className="mt-6 space-y-3">
-          {L.faq.map((item, i) => (
-            <FaqItem key={i} q={item.q} a={item.a} defaultOpen={i === 0} />
-          ))}
-        </div>
-      </section>
+      )}
     </div>
   );
 }
