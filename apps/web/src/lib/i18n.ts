@@ -44,6 +44,13 @@ export const translations = {
       ],
       bannerTitle: 'Чемпионат мира 2026 уже на сайте!',
       bannerText: 'Расписание, составы, H2H и AI-прогнозы на все матчи ЧМ. 11 июня — 19 июля · США, Канада, Мексика.',
+      aboutTitle: 'Что такое AI-Score',
+      aboutParagraphs: [
+        'AI-Score — это интеллектуальный аналитический сервис для футбольных матчей, который объединяет live-статистику, данные по командам и AI-прогнозы в одном месте.',
+        'Наши прогнозы формируются не одним алгоритмом, а ансамблем нейросетей, которые анализируют форму команд, результаты прошлых матчей, текущую динамику игры, статистические показатели и другие важные факторы. Такой подход помогает получить более глубокий и объективный взгляд на матч — до игры и в режиме live.',
+        'AI-Score создан для тех, кто хочет принимать более осознанные решения на основе данных, а не только интуиции. Мы показываем аналитику, вероятности и прогнозные сценарии, чтобы пользователь мог быстрее понять, как может развиваться матч.',
+        'AI-Score не является букмекером, не принимает ставки и не даёт финансовых советов. Сервис предоставляет только аналитическую информацию, статистику и AI-прогнозы.',
+      ],
       faqTitle: 'Частые вопросы',
       faq: [
         { q: 'Что такое AI-Score?', a: 'AI-Score — аналитический сервис: live-матчи, статистика и AI-прогнозы от ансамбля нейросетей с публичным трек-рекордом точности. AI-Score не является букмекером и не даёт финансовых советов.' },
@@ -212,6 +219,13 @@ export const translations = {
       ],
       bannerTitle: 'World Cup 2026 is live!',
       bannerText: 'Schedule, lineups, H2H and AI predictions for every World Cup match. Jun 11 – Jul 19 · USA, Canada, Mexico.',
+      aboutTitle: 'What is AI-Score',
+      aboutParagraphs: [
+        'AI-Score is an intelligent analytics service for football matches that brings live statistics, team data and AI predictions together in one place.',
+        'Our predictions are formed not by a single algorithm but by an ensemble of neural networks that analyze team form, past results, in-game momentum, statistical indicators and other important factors. This approach delivers a deeper and more objective view of a match — both before kickoff and live.',
+        'AI-Score is built for those who want to make more informed, data-driven decisions rather than relying on intuition alone. We surface analytics, probabilities and predictive scenarios so you can quickly understand how a match might unfold.',
+        'AI-Score is not a bookmaker, does not accept bets and does not provide financial advice. The service offers only analytical information, statistics and AI predictions.',
+      ],
       faqTitle: 'Frequently Asked Questions',
       faq: [
         { q: 'What is AI-Score?', a: 'AI-Score is an analytics service: live matches, statistics and AI predictions from an ensemble of LLMs with a public accuracy track record. AI-Score is not a bookmaker and does not provide financial advice.' },

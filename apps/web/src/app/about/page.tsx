@@ -65,6 +65,29 @@ export default function AboutPage() {
         <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed" style={{ color: 'rgb(var(--fg-secondary))' }}>{L.bannerText}</p>
       </section>
 
+      {/* What is AI-Score */}
+      <section className="mt-14">
+        <h2 className="text-2xl font-bold sm:text-3xl" style={{ color: 'rgb(var(--fg-primary))' }}>{L.aboutTitle}</h2>
+        <div className="mt-5 space-y-4">
+          {L.aboutParagraphs.map((p, i) => (
+            <p
+              key={i}
+              className={cn(
+                'text-base leading-relaxed',
+                i === L.aboutParagraphs.length - 1 && 'rounded-2xl p-4',
+              )}
+              style={
+                i === L.aboutParagraphs.length - 1
+                  ? { color: 'rgb(var(--fg-muted))', background: 'rgb(var(--pitch-900))', border: '1px solid rgb(var(--pitch-700))' }
+                  : { color: 'rgb(var(--fg-secondary))' }
+              }
+            >
+              {p}
+            </p>
+          ))}
+        </div>
+      </section>
+
       {/* FAQ */}
       <section className="mt-14">
         <h2 className="text-center text-2xl font-bold sm:text-3xl" style={{ color: 'rgb(var(--fg-primary))' }}>{L.faqTitle}</h2>
