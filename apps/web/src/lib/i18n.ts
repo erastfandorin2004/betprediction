@@ -53,7 +53,6 @@ export const translations = {
       ],
       faqTitle: 'Частые вопросы',
       faq: [
-        { q: 'Что такое AI-Score?', a: 'AI-Score — аналитический сервис: live-матчи, статистика и AI-прогнозы от ансамбля нейросетей с публичным трек-рекордом точности. AI-Score не является букмекером и не даёт финансовых советов.' },
         { q: 'Какие AI-модели используются?', a: 'Ведущие LLM: ChatGPT, Claude, Gemini, DeepSeek. Каждая модель анализирует матч независимо, а итог — их совместный консенсус.' },
         { q: 'Как формируются прогнозы?', a: 'Сервис собирает данные матча (форма, H2H, составы, статистика) и передаёт их ансамблю нейросетей за 1–2 часа до старта. Прогноз фиксируется и больше не меняется.' },
         { q: 'Это ставки или финансовый совет?', a: 'Нет. Сервис носит информационный характер и не гарантирует результат. 18+. Играй ответственно.' },
@@ -228,7 +227,6 @@ export const translations = {
       ],
       faqTitle: 'Frequently Asked Questions',
       faq: [
-        { q: 'What is AI-Score?', a: 'AI-Score is an analytics service: live matches, statistics and AI predictions from an ensemble of LLMs with a public accuracy track record. AI-Score is not a bookmaker and does not provide financial advice.' },
         { q: 'Which AI models are used?', a: 'Leading LLMs: ChatGPT, Claude, Gemini, DeepSeek. Each model analyzes a match independently, and the result is their combined consensus.' },
         { q: 'How are predictions made?', a: 'The service collects match data (form, H2H, lineups, statistics) and feeds it to the LLM ensemble 1–2 hours before kickoff. The prediction is then locked and never changed.' },
         { q: 'Is this betting or financial advice?', a: 'No. The service is for informational purposes only and does not guarantee results. 18+. Bet responsibly.' },
