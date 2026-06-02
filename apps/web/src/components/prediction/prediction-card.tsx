@@ -1,9 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Lock, TrendingUp, Bot } from 'lucide-react';
+import { Lock, TrendingUp, Bot, Sparkles } from 'lucide-react';
 import type { PredictionDetail } from '@ai-score/shared';
-import { cn } from '@/lib/utils';
 import { formatPct } from '@/lib/format';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { StarRating } from '@/components/ui/star-rating';
@@ -14,6 +13,26 @@ interface PredictionCardProps {
   prediction: PredictionDetail;
 }
 
+const CARD = {
+  background: 'rgb(var(--pitch-900))',
+  border: '1px solid rgb(var(--pitch-700))',
+} as const;
+
+function CardHeader({ right }: { right?: React.ReactNode }) {
+  const { t } = useLocale();
+  return (
+    <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid rgb(var(--pitch-700))' }}>
+      <div className="flex items-center gap-2">
+        <span className="flex h-6 w-6 items-center justify-center rounded-lg" style={{ background: 'rgb(var(--accent) / 0.14)' }}>
+          <Bot className="h-3.5 w-3.5" style={{ color: 'rgb(var(--accent))' }} />
+        </span>
+        <span className="text-sm font-semibold" style={{ color: 'rgb(var(--fg-card))' }}>{t.prediction.title}</span>
+      </div>
+      {right}
+    </div>
+  );
+}
+
 export function PredictionCard({ prediction }: PredictionCardProps) {
   const { t } = useLocale();
 
@@ -22,21 +41,16 @@ export function PredictionCard({ prediction }: PredictionCardProps) {
   }
 
   return (
-    <div className="card-surface overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-pitch-800 px-5 py-3">
-        <div className="flex items-center gap-2">
-          <Bot className="h-4 w-4" style={{ color: 'rgb(var(--accent))' }} />
-          <span className="text-sm font-semibold text-zinc-300">{t.prediction.title}</span>
-        </div>
-        {prediction.modelConsensus && (
-          <span className="text-xs text-zinc-600">
+    <div className="overflow-hidden rounded-2xl shadow-sm" style={CARD}>
+      <CardHeader
+        right={prediction.modelConsensus && (
+          <span className="text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
             {prediction.modelConsensus.totalModels} {t.prediction.models}
           </span>
         )}
-      </div>
+      />
 
-      <div className="px-5 py-5 space-y-5">
+      <div className="space-y-5 px-5 py-5">
         <RecommendationBlock prediction={prediction} />
         <MarketBars markets={prediction.markets} />
         {prediction.modelConsensus && <ConsensusBlock consensus={prediction.modelConsensus} />}
@@ -48,7 +62,7 @@ export function PredictionCard({ prediction }: PredictionCardProps) {
         )}
       </div>
 
-      <div className="border-t border-pitch-800 px-5 py-2.5 text-center text-xs text-zinc-700">
+      <div className="px-5 py-2.5 text-center text-[11px]" style={{ borderTop: '1px solid rgb(var(--pitch-700))', color: 'rgb(var(--fg-muted))' }}>
         {t.prediction.disclaimer}
       </div>
     </div>
@@ -60,17 +74,17 @@ function RecommendationBlock({ prediction }: { prediction: PredictionDetail }) {
   const label = t.prediction.outcomes[prediction.recommendedOutcome] ?? prediction.recommendedOutcome;
 
   return (
-    <div className="rounded-xl bg-electric-500/10 border border-electric-700/30 px-4 py-3.5">
-      <p className="text-xs font-medium uppercase tracking-wide text-electric-600">{t.prediction.recommendation}</p>
-      <div className="mt-1.5 flex items-center justify-between">
-        <p className="text-lg font-bold text-electric-300">{label}</p>
-        <span className="tabular text-2xl font-black text-electric-400">
+    <div className="rounded-xl px-4 py-3.5" style={{ background: 'rgb(var(--accent) / 0.1)', border: '1px solid rgb(var(--accent) / 0.25)' }}>
+      <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'rgb(var(--accent))' }}>{t.prediction.recommendation}</p>
+      <div className="mt-1.5 flex items-center justify-between gap-3">
+        <p className="text-lg font-bold" style={{ color: 'rgb(var(--fg-primary))' }}>{label}</p>
+        <span className="tabular text-2xl font-black" style={{ color: 'rgb(var(--accent))' }}>
           {formatPct(prediction.probability)}
         </span>
       </div>
       <div className="mt-2 flex items-center gap-3">
         <StarRating stars={prediction.stars} />
-        <span className="text-xs text-zinc-600">
+        <span className="text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
           {t.prediction.confidence}: {Math.round(prediction.confidence * 100)}%
         </span>
       </div>
@@ -82,19 +96,19 @@ function ConsensusBlock({ consensus }: { consensus: PredictionDetail['modelConse
   const { t } = useLocale();
   if (!consensus) return null;
 
-  const meterColor = { high: 'bg-goal-500', medium: 'bg-value-500', low: 'bg-loss-500' }[consensus.level];
+  const tone = { high: '#22c55e', medium: '#f59e0b', low: '#ef4444' }[consensus.level];
   const pct = Math.round(consensus.agreement * 100);
 
   return (
-    <div className="rounded-lg bg-pitch-800 px-4 py-3">
-      <div className="flex items-center justify-between text-xs text-zinc-500">
+    <div className="rounded-xl px-4 py-3" style={{ background: 'rgb(var(--pitch-800))' }}>
+      <div className="flex items-center justify-between text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
         <span>{t.prediction.consensus}</span>
-        <span className={cn('font-semibold', { high: 'text-goal-400', medium: 'text-value-400', low: 'text-loss-400' }[consensus.level])}>{pct}%</span>
+        <span className="font-semibold" style={{ color: tone }}>{pct}%</span>
       </div>
-      <div className="mt-2 h-1 overflow-hidden rounded-full bg-pitch-700">
-        <div className={cn('h-full rounded-full transition-all', meterColor)} style={{ width: `${pct}%` }} />
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full" style={{ background: 'rgb(var(--pitch-700))' }}>
+        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: tone }} />
       </div>
-      <p className="mt-2 text-xs text-zinc-500">{consensus.summary}</p>
+      <p className="mt-2 text-xs leading-relaxed" style={{ color: 'rgb(var(--fg-muted))' }}>{consensus.summary}</p>
     </div>
   );
 }
@@ -103,12 +117,12 @@ function ValueBlock({ edge, impliedProb, probability }: { edge: number; impliedP
   const { t } = useLocale();
   const edgePct = Math.round(edge * 100);
   return (
-    <div className="flex items-center gap-3 rounded-lg bg-value-500/10 border border-value-700/30 px-4 py-3">
-      <TrendingUp className="h-4 w-4 shrink-0 text-value-400" />
+    <div className="flex items-center gap-3 rounded-xl px-4 py-3" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.28)' }}>
+      <TrendingUp className="h-4 w-4 shrink-0" style={{ color: '#f59e0b' }} />
       <div>
-        <p className="text-xs font-semibold text-value-400">VALUE +{edgePct}%</p>
+        <p className="text-xs font-bold" style={{ color: '#f59e0b' }}>VALUE +{edgePct}%</p>
         {impliedProb !== null && (
-          <p className="mt-0.5 text-xs text-zinc-600">
+          <p className="mt-0.5 text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
             AI: {formatPct(probability)} · {t.prediction.market}: {formatPct(impliedProb)} → {t.prediction.edge} {edgePct}%
           </p>
         )}
@@ -121,12 +135,12 @@ function RationaleBlock({ rationale, keyFactors }: { rationale: string; keyFacto
   const { t } = useLocale();
   return (
     <div className="space-y-2.5">
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-600">{t.prediction.rationale}</p>
-      <p className="text-sm leading-relaxed text-zinc-400">{rationale}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted))' }}>{t.prediction.rationale}</p>
+      <p className="text-sm leading-relaxed" style={{ color: 'rgb(var(--fg-secondary))' }}>{rationale}</p>
       {keyFactors?.length ? (
         <div className="flex flex-wrap gap-1.5 pt-1">
           {keyFactors.map((f) => (
-            <span key={f} className="rounded-full bg-pitch-800 px-2.5 py-0.5 text-xs text-zinc-500">{f}</span>
+            <span key={f} className="rounded-full px-2.5 py-0.5 text-xs" style={{ background: 'rgb(var(--pitch-800))', color: 'rgb(var(--fg-secondary))' }}>{f}</span>
           ))}
         </div>
       ) : null}
@@ -137,21 +151,22 @@ function RationaleBlock({ rationale, keyFactors }: { rationale: string; keyFacto
 function LockedCard({ confidence, stars }: { confidence: number; stars: number }) {
   const { t } = useLocale();
   return (
-    <div className="card-surface overflow-hidden">
-      <div className="flex items-center justify-between border-b border-pitch-800 px-5 py-3">
-        <div className="flex items-center gap-2">
-          <Bot className="h-4 w-4" style={{ color: 'rgb(var(--accent))' }} />
-          <span className="text-sm font-semibold text-zinc-300">{t.prediction.title}</span>
+    <div className="overflow-hidden rounded-2xl shadow-sm" style={CARD}>
+      <CardHeader right={<Badge variant="value">Pro</Badge>} />
+      <div className="px-5 py-7 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: 'rgb(var(--pitch-800))' }}>
+          <Lock className="h-5 w-5" style={{ color: 'rgb(var(--fg-muted))' }} />
         </div>
-        <Badge variant="value">Pro</Badge>
-      </div>
-      <div className="px-5 py-6 text-center">
-        <Lock className="mx-auto h-8 w-8 text-zinc-700" />
-        <p className="mt-3 text-sm font-medium text-zinc-400">{t.prediction.locked}</p>
-        <StarRating stars={stars as 1 | 2 | 3 | 4 | 5} />
-        <p className="mt-1 text-xs text-zinc-600">{t.prediction.confidence} {Math.round(confidence * 100)}%</p>
-        <p className="mt-3 text-xs text-zinc-600">{t.prediction.lockedDesc}</p>
-        <Link href="/register" className="mt-4 inline-block rounded-xl bg-electric-600 px-6 py-2 text-sm font-semibold text-white hover:bg-electric-500">
+        <p className="mt-3 text-sm font-semibold" style={{ color: 'rgb(var(--fg-secondary))' }}>{t.prediction.locked}</p>
+        <div className="mt-1.5 flex justify-center"><StarRating stars={stars as 1 | 2 | 3 | 4 | 5} /></div>
+        <p className="mt-1 text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>{t.prediction.confidence} {Math.round(confidence * 100)}%</p>
+        <p className="mx-auto mt-3 max-w-xs text-xs leading-relaxed" style={{ color: 'rgb(var(--fg-muted))' }}>{t.prediction.lockedDesc}</p>
+        <Link
+          href="/register"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-full px-6 py-2 text-sm font-semibold transition-transform hover:scale-[1.03]"
+          style={{ background: 'linear-gradient(90deg, rgb(var(--accent)), #c46a2c)', color: '#04140a' }}
+        >
+          <Sparkles className="h-4 w-4" />
           {t.prediction.tryFree}
         </Link>
       </div>

@@ -3,10 +3,11 @@
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Goal } from 'lucide-react';
 import { useAuth } from '@/components/auth/auth-provider';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { login } from '@/lib/auth';
-import { cn } from '@/lib/utils';
+import { AuthLogo, Field, authInputCls, authButtonCls } from '@/components/auth/auth-form-bits';
 
 export default function LoginPage() {
   const { signIn } = useAuth();
@@ -34,18 +35,19 @@ export default function LoginPage() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-16">
-      <div className="mb-8 text-center">
-        <p className="text-2xl font-bold">⚡ AI-Score</p>
-        <h1 className="mt-2 text-xl font-semibold text-zinc-200">{t.auth.signInTitle}</h1>
-      </div>
+      <AuthLogo icon={<Goal className="h-5 w-5" />} title={t.auth.signInTitle} />
 
-      <form onSubmit={(e) => { void handleSubmit(e); }} className="card-surface space-y-4 p-6">
+      <form
+        onSubmit={(e) => { void handleSubmit(e); }}
+        className="space-y-4 rounded-2xl p-6 shadow-sm"
+        style={{ background: 'rgb(var(--pitch-900))', border: '1px solid rgb(var(--pitch-700))' }}
+      >
         <Field label="Email">
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className={inputCls}
+            className={authInputCls}
             placeholder="you@example.com"
             required
             autoFocus
@@ -57,46 +59,27 @@ export default function LoginPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className={inputCls}
+            className={authInputCls}
             placeholder="••••••••"
             required
           />
         </Field>
 
         {error && (
-          <p className="rounded-lg bg-loss-500/10 px-3 py-2 text-sm text-loss-400">{error}</p>
+          <p className="rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171' }}>{error}</p>
         )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className={cn(
-            'w-full rounded-xl bg-electric-600 py-2.5 text-sm font-semibold text-white transition-all',
-            'hover:bg-electric-500 disabled:cursor-not-allowed disabled:opacity-50',
-          )}
-        >
+        <button type="submit" disabled={loading} className={authButtonCls}>
           {loading ? t.auth.signingIn : t.auth.signInBtn}
         </button>
 
-        <p className="text-center text-sm text-zinc-500">
+        <p className="text-center text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>
           {t.auth.noAccount}{' '}
-          <Link href="/register" className="text-electric-400 hover:text-electric-300">
+          <Link href="/register" className="font-semibold transition-opacity hover:opacity-80" style={{ color: 'rgb(var(--accent))' }}>
             {t.auth.createBtn}
           </Link>
         </p>
       </form>
-    </div>
-  );
-}
-
-const inputCls =
-  'w-full rounded-lg border border-pitch-700 bg-pitch-800 px-3 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-electric-600 focus:ring-1 focus:ring-electric-600/30 transition-colors';
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <label className="text-xs font-medium text-zinc-400">{label}</label>
-      {children}
     </div>
   );
 }
