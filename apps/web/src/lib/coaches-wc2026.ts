@@ -51,7 +51,7 @@ export const COACHES_BY_TEAM_ID: Record<number, { en: string; ru: string }> = {
 };
 
 /** Fallback lookup by English team name */
-const COACHES_BY_NAME: Record<string, { en: string; ru: string }> = {
+const COACHES_BY_NAME: Record<string, { en: string; ru: string } | undefined> = {
   'Uruguay':            COACHES_BY_TEAM_ID[758],
   'Germany':            COACHES_BY_TEAM_ID[759],
   'Spain':              COACHES_BY_TEAM_ID[760],

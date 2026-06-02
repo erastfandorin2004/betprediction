@@ -425,7 +425,7 @@ function transliterateWord(word: string): string {
   // Обрабатываем диграфы сначала
   for (const [re, ru] of TRANSLIT) {
     result = result.replace(re, (m) =>
-      m[0] === m[0].toUpperCase() ? ru[0].toUpperCase() + ru.slice(1) : ru,
+      m.charAt(0) === m.charAt(0).toUpperCase() ? ru.charAt(0).toUpperCase() + ru.slice(1) : ru,
     );
     if (!/[a-zA-ZÀ-ž]/.test(result)) break;
   }
@@ -433,7 +433,7 @@ function transliterateWord(word: string): string {
   result = result.normalize('NFD').replace(/[̀-ͯ]/g, '');
   for (const [re, ru] of TRANSLIT.slice(TRANSLIT.findIndex(([r]) => r.source === 'a'))) {
     result = result.replace(re, (m) =>
-      m[0] === m[0].toUpperCase() ? ru[0].toUpperCase() + ru.slice(1) : ru,
+      m.charAt(0) === m.charAt(0).toUpperCase() ? ru.charAt(0).toUpperCase() + ru.slice(1) : ru,
     );
   }
   return result;

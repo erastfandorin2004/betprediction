@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Swords } from 'lucide-react';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { getTeamName } from '@/lib/team-names-ru';
 import { getPlayerNameRu } from '@/lib/player-names-ru';
@@ -85,6 +85,23 @@ export function GroupTable({ rows, highlightTeamId }: { rows: StandingRow[]; hig
         ))}
       </tbody>
     </table>
+  );
+}
+
+/* ── Empty state: teams have never met ── */
+function NeverMet({ locale }: { locale: string }) {
+  return (
+    <div className="flex flex-col items-center py-6 text-center">
+      <span className="flex h-11 w-11 items-center justify-center rounded-2xl" style={{ background: 'rgb(var(--pitch-800))' }}>
+        <Swords className="h-5 w-5" style={{ color: 'rgb(var(--fg-muted))' }} />
+      </span>
+      <p className="mt-3 text-sm font-medium" style={{ color: 'rgb(var(--fg-secondary))' }}>
+        {locale === 'ru' ? 'Команды ещё не встречались' : 'These teams have never met'}
+      </p>
+      <p className="mt-1 text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
+        {locale === 'ru' ? 'Истории очных матчей пока нет' : 'No head-to-head history yet'}
+      </p>
+    </div>
   );
 }
 
@@ -934,9 +951,7 @@ export function H2HSection({ ctx, homeTeam, awayTeam, espnH2h = [] }: {
   if (!hasInternalH2h && !hasEspnH2h && ctx.h2hWc.length === 0) {
     return (
       <SectionCard title={t.fixture.h2h}>
-        <p className="text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>
-          {locale === 'ru' ? 'Команды ещё не встречались' : 'These teams have never met'}
-        </p>
+        <NeverMet locale={locale} />
       </SectionCard>
     );
   }
@@ -1103,11 +1118,7 @@ export function MatchH2HForm({ ctx, homeTeam, awayTeam, espnH2h = [], espnHomeFo
       </div>
     );
   } else {
-    h2hContent = (
-      <p className="text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>
-        {locale === 'ru' ? 'Команды ещё не встречались' : 'These teams have never met'}
-      </p>
-    );
+    h2hContent = <NeverMet locale={locale} />;
   }
 
   const homeForm = ctx.homeFormFlash.length > 0
@@ -1129,7 +1140,7 @@ export function MatchH2HForm({ ctx, homeTeam, awayTeam, espnH2h = [], espnHomeFo
               key={p.id}
               type="button"
               onClick={() => setSub(p.id)}
-              className="flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors"
+              className="flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 outline-none active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--accent))]"
               style={active
                 ? { background: ACCENT_SOFT, color: ACCENT, boxShadow: `inset 0 0 0 1px ${ACCENT_RING}` }
                 : { background: 'rgb(var(--pitch-800))', color: 'rgb(var(--fg-muted))' }}
@@ -1266,7 +1277,7 @@ export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHome
               key={tb.id}
               type="button"
               onClick={() => setActiveTab(tb.id)}
-              className="shrink-0 rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors"
+              className="shrink-0 rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-all duration-150 outline-none active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--accent))]"
               style={isActive
                 ? { background: ACCENT_SOFT, color: ACCENT, boxShadow: `inset 0 0 0 1px ${ACCENT_RING}` }
                 : { color: 'rgb(var(--fg-muted))' }}
