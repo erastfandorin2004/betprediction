@@ -26,6 +26,27 @@ interface AggMarket {
   isLocked: boolean;
 }
 
+export interface ParsedModelResult {
+  modelId: string;
+  parsed: LlmResponse | null;
+  error: string | null;
+}
+
+// Парсит ответ каждой модели, сохраняя привязку к modelId (для пер-модельного разбора).
+export function parseResults(results: ModelCallResult[]): ParsedModelResult[] {
+  return results.map((r) => {
+    if (r.error) return { modelId: r.modelId, parsed: null, error: r.error };
+    try {
+      const json = JSON.parse(extractJson(r.content)) as unknown;
+      const parsed = llmPredictionResponseSchema.parse(json);
+      return { modelId: r.modelId, parsed, error: null };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message.slice(0, 200) : 'parse error';
+      return { modelId: r.modelId, parsed: null, error: msg };
+    }
+  });
+}
+
 export function parseAndValidate(results: ModelCallResult[]): {
   valid: LlmResponse[];
   meta: { modelId: string; valid: boolean; error: string | null }[];
@@ -33,19 +54,12 @@ export function parseAndValidate(results: ModelCallResult[]): {
   const valid: LlmResponse[] = [];
   const meta: { modelId: string; valid: boolean; error: string | null }[] = [];
 
-  for (const r of results) {
-    if (r.error) {
-      meta.push({ modelId: r.modelId, valid: false, error: r.error });
-      continue;
-    }
-    try {
-      const json = JSON.parse(extractJson(r.content)) as unknown;
-      const parsed = llmPredictionResponseSchema.parse(json);
-      valid.push(parsed);
+  for (const r of parseResults(results)) {
+    if (r.parsed) {
+      valid.push(r.parsed);
       meta.push({ modelId: r.modelId, valid: true, error: null });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message.slice(0, 200) : 'parse error';
-      meta.push({ modelId: r.modelId, valid: false, error: msg });
+    } else {
+      meta.push({ modelId: r.modelId, valid: false, error: r.error });
     }
   }
 

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { StarRating } from '@/components/ui/star-rating';
-import type { TrackRecordStats, BacktestSummary, BacktestPick } from '@ai-score/shared';
+import type { TrackRecordStats, BacktestSummary, BacktestPick, BacktestModelView } from '@ai-score/shared';
 
 const CARD = {
   background: 'rgb(var(--pitch-900))',
@@ -371,7 +371,21 @@ function PickRow({ pick }: { pick: BacktestPick }) {
             </div>
           )}
           {pick.consensus && (
-            <p className="text-xs" style={{ color: 'rgb(var(--accent))' }}>{pick.consensus}</p>
+            <p className="text-xs" style={{ color: 'rgb(var(--accent))' }}>
+              <span className="font-semibold">{bt.consensusLabel}: </span>{pick.consensus}
+            </p>
+          )}
+          {pick.models && pick.models.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted))' }}>
+                {bt.modelForecasts}
+              </p>
+              <div className="space-y-1.5">
+                {pick.models.map((m, i) => (
+                  <ModelForecast key={i} model={m} ownLabel={bt.ownPick} agreedLabel={bt.agreed} noResponseLabel={bt.noResponse} />
+                ))}
+              </div>
+            </div>
           )}
           {pick.keyFactors && pick.keyFactors.length > 0 && (
             <div>
@@ -402,6 +416,53 @@ function PickRow({ pick }: { pick: BacktestPick }) {
             </div>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+function ModelForecast({
+  model,
+  ownLabel,
+  agreedLabel,
+  noResponseLabel,
+}: {
+  model: BacktestModelView;
+  ownLabel: string;
+  agreedLabel: string;
+  noResponseLabel: string;
+}) {
+  return (
+    <div className="rounded-lg px-2.5 py-2" style={{ background: 'rgb(var(--pitch-900))' }}>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="text-xs font-semibold" style={{ color: 'rgb(var(--fg-card))' }}>{model.modelId}</span>
+        {model.error ? (
+          <span className="text-[11px]" style={{ color: NEGATIVE }}>· {noResponseLabel}</span>
+        ) : (
+          <>
+            {model.probability != null && (
+              <span className="tabular text-[11px] font-medium" style={{ color: 'rgb(var(--fg-secondary))' }}>
+                {Math.round(model.probability * 100)}%
+              </span>
+            )}
+            {model.ownOutcomeLabel && (
+              <span className="text-[11px]" style={{ color: 'rgb(var(--fg-muted))' }}>
+                {ownLabel}: {model.ownOutcomeLabel}
+              </span>
+            )}
+            {model.agreed && (
+              <span
+                className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                style={{ background: 'rgb(var(--accent) / 0.16)', color: 'rgb(var(--accent))' }}
+              >
+                ✓ {agreedLabel}
+              </span>
+            )}
+          </>
+        )}
+      </div>
+      {model.rationale && (
+        <p className="mt-1 text-[11px] leading-snug" style={{ color: 'rgb(var(--fg-muted))' }}>{model.rationale}</p>
       )}
     </div>
   );

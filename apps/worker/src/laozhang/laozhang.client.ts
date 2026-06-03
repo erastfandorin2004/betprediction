@@ -109,7 +109,7 @@ export class LaozhangClient {
         model,
         messages,
         response_format: { type: 'json_object' },
-        max_tokens: 1400,
+        max_tokens: 2000,
         temperature: 0.3,
       }),
     );

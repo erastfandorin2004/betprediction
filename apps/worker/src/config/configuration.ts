@@ -17,7 +17,7 @@ export default () => ({
     models: process.env['LAOZHANG_MODELS'] ?? [
       'gpt-4o',
       'claude-sonnet-4-6',
-      'gemini-2.5-flash',
+      'gemini-2.5-flash-nothinking',
       'deepseek-v3',
     ].join(','),
   },

@@ -84,6 +84,18 @@ export interface TrackRecordStats {
 // ─── Backtest (spec §9) ─────────────────────────────────────────────────────
 export type BacktestResult = 'won' | 'lost' | 'push' | 'skip';
 
+// Прогноз одной модели ансамбля по конкретному матчу.
+export interface BacktestModelView {
+  modelId: string;
+  probability: number | null;   // вероятность выбранного исхода по этой модели
+  ownMarket: string | null;     // рынок, который рекомендовала сама модель
+  ownOutcomeLabel: string | null;
+  confidence: number | null;
+  agreed: boolean;              // согласна ли модель с итоговым выбором
+  rationale: string | null;
+  error: string | null;         // если модель не ответила/ответ не распознан
+}
+
 export interface BacktestPick {
   match: string;
   league: string;
@@ -102,6 +114,7 @@ export interface BacktestPick {
   rationale: string | null;
   keyFactors: string[] | null;
   consensus: string | null;
+  models: BacktestModelView[] | null;
 }
 
 export interface BacktestSegmentStats {

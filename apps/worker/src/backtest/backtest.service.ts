@@ -5,6 +5,7 @@ import * as schema from '@ai-score/db';
 import { VALUE_EDGE_THRESHOLD } from '@ai-score/shared';
 import type {
   BacktestPick,
+  BacktestModelView,
   BacktestSegmentStats,
   BacktestSummary,
 } from '@ai-score/shared';
@@ -16,7 +17,11 @@ import {
   formatOddsBlock,
   type MatchContext,
 } from '../predictions/prediction.prompts';
-import { parseAndValidate, type LlmResponse } from '../predictions/prediction.aggregator';
+import {
+  parseResults,
+  type LlmResponse,
+  type ParsedModelResult,
+} from '../predictions/prediction.aggregator';
 import {
   BACKTEST_MATCHES,
   BACKTEST_LABEL,
@@ -50,7 +55,7 @@ const MARKET_SPECS: MarketSpec[] = [
   { market: 'O_U_3_5', oddsKey: 'under_3_5', modelOutcome: 'under', label: 'Тотал меньше 3.5', settle: (h, a) => h + a < 3.5 },
 ];
 
-const DEFAULT_MODELS = ['gpt-4o', 'claude-sonnet-4-6', 'gemini-2.5-flash', 'deepseek-v3'];
+const DEFAULT_MODELS = ['gpt-4o', 'claude-sonnet-4-6', 'gemini-2.5-flash-nothinking', 'deepseek-v3'];
 
 interface Candidate {
   spec: MarketSpec;
@@ -158,14 +163,15 @@ export class BacktestService {
     ];
 
     const results = await client.fanOut(models, messages);
-    const { valid } = parseAndValidate(results);
+    const perModel = parseResults(results);
+    const valid = perModel.filter((p) => p.parsed).map((p) => p.parsed!);
 
     const { homeGoals, awayGoals } = match.actual;
     const actualResult = `${homeGoals}:${awayGoals}`;
 
     if (!valid.length) {
       this.logger.warn(`All models failed for ${match.id}`);
-      return skipPick(match, actualResult, null, '', []);
+      return skipPick(match, actualResult, null, '', [], buildModelViews(perModel, null));
     }
 
     const best = pickBestValue(valid, match.odds);
@@ -173,7 +179,7 @@ export class BacktestService {
     const keyFactors = mergeKeyFactors(valid);
 
     if (!best || best.edge < VALUE_EDGE_THRESHOLD) {
-      return skipPick(match, actualResult, best, rationale, keyFactors);
+      return skipPick(match, actualResult, best, rationale, keyFactors, buildModelViews(perModel, best?.spec ?? null));
     }
 
     const won = best.spec.settle(homeGoals, awayGoals);
@@ -198,6 +204,7 @@ export class BacktestService {
       rationale,
       keyFactors,
       consensus: `${agreeing} из ${valid.length} моделей за «${best.spec.label}», value +${(best.edge * 100).toFixed(1)}%`,
+      models: buildModelViews(perModel, best.spec),
     };
   }
 
@@ -331,6 +338,7 @@ function skipPick(
   best: Candidate | null,
   rationale: string,
   keyFactors: string[],
+  models: BacktestModelView[],
 ): BacktestPick {
   const thresholdPct = (VALUE_EDGE_THRESHOLD * 100).toFixed(0);
   const reason = best
@@ -357,7 +365,56 @@ function skipPick(
     rationale: best ? `${reason}\n\n${rationale}`.trim() : reason,
     keyFactors,
     consensus: null,
+    models,
   };
+}
+
+// Прогноз каждой модели по выбранному рынку: её вероятность нужного исхода,
+// собственный выбор модели, согласие с итогом и индивидуальное обоснование.
+function buildModelViews(perModel: ParsedModelResult[], spec: MarketSpec | null): BacktestModelView[] {
+  return perModel.map((pm) => {
+    if (!pm.parsed) {
+      return {
+        modelId: pm.modelId,
+        probability: null,
+        ownMarket: null,
+        ownOutcomeLabel: null,
+        confidence: null,
+        agreed: false,
+        rationale: null,
+        error: pm.error,
+      };
+    }
+    const r = pm.parsed;
+    let probability: number | null = null;
+    let agreed = false;
+    if (spec) {
+      const mkt = r.markets.find((m) => m.market === spec.market);
+      const out = mkt?.outcomes.find((o) => o.outcome === spec.modelOutcome);
+      if (out) {
+        probability = round(out.probability);
+        const maxProb = Math.max(...mkt!.outcomes.map((o) => o.probability));
+        agreed = out.probability >= maxProb - 1e-9;
+      }
+    }
+    return {
+      modelId: pm.modelId,
+      probability,
+      ownMarket: r.recommendedMarket,
+      ownOutcomeLabel: labelFor(r.recommendedMarket, r.recommendedOutcome),
+      confidence: round(r.confidence),
+      agreed,
+      rationale: r.rationale ?? null,
+      error: null,
+    };
+  });
+}
+
+// Человекочитаемая подпись для пары (рынок, исход), которую рекомендовала модель.
+function labelFor(market: string, outcome: string): string {
+  const spec = MARKET_SPECS.find((s) => s.market === market && s.modelOutcome === outcome);
+  if (spec) return spec.label;
+  return `${market} · ${outcome}`;
 }
 
 function pickRationale(responses: LlmResponse[]): string {

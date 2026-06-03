@@ -170,6 +170,11 @@ export const translations = {
         keyFactors: 'Ключевые факторы',
         reasoning: 'Обоснование',
         detailsHint: 'нажми для обоснования',
+        modelForecasts: 'Прогнозы моделей',
+        ownPick: 'выбор',
+        agreed: 'за итог',
+        noResponse: 'нет ответа',
+        consensusLabel: 'Объединённый итог',
         empty: 'Бэктест ещё не запускался',
         emptyHint:
           'Запусти: pnpm --filter worker run backtest (нужен LAOZHANG_API_KEY)',
@@ -384,6 +389,11 @@ export const translations = {
         keyFactors: 'Key factors',
         reasoning: 'Reasoning',
         detailsHint: 'tap for reasoning',
+        modelForecasts: 'Model forecasts',
+        ownPick: 'pick',
+        agreed: 'agrees',
+        noResponse: 'no response',
+        consensusLabel: 'Merged result',
         empty: 'Backtest has not been run yet',
         emptyHint:
           'Run: pnpm --filter worker run backtest (needs LAOZHANG_API_KEY)',

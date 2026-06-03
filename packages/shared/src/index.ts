@@ -33,6 +33,7 @@ export type {
   AccuracyStats,
   TrackRecordStats,
   BacktestResult,
+  BacktestModelView,
   BacktestPick,
   BacktestSegmentStats,
   BacktestSummary,
