@@ -32,6 +32,10 @@ export type {
   PredictionDetail,
   AccuracyStats,
   TrackRecordStats,
+  BacktestResult,
+  BacktestPick,
+  BacktestSegmentStats,
+  BacktestSummary,
 } from './types/prediction';
 
 export type {

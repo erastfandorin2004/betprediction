@@ -4,6 +4,7 @@ import type {
   League,
   PaginationMeta,
   TrackRecordStats,
+  BacktestSummary,
 } from '@ai-score/shared';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
@@ -220,7 +221,11 @@ export const api = {
   },
   trackRecord: {
     get: () =>
-      apiFetch<TrackRecordStats>('/v1/track-record', { revalidate: 300 }),
+      apiFetch<TrackRecordStats>('/v1/predictions/track-record', { revalidate: 300 }),
+  },
+  backtest: {
+    get: () =>
+      apiFetch<BacktestSummary | null>('/v1/predictions/backtest', { revalidate: 300 }),
   },
 } as const;
 

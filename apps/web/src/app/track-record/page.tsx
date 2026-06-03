@@ -1,16 +1,20 @@
 import { api } from '@/lib/api-client';
-import type { TrackRecordStats } from '@ai-score/shared';
+import type { TrackRecordStats, BacktestSummary } from '@ai-score/shared';
 import { TrackRecordContent } from './track-record-content';
 
 export const metadata = { title: 'Track Record | AI-Score' };
 
 export default async function TrackRecordPage() {
   let stats: TrackRecordStats | null = null;
+  let backtest: BacktestSummary | null = null;
   try {
-    stats = await api.trackRecord.get();
+    [stats, backtest] = await Promise.all([
+      api.trackRecord.get().catch(() => null),
+      api.backtest.get().catch(() => null),
+    ]);
   } catch {
     // API unavailable
   }
 
-  return <TrackRecordContent stats={stats} />;
+  return <TrackRecordContent stats={stats} backtest={backtest} />;
 }

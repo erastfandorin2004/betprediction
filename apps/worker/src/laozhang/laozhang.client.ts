@@ -1,33 +1,37 @@
-export interface ORouterMessage {
+// OpenAI-compatible client for the laozhang (老张) API aggregator.
+// Docs: https://docs.laozhang.ai — base https://api.laozhang.ai/v1, Bearer auth.
+// Used as the single LLM provider for the prediction ensemble (replaces OpenRouter).
+
+export interface LlmMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
-export interface ORouterRequest {
+export interface LlmRequest {
   model: string;
-  messages: ORouterMessage[];
+  messages: LlmMessage[];
   response_format?: { type: 'json_object' };
   max_tokens?: number;
   temperature?: number;
 }
 
-interface ORouterChoice {
+interface ChatChoice {
   index: number;
   message: { role: string; content: string };
   finish_reason: string;
 }
 
-interface ORouterUsage {
+interface ChatUsage {
   prompt_tokens: number;
   completion_tokens: number;
   total_tokens: number;
 }
 
-interface ORouterResponse {
+interface ChatResponse {
   id: string;
   model: string;
-  choices: ORouterChoice[];
-  usage?: ORouterUsage;
+  choices: ChatChoice[];
+  usage?: ChatUsage;
 }
 
 export interface ModelCallResult {
@@ -38,21 +42,24 @@ export interface ModelCallResult {
   error: string | null;
 }
 
-export class OpenRouterClient {
-  private static readonly BASE_URL = 'https://openrouter.ai/api/v1/chat/completions';
+export class LaozhangClient {
+  private readonly endpoint: string;
 
   constructor(
     private readonly apiKey: string,
-    private readonly timeoutMs = 30_000,
-  ) {}
+    baseUrl = 'https://api.laozhang.ai/v1',
+    private readonly timeoutMs = 60_000,
+  ) {
+    this.endpoint = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
+  }
 
-  async complete(request: ORouterRequest): Promise<ModelCallResult> {
+  async complete(request: LlmRequest): Promise<ModelCallResult> {
     const start = Date.now();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
 
     try {
-      const res = await fetch(OpenRouterClient.BASE_URL, {
+      const res = await fetch(this.endpoint, {
         method: 'POST',
         signal: controller.signal,
         headers: {
@@ -77,7 +84,7 @@ export class OpenRouterClient {
         };
       }
 
-      const data = (await res.json()) as ORouterResponse;
+      const data = (await res.json()) as ChatResponse;
       const content = data.choices[0]?.message.content ?? '';
       const tokens = data.usage?.total_tokens ?? 0;
 
@@ -95,14 +102,14 @@ export class OpenRouterClient {
     }
   }
 
-  // Fan-out to multiple models in parallel
-  async fanOut(models: string[], messages: ORouterMessage[]): Promise<ModelCallResult[]> {
+  // Fan-out to multiple models in parallel — each is an independent prediction.
+  async fanOut(models: string[], messages: LlmMessage[]): Promise<ModelCallResult[]> {
     const requests = models.map((model) =>
       this.complete({
         model,
         messages,
         response_format: { type: 'json_object' },
-        max_tokens: 600,
+        max_tokens: 1400,
         temperature: 0.3,
       }),
     );

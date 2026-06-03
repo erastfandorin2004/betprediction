@@ -80,3 +80,54 @@ export interface TrackRecordStats {
   roiSimulation: { flatStake: number; roi: number; totalBets: number };
   updatedAt: string;
 }
+
+// ─── Backtest (spec §9) ─────────────────────────────────────────────────────
+export type BacktestResult = 'won' | 'lost' | 'push' | 'skip';
+
+export interface BacktestPick {
+  match: string;
+  league: string;
+  date: string;
+  recommended: boolean;
+  market: string | null;
+  outcome: string | null;
+  outcomeLabel: string | null;
+  modelProbability: number | null;
+  impliedProbability: number | null;
+  valueEdge: number | null;
+  odds: number | null;
+  stars: number | null;
+  result: BacktestResult;
+  actualResult: string;
+  rationale: string | null;
+  consensus: string | null;
+}
+
+export interface BacktestSegmentStats {
+  key: string;
+  bets: number;
+  won: number;
+  lost: number;
+  profit: number;
+  roi: number;
+}
+
+export interface BacktestSummary {
+  label: string;
+  models: string[];
+  totalMatches: number;
+  recommended: number;
+  skipped: number;
+  won: number;
+  lost: number;
+  pushed: number;
+  avgOdds: number;
+  staked: number;
+  profit: number;
+  roi: number;
+  hitRate: number;
+  byMarket: BacktestSegmentStats[];
+  byLeague: BacktestSegmentStats[];
+  picks: BacktestPick[];
+  createdAt: string;
+}

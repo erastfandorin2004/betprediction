@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { ModelConsensus } from '@ai-score/shared';
 import { llmPredictionResponseSchema } from '@ai-score/shared';
-import type { ModelCallResult } from '../openrouter/openrouter.client';
+import type { ModelCallResult } from '../laozhang/laozhang.client';
 
 export type LlmResponse = z.infer<typeof llmPredictionResponseSchema>;
 type LlmMarket = LlmResponse['markets'][number];
@@ -39,7 +39,7 @@ export function parseAndValidate(results: ModelCallResult[]): {
       continue;
     }
     try {
-      const json = JSON.parse(r.content) as unknown;
+      const json = JSON.parse(extractJson(r.content)) as unknown;
       const parsed = llmPredictionResponseSchema.parse(json);
       valid.push(parsed);
       meta.push({ modelId: r.modelId, valid: true, error: null });
@@ -50,6 +50,19 @@ export function parseAndValidate(results: ModelCallResult[]): {
   }
 
   return { valid, meta };
+}
+
+// Some models (Claude, DeepSeek via the proxy) wrap JSON in ```json fences or add
+// prose despite response_format. Strip fences and fall back to the outermost {…}.
+function extractJson(raw: string): string {
+  let s = raw.trim();
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) s = fence[1]!.trim();
+  if (s.startsWith('{') && s.endsWith('}')) return s;
+  const first = s.indexOf('{');
+  const last = s.lastIndexOf('}');
+  if (first !== -1 && last > first) return s.slice(first, last + 1);
+  return s;
 }
 
 export function aggregate(

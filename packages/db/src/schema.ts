@@ -117,6 +117,30 @@ export const predictions = pgTable(
   ],
 );
 
+// Backtest runs: replaying the value-bet logic over a fixed sample of finished
+// matches to measure ROI / hit-rate before trusting it live (spec §9). Each row
+// is one full run; `picks` holds the per-match detail, `summary` the aggregates.
+export const backtests = pgTable('backtests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  label: varchar('label', { length: 120 }).notNull().default(''),
+  models: jsonb('models').notNull().$type<string[]>(),
+  totalMatches: integer('total_matches').notNull(),
+  recommended: integer('recommended').notNull(),
+  skipped: integer('skipped').notNull(),
+  won: integer('won').notNull(),
+  lost: integer('lost').notNull(),
+  pushed: integer('pushed').notNull().default(0),
+  avgOdds: real('avg_odds').notNull().default(0),
+  staked: real('staked').notNull().default(0),
+  profit: real('profit').notNull().default(0),
+  roi: real('roi').notNull().default(0),
+  hitRate: real('hit_rate').notNull().default(0),
+  byMarket: jsonb('by_market').notNull().$type<unknown>(),
+  byLeague: jsonb('by_league').notNull().$type<unknown>(),
+  picks: jsonb('picks').notNull().$type<unknown[]>(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: varchar('email', { length: 255 }).notNull().unique(),

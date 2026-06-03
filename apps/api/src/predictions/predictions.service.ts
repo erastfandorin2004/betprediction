@@ -10,6 +10,9 @@ import type {
   PredictionStatus,
   TrackRecordStats,
   AccuracyStats,
+  BacktestSummary,
+  BacktestSegmentStats,
+  BacktestPick,
 } from '@ai-score/shared';
 
 type PredictionRow = typeof schema.predictions.$inferSelect;
@@ -97,6 +100,37 @@ export class PredictionsService {
         roiSimulation: { flatStake: 1, roi: 0, totalBets: total },
         updatedAt: new Date().toISOString(),
       };
+    });
+  }
+
+  // Latest backtest run (value-bet logic replayed over the control sample, spec §9).
+  async getBacktest(): Promise<BacktestSummary | null> {
+    return this.redis.getOrSet('predictions:backtest', 600, async () => {
+      const [row] = await this.db.db
+        .select()
+        .from(schema.backtests)
+        .orderBy(desc(schema.backtests.createdAt))
+        .limit(1);
+      if (!row) return null;
+      return {
+        label: row.label,
+        models: row.models,
+        totalMatches: row.totalMatches,
+        recommended: row.recommended,
+        skipped: row.skipped,
+        won: row.won,
+        lost: row.lost,
+        pushed: row.pushed,
+        avgOdds: row.avgOdds,
+        staked: row.staked,
+        profit: row.profit,
+        roi: row.roi,
+        hitRate: row.hitRate,
+        byMarket: row.byMarket as BacktestSegmentStats[],
+        byLeague: row.byLeague as BacktestSegmentStats[],
+        picks: row.picks as BacktestPick[],
+        createdAt: row.createdAt.toISOString(),
+      } satisfies BacktestSummary;
     });
   }
 

@@ -6,6 +6,7 @@
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node dist/main",
+    "backtest": "nest build && node dist/backtest/run-backtest",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

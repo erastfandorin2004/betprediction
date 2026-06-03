@@ -9,13 +9,16 @@ export default () => ({
   footballData: {
     apiKey: process.env['FOOTBALL_DATA_API_KEY'] ?? '',
   },
-  openrouter: {
-    apiKey: process.env['OPENROUTER_API_KEY'] ?? '',
-    models: process.env['OPENROUTER_MODELS'] ?? [
-      'openai/gpt-4o-mini',
-      'anthropic/claude-3.5-haiku',
-      'google/gemini-flash-1.5',
-      'deepseek/deepseek-chat',
+  // laozhang (老张) — OpenAI-compatible aggregator, single LLM provider for the
+  // multi-model prediction ensemble. https://docs.laozhang.ai
+  laozhang: {
+    apiKey: process.env['LAOZHANG_API_KEY'] ?? '',
+    baseUrl: process.env['LAOZHANG_BASE_URL'] ?? 'https://api.laozhang.ai/v1',
+    models: process.env['LAOZHANG_MODELS'] ?? [
+      'gpt-4o',
+      'claude-sonnet-4-6',
+      'gemini-2.5-flash',
+      'deepseek-v3',
     ].join(','),
   },
 });

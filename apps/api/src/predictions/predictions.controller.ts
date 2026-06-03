@@ -24,4 +24,10 @@ export class PredictionsController {
   getTrackRecord() {
     return this.predictionsService.getTrackRecord();
   }
+
+  @Get('backtest')
+  @ApiOperation({ summary: 'Latest backtest run of the value-bet logic over the control sample' })
+  getBacktest() {
+    return this.predictionsService.getBacktest();
+  }
 }

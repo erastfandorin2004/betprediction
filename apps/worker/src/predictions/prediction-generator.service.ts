@@ -4,23 +4,21 @@ import { ConfigService } from '@nestjs/config';
 import { and, eq, gte, lte, isNull } from 'drizzle-orm';
 import * as schema from '@ai-score/db';
 import { DatabaseService } from '../database/database.service';
-import { OpenRouterClient } from '../openrouter/openrouter.client';
+import { LaozhangClient } from '../laozhang/laozhang.client';
 import { buildSystemPrompt, buildUserPrompt, type MatchContext } from './prediction.prompts';
 import { parseAndValidate, aggregate } from './prediction.aggregator';
 
 const DEFAULT_MODELS = [
-  'openai/gpt-4o-mini',
-  'anthropic/claude-3.5-haiku',
-  'google/gemini-flash-1.5',
-  'deepseek/deepseek-chat',
-  'meta-llama/llama-3.1-70b-instruct',
-  'mistralai/mistral-nemo',
+  'gpt-4o',
+  'claude-sonnet-4-6',
+  'gemini-2.5-flash',
+  'deepseek-v3',
 ];
 
 @Injectable()
 export class PredictionGeneratorService implements OnModuleInit {
   private readonly logger = new Logger(PredictionGeneratorService.name);
-  private client!: OpenRouterClient;
+  private client!: LaozhangClient;
   private models: string[] = [];
 
   constructor(
@@ -29,14 +27,15 @@ export class PredictionGeneratorService implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    const apiKey = this.config.get<string>('openrouter.apiKey') ?? '';
-    this.client = new OpenRouterClient(apiKey, 35_000);
+    const apiKey = this.config.get<string>('laozhang.apiKey') ?? '';
+    const baseUrl = this.config.get<string>('laozhang.baseUrl');
+    this.client = new LaozhangClient(apiKey, baseUrl, 60_000);
     this.models = (
-      this.config.get<string>('openrouter.models') ?? DEFAULT_MODELS.join(',')
+      this.config.get<string>('laozhang.models') ?? DEFAULT_MODELS.join(',')
     ).split(',').map((m) => m.trim()).filter(Boolean);
 
     if (!apiKey) {
-      this.logger.warn('OPENROUTER_API_KEY not set — prediction generation disabled');
+      this.logger.warn('LAOZHANG_API_KEY not set — prediction generation disabled');
     } else {
       this.logger.log(`Prediction engine ready with ${this.models.length} models`);
       setImmediate(() => void this.generatePendingPredictions());
@@ -45,7 +44,7 @@ export class PredictionGeneratorService implements OnModuleInit {
 
   @Cron('0 * * * *') // every hour
   async generatePendingPredictions(): Promise<void> {
-    const apiKey = this.config.get<string>('openrouter.apiKey');
+    const apiKey = this.config.get<string>('laozhang.apiKey');
     if (!apiKey) return;
 
     const now = new Date();

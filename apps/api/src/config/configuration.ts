@@ -28,8 +28,9 @@ export default () => {
     footballData: {
       apiKey: process.env['FOOTBALL_DATA_API_KEY'] ?? '',
     },
-    openrouter: {
-      apiKey: process.env['OPENROUTER_API_KEY'] ?? '',
+    laozhang: {
+      apiKey: process.env['LAOZHANG_API_KEY'] ?? '',
+      baseUrl: process.env['LAOZHANG_BASE_URL'] ?? 'https://api.laozhang.ai/v1',
     },
     newsApi: {
       apiKey: process.env['NEWS_API_KEY'] ?? '',
