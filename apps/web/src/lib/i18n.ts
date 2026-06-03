@@ -175,6 +175,7 @@ export const translations = {
         agreed: 'за итог',
         noResponse: 'нет ответа',
         consensusLabel: 'Объединённый итог',
+        summaryLabel: 'Общее мнение всех моделей',
         empty: 'Бэктест ещё не запускался',
         emptyHint:
           'Запусти: pnpm --filter worker run backtest (нужен LAOZHANG_API_KEY)',
@@ -394,6 +395,7 @@ export const translations = {
         agreed: 'agrees',
         noResponse: 'no response',
         consensusLabel: 'Merged result',
+        summaryLabel: 'Combined opinion of all models',
         empty: 'Backtest has not been run yet',
         emptyHint:
           'Run: pnpm --filter worker run backtest (needs LAOZHANG_API_KEY)',

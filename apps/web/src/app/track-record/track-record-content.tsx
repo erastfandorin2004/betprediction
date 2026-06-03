@@ -303,7 +303,9 @@ function PickRow({ pick }: { pick: BacktestPick }) {
   const resultColor =
     pick.result === 'won' ? POSITIVE : pick.result === 'lost' ? NEGATIVE : 'rgb(var(--fg-muted))';
   const ResultIcon = pick.result === 'won' ? CheckCircle2 : pick.result === 'lost' ? XCircle : MinusCircle;
-  const hasDetails = Boolean(pick.rationale || pick.consensus || (pick.keyFactors && pick.keyFactors.length));
+  const hasDetails = Boolean(
+    pick.summary || pick.rationale || pick.consensus || (pick.keyFactors && pick.keyFactors.length),
+  );
 
   return (
     <div className="rounded-xl" style={{ background: 'rgb(var(--pitch-800))' }}>
@@ -358,6 +360,18 @@ function PickRow({ pick }: { pick: BacktestPick }) {
 
       {open && hasDetails && (
         <div className="space-y-3 border-t px-3.5 py-3" style={{ borderColor: 'rgb(var(--pitch-700))' }}>
+          {/* Общее мнение всех моделей (синтез консенсуса) */}
+          {pick.summary && (
+            <div
+              className="rounded-lg p-3"
+              style={{ background: 'rgb(var(--accent) / 0.10)', border: '1px solid rgb(var(--accent) / 0.25)' }}
+            >
+              <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'rgb(var(--accent))' }}>
+                <Sparkles className="h-3.5 w-3.5" /> {bt.summaryLabel}
+              </p>
+              <p className="text-xs leading-relaxed" style={{ color: 'rgb(var(--fg-card))' }}>{pick.summary}</p>
+            </div>
+          )}
           {/* Вероятность модели vs букмекера */}
           {pick.modelProbability != null && pick.impliedProbability != null && (
             <div className="grid grid-cols-3 gap-2">

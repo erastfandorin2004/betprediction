@@ -114,6 +114,7 @@ export interface BacktestPick {
   rationale: string | null;
   keyFactors: string[] | null;
   consensus: string | null;
+  summary: string | null;       // синтез мнений всех моделей (общий вывод)
   models: BacktestModelView[] | null;
 }
 

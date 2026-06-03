@@ -171,20 +171,28 @@ export class BacktestService {
 
     if (!valid.length) {
       this.logger.warn(`All models failed for ${match.id}`);
-      return skipPick(match, actualResult, null, '', [], buildModelViews(perModel, null));
+      return skipPick(match, actualResult, null, '', [], buildModelViews(perModel, null), null);
     }
 
     const best = pickBestValue(valid, match.odds);
     const rationale = pickRationale(valid);
     const keyFactors = mergeKeyFactors(valid);
+    const modelViews = buildModelViews(perModel, best?.spec ?? null);
 
     if (!best || best.edge < VALUE_EDGE_THRESHOLD) {
-      return skipPick(match, actualResult, best, rationale, keyFactors, buildModelViews(perModel, best?.spec ?? null));
+      const decision = best
+        ? `Итог: ПРОПУСК — лучший рынок «${best.spec.label}» даёт преимущество всего +${(best.edge * 100).toFixed(1)}% (ниже порога).`
+        : 'Итог: ПРОПУСК — ни по одному рынку нет преимущества над линией букмекера.';
+      const summary = await this.synthesize(client, models[0]!, match, modelViews, decision);
+      return skipPick(match, actualResult, best, rationale, keyFactors, modelViews, summary);
     }
 
     const won = best.spec.settle(homeGoals, awayGoals);
     const stars = toStars(0.4 + best.agreement * 0.35 + Math.min(best.edge, 0.2) / 0.2 * 0.25);
     const agreeing = Math.round(best.agreement * valid.length);
+    const decision = `Итог: СТАВКА на «${best.spec.label}» @ ${best.odds.toFixed(2)} ` +
+      `(вероятность модели ${(best.modelProb * 100).toFixed(0)}% против ${(best.impliedProb * 100).toFixed(0)}% у букмекера, value +${(best.edge * 100).toFixed(1)}%).`;
+    const summary = await this.synthesize(client, models[0]!, match, modelViews, decision);
 
     return {
       match: `${match.home} — ${match.away}`,
@@ -204,8 +212,50 @@ export class BacktestService {
       rationale,
       keyFactors,
       consensus: `${agreeing} из ${valid.length} моделей за «${best.spec.label}», value +${(best.edge * 100).toFixed(1)}%`,
-      models: buildModelViews(perModel, best.spec),
+      summary,
+      models: modelViews,
     };
+  }
+
+  // Синтез: одна модель получает прогнозы ВСЕХ моделей и итоговое решение и
+  // формулирует общий вывод — где модели согласны, где расходятся и почему такой итог.
+  private async synthesize(
+    client: LaozhangClient,
+    model: string,
+    match: BacktestMatch,
+    views: BacktestModelView[],
+    decision: string,
+  ): Promise<string | null> {
+    const opinions = views
+      .filter((v) => !v.error)
+      .map((v) => {
+        const prob = v.probability != null ? `, оценка по итоговому исходу ${Math.round(v.probability * 100)}%` : '';
+        const conf = v.confidence != null ? `, уверенность ${Math.round(v.confidence * 100)}%` : '';
+        return `- ${v.modelId}: выбирает «${v.ownOutcomeLabel ?? '—'}»${conf}${prob}. ${v.rationale ?? ''}`.trim();
+      })
+      .join('\n');
+    if (!opinions) return null;
+
+    const messages = [
+      {
+        role: 'system' as const,
+        content:
+          'Ты — главный аналитик, объединяющий мнения нескольких независимых AI-моделей в один консенсус. ' +
+          'Верни ТОЛЬКО связный текст на русском (3–4 предложения), без JSON и markdown.',
+      },
+      {
+        role: 'user' as const,
+        content:
+          `Матч: ${match.home} — ${match.away} (${match.league}).\n\n` +
+          `Прогнозы моделей:\n${opinions}\n\n${decision}\n\n` +
+          'Сформулируй ОБЩЕЕ мнение всех моделей: в чём они согласны, в чём расходятся, ' +
+          'насколько единодушен консенсус и почему итоговое решение именно такое.',
+      },
+    ];
+
+    const res = await client.complete({ model, messages, max_tokens: 450, temperature: 0.3 });
+    if (res.error || !res.content.trim()) return null;
+    return res.content.trim().slice(0, 700);
   }
 
   private async persist(s: BacktestSummary): Promise<void> {
@@ -339,6 +389,7 @@ function skipPick(
   rationale: string,
   keyFactors: string[],
   models: BacktestModelView[],
+  summary: string | null,
 ): BacktestPick {
   const thresholdPct = (VALUE_EDGE_THRESHOLD * 100).toFixed(0);
   const reason = best
@@ -365,6 +416,7 @@ function skipPick(
     rationale: best ? `${reason}\n\n${rationale}`.trim() : reason,
     keyFactors,
     consensus: null,
+    summary,
     models,
   };
 }
