@@ -165,12 +165,15 @@ export class BacktestService {
 
     if (!valid.length) {
       this.logger.warn(`All models failed for ${match.id}`);
-      return skipPick(match, actualResult);
+      return skipPick(match, actualResult, null, '', []);
     }
 
     const best = pickBestValue(valid, match.odds);
+    const rationale = pickRationale(valid);
+    const keyFactors = mergeKeyFactors(valid);
+
     if (!best || best.edge < VALUE_EDGE_THRESHOLD) {
-      return skipPick(match, actualResult);
+      return skipPick(match, actualResult, best, rationale, keyFactors);
     }
 
     const won = best.spec.settle(homeGoals, awayGoals);
@@ -192,7 +195,8 @@ export class BacktestService {
       stars,
       result: won ? 'won' : 'lost',
       actualResult,
-      rationale: pickRationale(valid),
+      rationale,
+      keyFactors,
       consensus: `${agreeing} из ${valid.length} моделей за «${best.spec.label}», value +${(best.edge * 100).toFixed(1)}%`,
     };
   }
@@ -319,23 +323,39 @@ function segment(picks: BacktestPick[], keyFn: (p: BacktestPick) => string): Bac
     .sort((a, b) => b.bets - a.bets);
 }
 
-function skipPick(match: BacktestMatch, actualResult: string): BacktestPick {
+// Пропуск: фиксируем ЛУЧШИЙ рассмотренный рынок и почему он не дотянул до порога
+// value — чтобы на сайте было видно обоснование отказа, а не просто «нет value».
+function skipPick(
+  match: BacktestMatch,
+  actualResult: string,
+  best: Candidate | null,
+  rationale: string,
+  keyFactors: string[],
+): BacktestPick {
+  const thresholdPct = (VALUE_EDGE_THRESHOLD * 100).toFixed(0);
+  const reason = best
+    ? `Лучший рассмотренный рынок — «${best.spec.label}» @ ${best.odds.toFixed(2)}: вероятность модели ` +
+      `${(best.modelProb * 100).toFixed(0)}% против ${(best.impliedProb * 100).toFixed(0)}% у букмекера, ` +
+      `преимущество всего +${(best.edge * 100).toFixed(1)}% (< порога ${thresholdPct}%). Ставка пропущена.`
+    : 'Ни по одному рынку нет преимущества над линией букмекера — ставка пропущена.';
+
   return {
     match: `${match.home} — ${match.away}`,
     league: match.league,
     date: match.date,
     recommended: false,
-    market: null,
-    outcome: null,
-    outcomeLabel: null,
-    modelProbability: null,
-    impliedProbability: null,
-    valueEdge: null,
-    odds: null,
+    market: best?.spec.market ?? null,
+    outcome: best?.spec.modelOutcome ?? null,
+    outcomeLabel: best?.spec.label ?? null,
+    modelProbability: best ? round(best.modelProb) : null,
+    impliedProbability: best ? round(best.impliedProb) : null,
+    valueEdge: best ? round(best.edge) : null,
+    odds: best?.odds ?? null,
     stars: null,
     result: 'skip',
     actualResult,
-    rationale: 'Нет рынка с математическим преимуществом — ставка пропущена.',
+    rationale: best ? `${reason}\n\n${rationale}`.trim() : reason,
+    keyFactors,
     consensus: null,
   };
 }
@@ -345,6 +365,10 @@ function pickRationale(responses: LlmResponse[]): string {
     .map((r) => r.rationale ?? '')
     .filter((s) => s.length > 20)
     .sort((a, b) => b.length - a.length)[0] ?? '';
+}
+
+function mergeKeyFactors(responses: LlmResponse[]): string[] {
+  return [...new Set(responses.flatMap((r) => r.keyFactors ?? []).filter(Boolean))].slice(0, 5);
 }
 
 function toStars(confidence: number): 1 | 2 | 3 | 4 | 5 {

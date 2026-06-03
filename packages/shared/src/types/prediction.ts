@@ -100,6 +100,7 @@ export interface BacktestPick {
   result: BacktestResult;
   actualResult: string;
   rationale: string | null;
+  keyFactors: string[] | null;
   consensus: string | null;
 }
 

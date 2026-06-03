@@ -11,6 +11,7 @@ import {
   MinusCircle,
   Sparkles,
   Cpu,
+  ChevronDown,
 } from 'lucide-react';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { StarRating } from '@/components/ui/star-rating';
@@ -200,7 +201,7 @@ function BacktestSection({ backtest }: { backtest: BacktestSummary | null }) {
             <h3 className="mb-2.5 text-sm font-semibold" style={{ color: 'rgb(var(--fg-card))' }}>{bt.picks}</h3>
             <div className="space-y-2">
               {backtest.picks.map((p, i) => (
-                <PickRow key={i} pick={p} skipLabel={bt.skip} noValueLabel={bt.noValue} />
+                <PickRow key={i} pick={p} />
               ))}
             </div>
           </div>
@@ -294,41 +295,123 @@ function SegmentBlock({
   );
 }
 
-function PickRow({ pick, skipLabel, noValueLabel }: { pick: BacktestPick; skipLabel: string; noValueLabel: string }) {
+function PickRow({ pick }: { pick: BacktestPick }) {
+  const { t } = useLocale();
+  const bt = t.trackRecord.backtest;
+  const [open, setOpen] = useState(false);
+
   const resultColor =
     pick.result === 'won' ? POSITIVE : pick.result === 'lost' ? NEGATIVE : 'rgb(var(--fg-muted))';
   const ResultIcon = pick.result === 'won' ? CheckCircle2 : pick.result === 'lost' ? XCircle : MinusCircle;
+  const hasDetails = Boolean(pick.rationale || pick.consensus || (pick.keyFactors && pick.keyFactors.length));
 
   return (
-    <div className="rounded-xl px-3.5 py-2.5" style={{ background: 'rgb(var(--pitch-800))' }}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium" style={{ color: 'rgb(var(--fg-card))' }}>{pick.match}</p>
-          <p className="truncate text-[11px]" style={{ color: 'rgb(var(--fg-muted))' }}>{pick.league}</p>
+    <div className="rounded-xl" style={{ background: 'rgb(var(--pitch-800))' }}>
+      <button
+        type="button"
+        onClick={() => hasDetails && setOpen((o) => !o)}
+        className="flex w-full flex-col gap-1.5 px-3.5 py-2.5 text-left"
+        style={{ cursor: hasDetails ? 'pointer' : 'default' }}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium" style={{ color: 'rgb(var(--fg-card))' }}>{pick.match}</p>
+            <p className="truncate text-[11px]" style={{ color: 'rgb(var(--fg-muted))' }}>{pick.league}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5" style={{ color: resultColor }}>
+            <ResultIcon className="h-4 w-4" />
+            <span className="tabular text-xs font-semibold">{pick.actualResult}</span>
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5" style={{ color: resultColor }}>
-          <ResultIcon className="h-4 w-4" />
-          <span className="tabular text-xs font-semibold">{pick.actualResult}</span>
-        </div>
-      </div>
-      <div className="mt-1.5 flex items-center justify-between gap-2">
-        {pick.recommended ? (
-          <span className="text-xs" style={{ color: 'rgb(var(--fg-secondary))' }}>
-            {pick.outcomeLabel}
-            {pick.odds != null && <span style={{ color: 'rgb(var(--fg-muted))' }}> @ {pick.odds.toFixed(2)}</span>}
-            {pick.valueEdge != null && (
-              <span className="ml-1.5 font-semibold" style={{ color: 'rgb(var(--accent))' }}>
-                value +{(pick.valueEdge * 100).toFixed(1)}%
-              </span>
+        <div className="flex items-center justify-between gap-2">
+          {pick.recommended ? (
+            <span className="text-xs" style={{ color: 'rgb(var(--fg-secondary))' }}>
+              {pick.outcomeLabel}
+              {pick.odds != null && <span style={{ color: 'rgb(var(--fg-muted))' }}> @ {pick.odds.toFixed(2)}</span>}
+              {pick.valueEdge != null && (
+                <span className="ml-1.5 font-semibold" style={{ color: 'rgb(var(--accent))' }}>
+                  value +{(pick.valueEdge * 100).toFixed(1)}%
+                </span>
+              )}
+            </span>
+          ) : (
+            <span className="text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
+              {bt.skip} · {bt.noValue}
+            </span>
+          )}
+          <div className="flex shrink-0 items-center gap-2">
+            {pick.stars != null && <StarRating stars={pick.stars as 1 | 2 | 3 | 4 | 5} />}
+            {hasDetails && (
+              <ChevronDown
+                className="h-4 w-4 transition-transform duration-200"
+                style={{ color: 'rgb(var(--fg-muted))', transform: open ? 'rotate(180deg)' : 'none' }}
+              />
             )}
-          </span>
-        ) : (
-          <span className="text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
-            {skipLabel} · {noValueLabel}
+          </div>
+        </div>
+        {hasDetails && !open && (
+          <span className="text-[10px] uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted) / 0.7)' }}>
+            {bt.detailsHint}
           </span>
         )}
-        {pick.stars != null && <StarRating stars={pick.stars as 1 | 2 | 3 | 4 | 5} />}
-      </div>
+      </button>
+
+      {open && hasDetails && (
+        <div className="space-y-3 border-t px-3.5 py-3" style={{ borderColor: 'rgb(var(--pitch-700))' }}>
+          {/* Вероятность модели vs букмекера */}
+          {pick.modelProbability != null && pick.impliedProbability != null && (
+            <div className="grid grid-cols-3 gap-2">
+              <MiniStat label={bt.modelProb} value={`${Math.round(pick.modelProbability * 100)}%`} />
+              <MiniStat label={bt.bookieProb} value={`${Math.round(pick.impliedProbability * 100)}%`} />
+              <MiniStat
+                label={bt.edgeLabel}
+                value={`${pick.valueEdge != null && pick.valueEdge >= 0 ? '+' : ''}${pick.valueEdge != null ? (pick.valueEdge * 100).toFixed(1) : '—'}%`}
+                accent
+              />
+            </div>
+          )}
+          {pick.consensus && (
+            <p className="text-xs" style={{ color: 'rgb(var(--accent))' }}>{pick.consensus}</p>
+          )}
+          {pick.keyFactors && pick.keyFactors.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted))' }}>
+                {bt.keyFactors}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {pick.keyFactors.map((f, i) => (
+                  <span
+                    key={i}
+                    className="rounded-md px-2 py-0.5 text-[11px]"
+                    style={{ background: 'rgb(var(--pitch-900))', color: 'rgb(var(--fg-secondary))' }}
+                  >
+                    {f}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {pick.rationale && (
+            <div>
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted))' }}>
+                {bt.reasoning}
+              </p>
+              <p className="whitespace-pre-line text-xs leading-relaxed" style={{ color: 'rgb(var(--fg-secondary))' }}>
+                {pick.rationale}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MiniStat({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="rounded-lg px-2 py-1.5 text-center" style={{ background: 'rgb(var(--pitch-900))' }}>
+      <div className="tabular text-sm font-bold" style={{ color: accent ? 'rgb(var(--accent))' : 'rgb(var(--fg-primary))' }}>{value}</div>
+      <div className="text-[10px] leading-tight" style={{ color: 'rgb(var(--fg-muted))' }}>{label}</div>
     </div>
   );
 }
