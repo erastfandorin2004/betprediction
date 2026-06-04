@@ -25,7 +25,7 @@ export function Footer() {
         </Link>
       </div>
       <p>{t.footer}</p>
-      <p className="mt-1.5">© 2026 AI-Score</p>
+      <p className="mt-1.5">© 2026 betanalyse.pro</p>
     </footer>
   );
 }

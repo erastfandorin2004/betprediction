@@ -1,22 +1,13 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { BrandLogo } from '@/components/brand/brand-logo';
 
 /** Brand logo block shown above auth forms. */
-export function AuthLogo({ icon, title, subtitle }: { icon: ReactNode; title: string; subtitle?: string }) {
+export function AuthLogo({ title, subtitle }: { icon?: ReactNode; title: string; subtitle?: string }) {
   return (
     <div className="mb-8 flex flex-col items-center text-center">
-      <div className="flex items-center gap-2.5">
-        <span
-          className="flex h-10 w-10 items-center justify-center rounded-2xl"
-          style={{ background: 'rgb(var(--accent) / 0.14)', border: '1px solid rgb(var(--accent) / 0.25)', color: 'rgb(var(--accent))' }}
-        >
-          {icon}
-        </span>
-        <span className="text-2xl font-bold tracking-tight" style={{ color: 'rgb(var(--fg-primary))' }}>
-          AI-Score
-        </span>
-      </div>
+      <BrandLogo size={36} />
       <h1 className="mt-4 text-xl font-semibold" style={{ color: 'rgb(var(--fg-primary))' }}>{title}</h1>
       {subtitle && <p className="mt-1 text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>{subtitle}</p>}
     </div>

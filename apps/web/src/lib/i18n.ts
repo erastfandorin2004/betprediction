@@ -44,17 +44,17 @@ export const translations = {
       ],
       bannerTitle: 'Чемпионат мира 2026 уже на сайте!',
       bannerText: 'Расписание, составы, H2H и AI-прогнозы на все матчи ЧМ. 11 июня — 19 июля · США, Канада, Мексика.',
-      aboutTitle: 'Что такое AI-Score',
+      aboutTitle: 'Что такое betanalyse.pro',
       aboutParagraphs: [
-        'AI-Score — это интеллектуальный аналитический сервис для футбольных матчей, который объединяет live-статистику, данные по командам и AI-прогнозы в одном месте.',
+        'betanalyse.pro — это интеллектуальный аналитический сервис для футбольных матчей, который объединяет live-статистику, данные по командам и AI-прогнозы в одном месте.',
         'Наши прогнозы формируются не одним алгоритмом, а ансамблем нейросетей, которые анализируют форму команд, результаты прошлых матчей, текущую динамику игры, статистические показатели и другие важные факторы. Такой подход помогает получить более глубокий и объективный взгляд на матч — до игры и в режиме live.',
-        'AI-Score создан для тех, кто хочет принимать более осознанные решения на основе данных, а не только интуиции. Мы показываем аналитику, вероятности и прогнозные сценарии, чтобы пользователь мог быстрее понять, как может развиваться матч.',
-        'AI-Score не является букмекером, не принимает ставки и не даёт финансовых советов. Сервис предоставляет только аналитическую информацию, статистику и AI-прогнозы.',
+        'betanalyse.pro создан для тех, кто хочет принимать более осознанные решения на основе данных, а не только интуиции. Мы показываем аналитику, вероятности и прогнозные сценарии, чтобы пользователь мог быстрее понять, как может развиваться матч.',
+        'betanalyse.pro не является букмекером, не принимает ставки и не даёт финансовых советов. Сервис предоставляет только аналитическую информацию, статистику и AI-прогнозы.',
       ],
       faqTitle: 'Частые вопросы',
       faq: [
         { q: 'Какие AI-модели используются?', a: 'Ведущие LLM: ChatGPT, Claude, Gemini, DeepSeek. Каждая модель анализирует матч независимо, а итог — их совместный консенсус.' },
-        { q: 'Как формируются прогнозы?', a: 'AI-Score заранее анализирует матч, собирая ключевые данные: текущую форму команд, историю личных встреч, составы, статистику, турнирную мотивацию и другие факторы, которые могут повлиять на результат игры.\n\nНа основе этих данных AI-Score оценивает возможные сценарии матча и показывает прогноз в понятном формате: вероятности, ключевые факторы и краткий аналитический вывод.\n\nПрогноз фиксируется и больше не изменяется. Благодаря этому можно честно сравнивать ожидания системы с реальным итогом матча и отслеживать точность прогнозов.' },
+        { q: 'Как формируются прогнозы?', a: 'betanalyse.pro заранее анализирует матч, собирая ключевые данные: текущую форму команд, историю личных встреч, составы, статистику, турнирную мотивацию и другие факторы, которые могут повлиять на результат игры.\n\nНа основе этих данных betanalyse.pro оценивает возможные сценарии матча и показывает прогноз в понятном формате: вероятности, ключевые факторы и краткий аналитический вывод.\n\nПрогноз фиксируется и больше не изменяется. Благодаря этому можно честно сравнивать ожидания системы с реальным итогом матча и отслеживать точность прогнозов.' },
         { q: 'Это ставки или финансовый совет?', a: 'Нет. Сервис носит информационный характер и не гарантирует результат. 18+. Играй ответственно.' },
       ],
     },
@@ -233,7 +233,7 @@ export const translations = {
         Forward: 'Нападающие',
       } as Record<string, string>,
     },
-    footer: 'AI-Score — аналитика в образовательных целях. Прогнозы не гарантируют результат. 18+.',
+    footer: 'betanalyse.pro — аналитика в образовательных целях. Прогнозы не гарантируют результат. 18+.',
   },
   en: {
     nav: {
@@ -278,17 +278,17 @@ export const translations = {
       ],
       bannerTitle: 'World Cup 2026 is live!',
       bannerText: 'Schedule, lineups, H2H and AI predictions for every World Cup match. Jun 11 – Jul 19 · USA, Canada, Mexico.',
-      aboutTitle: 'What is AI-Score',
+      aboutTitle: 'What is betanalyse.pro',
       aboutParagraphs: [
-        'AI-Score is an intelligent analytics service for football matches that brings live statistics, team data and AI predictions together in one place.',
+        'betanalyse.pro is an intelligent analytics service for football matches that brings live statistics, team data and AI predictions together in one place.',
         'Our predictions are formed not by a single algorithm but by an ensemble of neural networks that analyze team form, past results, in-game momentum, statistical indicators and other important factors. This approach delivers a deeper and more objective view of a match — both before kickoff and live.',
-        'AI-Score is built for those who want to make more informed, data-driven decisions rather than relying on intuition alone. We surface analytics, probabilities and predictive scenarios so you can quickly understand how a match might unfold.',
-        'AI-Score is not a bookmaker, does not accept bets and does not provide financial advice. The service offers only analytical information, statistics and AI predictions.',
+        'betanalyse.pro is built for those who want to make more informed, data-driven decisions rather than relying on intuition alone. We surface analytics, probabilities and predictive scenarios so you can quickly understand how a match might unfold.',
+        'betanalyse.pro is not a bookmaker, does not accept bets and does not provide financial advice. The service offers only analytical information, statistics and AI predictions.',
       ],
       faqTitle: 'Frequently Asked Questions',
       faq: [
         { q: 'Which AI models are used?', a: 'Leading LLMs: ChatGPT, Claude, Gemini, DeepSeek. Each model analyzes a match independently, and the result is their combined consensus.' },
-        { q: 'How are predictions made?', a: 'AI-Score analyses the match in advance by gathering key data: current team form, head-to-head history, lineups, statistics, tournament motivation and other factors that may affect the outcome.\n\nBased on this data AI-Score evaluates possible match scenarios and presents the prediction in a clear format: probabilities, key factors and a brief analytical summary.\n\nThe prediction is locked and never changed. This allows an honest comparison of the system\'s expectations against the actual result and lets you track prediction accuracy over time.' },
+        { q: 'How are predictions made?', a: 'betanalyse.pro analyses the match in advance by gathering key data: current team form, head-to-head history, lineups, statistics, tournament motivation and other factors that may affect the outcome.\n\nBased on this data betanalyse.pro evaluates possible match scenarios and presents the prediction in a clear format: probabilities, key factors and a brief analytical summary.\n\nThe prediction is locked and never changed. This allows an honest comparison of the system\'s expectations against the actual result and lets you track prediction accuracy over time.' },
         { q: 'Is this betting or financial advice?', a: 'No. The service is for informational purposes only and does not guarantee results. 18+. Bet responsibly.' },
       ],
     },
@@ -467,7 +467,7 @@ export const translations = {
         Forward: 'Forwards',
       } as Record<string, string>,
     },
-    footer: 'AI-Score — analytics for educational purposes. Predictions do not guarantee results. 18+.',
+    footer: 'betanalyse.pro — analytics for educational purposes. Predictions do not guarantee results. 18+.',
   },
 } as const;
 

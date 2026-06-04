@@ -16,7 +16,7 @@ export default function AboutPage() {
     <div className="mx-auto max-w-4xl px-4 py-12 sm:py-16">
       {/* Hero */}
       <section className="text-center">
-        <p className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--accent))' }}>AI-SCORE</p>
+        <p className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--accent))' }}>BETANALYSE.PRO</p>
         <h1 className="mt-4 text-4xl font-extrabold leading-tight tracking-tight sm:text-6xl" style={{ color: 'rgb(var(--fg-primary))' }}>
           {L.heroTitle}
         </h1>
@@ -65,7 +65,7 @@ export default function AboutPage() {
         <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed" style={{ color: 'rgb(var(--fg-secondary))' }}>{L.bannerText}</p>
       </section>
 
-      {/* What is AI-Score + FAQ — unified accordion list */}
+      {/* What is betanalyse.pro + FAQ — unified accordion list */}
       <section className="mt-14">
         <h2 className="text-center text-2xl font-bold sm:text-3xl" style={{ color: 'rgb(var(--fg-primary))' }}>{L.faqTitle}</h2>
         <div className="mt-6 space-y-3">

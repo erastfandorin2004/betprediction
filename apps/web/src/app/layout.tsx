@@ -21,8 +21,8 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'AI-Score — Smart Football Companion',
-    template: '%s | AI-Score',
+    default: 'betanalyse.pro — Smart Football Companion',
+    template: '%s | betanalyse.pro',
   },
   description: 'Live matches, deep statistics and AI predictions with a public accuracy track record.',
   keywords: ['football', 'predictions', 'betting', 'statistics', 'AI', 'live'],

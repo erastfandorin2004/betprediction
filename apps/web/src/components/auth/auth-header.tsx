@@ -7,6 +7,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { ThemeToggle } from '@/components/theme/theme-toggle';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { cn } from '@/lib/utils';
+import { BrandLogo } from '@/components/brand/brand-logo';
 import { Goal, Trophy, Info, Gem, Zap, type LucideIcon } from 'lucide-react';
 
 const ACCENT = 'rgb(var(--accent))';
@@ -46,16 +47,8 @@ export function AuthHeader() {
 
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4">
         {/* Logo */}
-        <Link href="/" className="flex shrink-0 items-center gap-2">
-          <span
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-sm"
-            style={{ background: 'rgb(var(--accent) / 0.15)', boxShadow: '0 0 14px rgb(var(--accent) / 0.4)' }}
-          >
-            ⚡
-          </span>
-          <span className="text-sm font-extrabold tracking-widest" style={{ color: 'rgb(var(--fg-primary))' }}>
-            AI-SCORE
-          </span>
+        <Link href="/" className="flex shrink-0 items-center">
+          <BrandLogo size={28} />
         </Link>
 
         {/* Nav — icons + gradient underline indicator */}
