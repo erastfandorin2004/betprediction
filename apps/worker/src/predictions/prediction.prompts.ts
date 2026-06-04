@@ -111,6 +111,34 @@ export function buildUserPrompt(ctx: MatchContext): string {
         {"label": "Больше 2.5", "outcome": "over", "probability": 0.XX},
         {"label": "Меньше 2.5", "outcome": "under", "probability": 0.XX}
       ]
+    },
+    {
+      "market": "CORNERS_OU",
+      "outcomes": [
+        {"label": "Больше", "outcome": "over", "probability": 0.XX},
+        {"label": "Меньше", "outcome": "under", "probability": 0.XX}
+      ]
+    },
+    {
+      "market": "CARDS_OU",
+      "outcomes": [
+        {"label": "Больше", "outcome": "over", "probability": 0.XX},
+        {"label": "Меньше", "outcome": "under", "probability": 0.XX}
+      ]
+    },
+    {
+      "market": "HOME_TOTAL",
+      "outcomes": [
+        {"label": "Больше", "outcome": "over", "probability": 0.XX},
+        {"label": "Меньше", "outcome": "under", "probability": 0.XX}
+      ]
+    },
+    {
+      "market": "AWAY_TOTAL",
+      "outcomes": [
+        {"label": "Больше", "outcome": "over", "probability": 0.XX},
+        {"label": "Меньше", "outcome": "under", "probability": 0.XX}
+      ]
     }
   ],
   "recommendedMarket": "1X2",
@@ -120,7 +148,10 @@ export function buildUserPrompt(ctx: MatchContext): string {
   "confidence": 0.XX
 }
 
-Допустимые market: "1X2", "DC", "BTTS", "O_U_1_5", "O_U_2_5", "O_U_3_5", "HOME_TOTAL", "AWAY_TOTAL".
+Допустимые market: "1X2", "DC", "BTTS", "O_U_1_5", "O_U_2_5", "O_U_3_5", "HOME_TOTAL", "AWAY_TOTAL", "CORNERS_OU", "CARDS_OU".
+- "HOME_TOTAL"/"AWAY_TOTAL" — индивидуальный тотал голов команды (исходы "over"/"under" относительно линии из коэффициентов).
+- "CORNERS_OU" — тотал угловых, "CARDS_OU" — тотал карточек (исходы "over"/"under" относительно линии из коэффициентов).
+- Если по рынку даны коэффициенты с линией (напр. «Тотал угловых больше 9.5») — оценивай вероятность именно для этой линии; в label укажи линию, напр. "Больше 9.5".
 Правила:
 - Вероятности ВНУТРИ каждого рынка суммируются ровно в 1.0.
 - confidence (0.0–1.0) — твоя уверенность с учётом и вероятности, и наличия value, и риска.

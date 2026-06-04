@@ -26,11 +26,12 @@ import {
   BACKTEST_MATCHES,
   BACKTEST_LABEL,
   type BacktestMatch,
+  type MatchExtras,
 } from './backtest.dataset';
 
-// Каждый рынок, который можно рассчитать из финального счёта: как его называет
-// модель (market + outcome), под каким ключом лежит коэффициент и как засчитать.
-interface MarketSpec {
+// Рынки, рассчитываемые из финального счёта: как их называет модель (market +
+// outcome), под каким ключом лежит коэффициент и как засчитать.
+interface GoalMarket {
   market: string;
   oddsKey: string;
   modelOutcome: string;
@@ -38,7 +39,7 @@ interface MarketSpec {
   settle: (h: number, a: number) => boolean;
 }
 
-const MARKET_SPECS: MarketSpec[] = [
+const GOAL_MARKETS: GoalMarket[] = [
   { market: '1X2', oddsKey: '1', modelOutcome: '1', label: 'П1', settle: (h, a) => h > a },
   { market: '1X2', oddsKey: 'X', modelOutcome: 'X', label: 'Ничья', settle: (h, a) => h === a },
   { market: '1X2', oddsKey: '2', modelOutcome: '2', label: 'П2', settle: (h, a) => h < a },
@@ -57,13 +58,67 @@ const MARKET_SPECS: MarketSpec[] = [
 
 const DEFAULT_MODELS = ['gpt-4o', 'claude-sonnet-4-6', 'gemini-2.5-flash-nothinking', 'deepseek-v3'];
 
+// Оцениваемый исход конкретного матча: рынок/исход модели, коэффициент и уже
+// рассчитанный результат (из счёта или фактических угловых/карточек).
+interface Evaluable {
+  market: string;
+  modelOutcome: string;
+  label: string;
+  odds: number;
+  won: boolean;
+}
+
 interface Candidate {
-  spec: MarketSpec;
+  evaluable: Evaluable;
   odds: number;
   modelProb: number;
   impliedProb: number;
   edge: number;
   agreement: number; // доля моделей, у которых этот исход — лучший в рынке
+}
+
+// Все рынки матча, по которым можно искать value и рассчитать результат.
+function buildEvaluables(match: BacktestMatch): Evaluable[] {
+  const { homeGoals: h, awayGoals: a } = match.actual;
+  const ev: Evaluable[] = [];
+
+  for (const g of GOAL_MARKETS) {
+    const odds = match.odds[g.oddsKey];
+    if (odds) ev.push({ market: g.market, modelOutcome: g.modelOutcome, label: g.label, odds, won: g.settle(h, a) });
+  }
+
+  const x = match.extras;
+  if (x?.corners) {
+    const { line, over, under, actual } = x.corners;
+    ev.push({ market: 'CORNERS_OU', modelOutcome: 'over', label: `Тотал угловых больше ${line}`, odds: over, won: actual > line });
+    ev.push({ market: 'CORNERS_OU', modelOutcome: 'under', label: `Тотал угловых меньше ${line}`, odds: under, won: actual < line });
+  }
+  if (x?.cards) {
+    const { line, over, under, actual } = x.cards;
+    ev.push({ market: 'CARDS_OU', modelOutcome: 'over', label: `Тотал карточек больше ${line}`, odds: over, won: actual > line });
+    ev.push({ market: 'CARDS_OU', modelOutcome: 'under', label: `Тотал карточек меньше ${line}`, odds: under, won: actual < line });
+  }
+  if (x?.homeTotal) {
+    const { line, over, under } = x.homeTotal;
+    ev.push({ market: 'HOME_TOTAL', modelOutcome: 'over', label: `ИТ1 больше ${line}`, odds: over, won: h > line });
+    ev.push({ market: 'HOME_TOTAL', modelOutcome: 'under', label: `ИТ1 меньше ${line}`, odds: under, won: h < line });
+  }
+  if (x?.awayTotal) {
+    const { line, over, under } = x.awayTotal;
+    ev.push({ market: 'AWAY_TOTAL', modelOutcome: 'over', label: `ИТ2 больше ${line}`, odds: over, won: a > line });
+    ev.push({ market: 'AWAY_TOTAL', modelOutcome: 'under', label: `ИТ2 меньше ${line}`, odds: under, won: a < line });
+  }
+  return ev;
+}
+
+// Доп. строки коэффициентов (угловые/карточки/инд. тоталы) для промта.
+function formatExtrasBlock(x: MatchExtras): string {
+  const lines: string[] = [];
+  if (x.corners) lines.push(`  Тотал угловых больше ${x.corners.line}: ${x.corners.over.toFixed(2)} / меньше: ${x.corners.under.toFixed(2)}`);
+  if (x.cards) lines.push(`  Тотал карточек больше ${x.cards.line}: ${x.cards.over.toFixed(2)} / меньше: ${x.cards.under.toFixed(2)}`);
+  if (x.homeTotal) lines.push(`  Инд. тотал хозяев больше ${x.homeTotal.line}: ${x.homeTotal.over.toFixed(2)} / меньше: ${x.homeTotal.under.toFixed(2)}`);
+  if (x.awayTotal) lines.push(`  Инд. тотал гостей больше ${x.awayTotal.line}: ${x.awayTotal.over.toFixed(2)} / меньше: ${x.awayTotal.under.toFixed(2)}`);
+  return lines.join('\n');
 }
 
 @Injectable()
@@ -154,7 +209,9 @@ export class BacktestService {
       round: match.round ?? null,
       date: match.date,
       ...match.context,
-      odds: formatOddsBlock(match.odds),
+      odds: [formatOddsBlock(match.odds), match.extras ? formatExtrasBlock(match.extras) : '']
+        .filter(Boolean)
+        .join('\n'),
     };
 
     const messages = [
@@ -174,23 +231,24 @@ export class BacktestService {
       return skipPick(match, actualResult, null, '', [], buildModelViews(perModel, null), null);
     }
 
-    const best = pickBestValue(valid, match.odds);
+    const evaluables = buildEvaluables(match);
+    const best = pickBestValue(valid, evaluables);
     const rationale = pickRationale(valid);
     const keyFactors = mergeKeyFactors(valid);
-    const modelViews = buildModelViews(perModel, best?.spec ?? null);
+    const modelViews = buildModelViews(perModel, best?.evaluable ?? null);
 
     if (!best || best.edge < VALUE_EDGE_THRESHOLD) {
       const decision = best
-        ? `Итог: ПРОПУСК — лучший рынок «${best.spec.label}» даёт преимущество всего +${(best.edge * 100).toFixed(1)}% (ниже порога).`
+        ? `Итог: ПРОПУСК — лучший рынок «${best.evaluable.label}» даёт преимущество всего +${(best.edge * 100).toFixed(1)}% (ниже порога).`
         : 'Итог: ПРОПУСК — ни по одному рынку нет преимущества над линией букмекера.';
       const summary = await this.synthesize(client, models[0]!, match, modelViews, decision);
       return skipPick(match, actualResult, best, rationale, keyFactors, modelViews, summary);
     }
 
-    const won = best.spec.settle(homeGoals, awayGoals);
+    const won = best.evaluable.won;
     const stars = toStars(0.4 + best.agreement * 0.35 + Math.min(best.edge, 0.2) / 0.2 * 0.25);
     const agreeing = Math.round(best.agreement * valid.length);
-    const decision = `Итог: СТАВКА на «${best.spec.label}» @ ${best.odds.toFixed(2)} ` +
+    const decision = `Итог: СТАВКА на «${best.evaluable.label}» @ ${best.odds.toFixed(2)} ` +
       `(вероятность модели ${(best.modelProb * 100).toFixed(0)}% против ${(best.impliedProb * 100).toFixed(0)}% у букмекера, value +${(best.edge * 100).toFixed(1)}%).`;
     const summary = await this.synthesize(client, models[0]!, match, modelViews, decision);
 
@@ -199,9 +257,9 @@ export class BacktestService {
       league: match.league,
       date: match.date,
       recommended: true,
-      market: best.spec.market,
-      outcome: best.spec.modelOutcome,
-      outcomeLabel: best.spec.label,
+      market: best.evaluable.market,
+      outcome: best.evaluable.modelOutcome,
+      outcomeLabel: best.evaluable.label,
       modelProbability: round(best.modelProb),
       impliedProbability: round(best.impliedProb),
       valueEdge: round(best.edge),
@@ -211,7 +269,7 @@ export class BacktestService {
       actualResult,
       rationale,
       keyFactors,
-      consensus: `${agreeing} из ${valid.length} моделей за «${best.spec.label}», value +${(best.edge * 100).toFixed(1)}%`,
+      consensus: `${agreeing} из ${valid.length} моделей за «${best.evaluable.label}», value +${(best.edge * 100).toFixed(1)}%`,
       summary,
       models: modelViews,
     };
@@ -282,22 +340,19 @@ export class BacktestService {
 
 // ── Чистые функции (тестируемы независимо от Nest/БД) ───────────────────────
 
-function pickBestValue(responses: LlmResponse[], odds: Record<string, number>): Candidate | null {
+function pickBestValue(responses: LlmResponse[], evaluables: Evaluable[]): Candidate | null {
   const n = responses.length;
   const minPresence = Math.ceil(n / 2);
   let best: Candidate | null = null;
 
-  for (const spec of MARKET_SPECS) {
-    const price = odds[spec.oddsKey];
-    if (!price) continue;
-
+  for (const e of evaluables) {
     // вероятности этого исхода по всем моделям, где рынок присутствует
     const probs: number[] = [];
     let topCount = 0;
     for (const r of responses) {
-      const mkt = r.markets.find((m) => m.market === spec.market);
+      const mkt = r.markets.find((m) => m.market === e.market);
       if (!mkt) continue;
-      const out = mkt.outcomes.find((o) => o.outcome === spec.modelOutcome);
+      const out = mkt.outcomes.find((o) => o.outcome === e.modelOutcome);
       if (!out) continue;
       probs.push(out.probability);
       const maxProb = Math.max(...mkt.outcomes.map((o) => o.probability));
@@ -306,12 +361,12 @@ function pickBestValue(responses: LlmResponse[], odds: Record<string, number>): 
     if (probs.length < minPresence) continue;
 
     const modelProb = probs.reduce((a, b) => a + b, 0) / probs.length;
-    const impliedProb = 1 / price;
+    const impliedProb = 1 / e.odds;
     const edge = modelProb - impliedProb;
     const agreement = topCount / n;
 
     if (!best || edge > best.edge) {
-      best = { spec, odds: price, modelProb, impliedProb, edge, agreement };
+      best = { evaluable: e, odds: e.odds, modelProb, impliedProb, edge, agreement };
     }
   }
 
@@ -393,7 +448,7 @@ function skipPick(
 ): BacktestPick {
   const thresholdPct = (VALUE_EDGE_THRESHOLD * 100).toFixed(0);
   const reason = best
-    ? `Лучший рассмотренный рынок — «${best.spec.label}» @ ${best.odds.toFixed(2)}: вероятность модели ` +
+    ? `Лучший рассмотренный рынок — «${best.evaluable.label}» @ ${best.odds.toFixed(2)}: вероятность модели ` +
       `${(best.modelProb * 100).toFixed(0)}% против ${(best.impliedProb * 100).toFixed(0)}% у букмекера, ` +
       `преимущество всего +${(best.edge * 100).toFixed(1)}% (< порога ${thresholdPct}%). Ставка пропущена.`
     : 'Ни по одному рынку нет преимущества над линией букмекера — ставка пропущена.';
@@ -403,9 +458,9 @@ function skipPick(
     league: match.league,
     date: match.date,
     recommended: false,
-    market: best?.spec.market ?? null,
-    outcome: best?.spec.modelOutcome ?? null,
-    outcomeLabel: best?.spec.label ?? null,
+    market: best?.evaluable.market ?? null,
+    outcome: best?.evaluable.modelOutcome ?? null,
+    outcomeLabel: best?.evaluable.label ?? null,
     modelProbability: best ? round(best.modelProb) : null,
     impliedProbability: best ? round(best.impliedProb) : null,
     valueEdge: best ? round(best.edge) : null,
@@ -423,7 +478,10 @@ function skipPick(
 
 // Прогноз каждой модели по выбранному рынку: её вероятность нужного исхода,
 // собственный выбор модели, согласие с итогом и индивидуальное обоснование.
-function buildModelViews(perModel: ParsedModelResult[], spec: MarketSpec | null): BacktestModelView[] {
+function buildModelViews(
+  perModel: ParsedModelResult[],
+  chosen: { market: string; modelOutcome: string } | null,
+): BacktestModelView[] {
   return perModel.map((pm) => {
     if (!pm.parsed) {
       return {
@@ -440,9 +498,9 @@ function buildModelViews(perModel: ParsedModelResult[], spec: MarketSpec | null)
     const r = pm.parsed;
     let probability: number | null = null;
     let agreed = false;
-    if (spec) {
-      const mkt = r.markets.find((m) => m.market === spec.market);
-      const out = mkt?.outcomes.find((o) => o.outcome === spec.modelOutcome);
+    if (chosen) {
+      const mkt = r.markets.find((m) => m.market === chosen.market);
+      const out = mkt?.outcomes.find((o) => o.outcome === chosen.modelOutcome);
       if (out) {
         probability = round(out.probability);
         const maxProb = Math.max(...mkt!.outcomes.map((o) => o.probability));
@@ -463,10 +521,21 @@ function buildModelViews(perModel: ParsedModelResult[], spec: MarketSpec | null)
 }
 
 // Человекочитаемая подпись для пары (рынок, исход), которую рекомендовала модель.
+const MARKET_NAMES: Record<string, string> = {
+  '1X2': '', DC: 'Двойной шанс', BTTS: 'Обе забьют',
+  O_U_1_5: 'Тотал 1.5', O_U_2_5: 'Тотал 2.5', O_U_3_5: 'Тотал 3.5',
+  HOME_TOTAL: 'ИТ хозяев', AWAY_TOTAL: 'ИТ гостей',
+  CORNERS_OU: 'Угловые', CARDS_OU: 'Карточки',
+};
+const OUTCOME_NAMES: Record<string, string> = {
+  '1': 'П1', X: 'Ничья', '2': 'П2', '1X': '1X', '12': '12', X2: 'X2',
+  yes: 'Да', no: 'Нет', over: 'Больше', under: 'Меньше',
+};
 function labelFor(market: string, outcome: string): string {
-  const spec = MARKET_SPECS.find((s) => s.market === market && s.modelOutcome === outcome);
-  if (spec) return spec.label;
-  return `${market} · ${outcome}`;
+  const m = MARKET_NAMES[market];
+  const o = OUTCOME_NAMES[outcome] ?? outcome;
+  if (market === '1X2') return o;
+  return m ? `${m} — ${o}` : `${market} · ${o}`;
 }
 
 function pickRationale(responses: LlmResponse[]): string {

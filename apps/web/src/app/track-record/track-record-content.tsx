@@ -32,8 +32,10 @@ const MARKET_LABEL: Record<string, string> = {
   O_U_1_5: 'Тотал 1.5',
   O_U_2_5: 'Тотал 2.5',
   O_U_3_5: 'Тотал 3.5',
-  HOME_TOTAL: 'Тотал хозяев',
-  AWAY_TOTAL: 'Тотал гостей',
+  HOME_TOTAL: 'Инд. тотал хозяев',
+  AWAY_TOTAL: 'Инд. тотал гостей',
+  CORNERS_OU: 'Угловые',
+  CARDS_OU: 'Карточки',
 };
 
 export function TrackRecordContent({

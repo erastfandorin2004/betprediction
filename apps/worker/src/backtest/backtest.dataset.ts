@@ -7,6 +7,16 @@ import type { MatchContext } from '../predictions/prediction.prompts';
 // ставку, после чего она сверяется с `actual`. Коэффициенты и счёт —
 // приближённые исторические данные, заданы заранее и неизменны.
 
+// Доп. рынки с линией: угловые, карточки (нужно фактическое число для расчёта),
+// индивидуальные тоталы команд (рассчитываются из счёта). Линии/коэффициенты/факт —
+// такие же демо-данные, как и счёт.
+export interface MatchExtras {
+  corners?: { line: number; over: number; under: number; actual: number };
+  cards?: { line: number; over: number; under: number; actual: number };
+  homeTotal?: { line: number; over: number; under: number };
+  awayTotal?: { line: number; over: number; under: number };
+}
+
 export interface BacktestMatch {
   id: string;
   league: string;
@@ -20,6 +30,7 @@ export interface BacktestMatch {
   // Ключи: 1 X 2 | 1X 12 X2 | btts_yes btts_no | over/under_1_5 _2_5 _3_5
   odds: Record<string, number>;
   actual: { homeGoals: number; awayGoals: number };
+  extras?: MatchExtras;
 }
 
 export const BACKTEST_LABEL = 'Контрольная выборка · 20 матчей (АПЛ 7 · ЛЧ 7 · Эредивизи 6)';
@@ -411,3 +422,34 @@ export const BACKTEST_MATCHES: BacktestMatch[] = [
     actual: { homeGoals: 1, awayGoals: 1 },
   },
 ];
+
+// Доп. рынки по id матча: тоталы угловых/карточек (с фактом для расчёта) и
+// индивидуальные тоталы команд (рассчитываются из счёта). Демо-данные.
+const BACKTEST_EXTRAS: Record<string, MatchExtras> = {
+  'epl-1': { corners: { line: 10.5, over: 1.85, under: 1.95, actual: 11 }, cards: { line: 3.5, over: 1.95, under: 1.85, actual: 3 }, homeTotal: { line: 1.5, over: 1.72, under: 2.05 }, awayTotal: { line: 0.5, over: 1.95, under: 1.80 } },
+  'epl-2': { corners: { line: 10.5, over: 1.80, under: 2.00, actual: 12 }, cards: { line: 4.5, over: 1.80, under: 2.00, actual: 6 }, homeTotal: { line: 1.5, over: 1.90, under: 1.90 }, awayTotal: { line: 1.5, over: 2.30, under: 1.60 } },
+  'epl-3': { corners: { line: 11.5, over: 1.90, under: 1.90, actual: 9 }, cards: { line: 3.5, over: 1.85, under: 1.95, actual: 4 }, homeTotal: { line: 1.5, over: 1.85, under: 1.95 }, awayTotal: { line: 0.5, over: 1.70, under: 2.10 } },
+  'epl-4': { corners: { line: 10.5, over: 1.85, under: 1.95, actual: 12 }, cards: { line: 4.5, over: 1.90, under: 1.90, actual: 5 }, homeTotal: { line: 1.5, over: 1.65, under: 2.20 }, awayTotal: { line: 1.5, over: 2.40, under: 1.55 } },
+  'epl-5': { corners: { line: 10.5, over: 1.90, under: 1.90, actual: 10 }, cards: { line: 3.5, over: 1.95, under: 1.85, actual: 4 }, homeTotal: { line: 1.5, over: 1.80, under: 2.00 }, awayTotal: { line: 1.5, over: 2.45, under: 1.52 } },
+  'epl-6': { corners: { line: 9.5, over: 1.90, under: 1.90, actual: 8 }, cards: { line: 3.5, over: 1.80, under: 2.00, actual: 5 }, homeTotal: { line: 1.5, over: 2.05, under: 1.75 }, awayTotal: { line: 0.5, over: 2.05, under: 1.72 } },
+  'epl-7': { corners: { line: 9.5, over: 1.85, under: 1.95, actual: 11 }, cards: { line: 4.5, over: 1.95, under: 1.85, actual: 4 }, homeTotal: { line: 1.5, over: 1.95, under: 1.85 }, awayTotal: { line: 1.5, over: 2.45, under: 1.52 } },
+
+  'ucl-1': { corners: { line: 9.5, over: 1.85, under: 1.95, actual: 10 }, cards: { line: 3.5, over: 1.90, under: 1.90, actual: 4 }, homeTotal: { line: 1.5, over: 1.80, under: 2.00 }, awayTotal: { line: 1.5, over: 1.95, under: 1.85 } },
+  'ucl-2': { corners: { line: 10.5, over: 1.80, under: 2.00, actual: 13 }, cards: { line: 3.5, over: 1.95, under: 1.85, actual: 3 }, homeTotal: { line: 1.5, over: 1.72, under: 2.05 }, awayTotal: { line: 1.5, over: 2.30, under: 1.58 } },
+  'ucl-3': { corners: { line: 9.5, over: 1.85, under: 1.95, actual: 11 }, cards: { line: 4.5, over: 1.85, under: 1.95, actual: 5 }, homeTotal: { line: 1.5, over: 1.70, under: 2.10 }, awayTotal: { line: 1.5, over: 2.35, under: 1.55 } },
+  'ucl-4': { corners: { line: 8.5, over: 1.90, under: 1.90, actual: 8 }, cards: { line: 4.5, over: 1.75, under: 2.05, actual: 6 }, homeTotal: { line: 1.5, over: 2.00, under: 1.78 }, awayTotal: { line: 0.5, over: 1.85, under: 1.90 } },
+  'ucl-5': { corners: { line: 9.5, over: 1.80, under: 2.00, actual: 12 }, cards: { line: 3.5, over: 1.90, under: 1.90, actual: 4 }, homeTotal: { line: 1.5, over: 1.85, under: 1.95 }, awayTotal: { line: 0.5, over: 2.10, under: 1.70 } },
+  'ucl-6': { corners: { line: 10.5, over: 1.90, under: 1.90, actual: 11 }, cards: { line: 3.5, over: 1.85, under: 1.95, actual: 4 }, homeTotal: { line: 1.5, over: 1.90, under: 1.90 }, awayTotal: { line: 1.5, over: 2.15, under: 1.65 } },
+  'ucl-7': { corners: { line: 9.5, over: 1.90, under: 1.90, actual: 9 }, cards: { line: 4.5, over: 1.80, under: 2.00, actual: 6 }, homeTotal: { line: 0.5, over: 1.80, under: 2.00 }, awayTotal: { line: 1.5, over: 2.10, under: 1.70 } },
+
+  'ere-1': { corners: { line: 10.5, over: 1.85, under: 1.95, actual: 12 }, cards: { line: 3.5, over: 1.90, under: 1.90, actual: 5 }, homeTotal: { line: 1.5, over: 1.95, under: 1.85 }, awayTotal: { line: 1.5, over: 1.90, under: 1.90 } },
+  'ere-2': { corners: { line: 10.5, over: 1.80, under: 2.00, actual: 13 }, cards: { line: 3.5, over: 1.95, under: 1.85, actual: 3 }, homeTotal: { line: 2.5, over: 1.95, under: 1.85 }, awayTotal: { line: 0.5, over: 2.10, under: 1.70 } },
+  'ere-3': { corners: { line: 10.5, over: 1.90, under: 1.90, actual: 11 }, cards: { line: 3.5, over: 1.85, under: 1.95, actual: 4 }, homeTotal: { line: 1.5, over: 1.75, under: 2.05 }, awayTotal: { line: 1.5, over: 2.30, under: 1.58 } },
+  'ere-4': { corners: { line: 10.5, over: 1.90, under: 1.90, actual: 10 }, cards: { line: 3.5, over: 1.90, under: 1.90, actual: 4 }, homeTotal: { line: 1.5, over: 1.90, under: 1.90 }, awayTotal: { line: 1.5, over: 2.10, under: 1.70 } },
+  'ere-5': { corners: { line: 9.5, over: 1.85, under: 1.95, actual: 10 }, cards: { line: 3.5, over: 1.90, under: 1.90, actual: 4 }, homeTotal: { line: 1.5, over: 2.05, under: 1.75 }, awayTotal: { line: 1.5, over: 2.00, under: 1.80 } },
+  'ere-6': { corners: { line: 9.5, over: 1.90, under: 1.90, actual: 9 }, cards: { line: 4.5, over: 1.85, under: 1.95, actual: 5 }, homeTotal: { line: 1.5, over: 2.10, under: 1.70 }, awayTotal: { line: 1.5, over: 2.05, under: 1.75 } },
+};
+
+for (const m of BACKTEST_MATCHES) {
+  m.extras = BACKTEST_EXTRAS[m.id];
+}

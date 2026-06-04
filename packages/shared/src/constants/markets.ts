@@ -9,6 +9,8 @@ export const MARKET_TYPES = [
   'HANDICAP',
   'HOME_TOTAL',
   'AWAY_TOTAL',
+  'CORNERS_OU',
+  'CARDS_OU',
 ] as const;
 
 export const MARKET_LABELS: Record<(typeof MARKET_TYPES)[number], string> = {
@@ -22,6 +24,8 @@ export const MARKET_LABELS: Record<(typeof MARKET_TYPES)[number], string> = {
   HANDICAP: 'Гандикап',
   HOME_TOTAL: 'Тотал хозяев',
   AWAY_TOTAL: 'Тотал гостей',
+  CORNERS_OU: 'Тотал угловых',
+  CARDS_OU: 'Тотал карточек',
 };
 
 export const FREE_PREDICTIONS_PER_DAY = 3;
