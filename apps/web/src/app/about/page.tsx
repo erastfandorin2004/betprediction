@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ArrowRight, ChevronDown, BarChart3, Bot, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { cn } from '@/lib/utils';
+import { BrandMark } from '@/components/brand/brand-logo';
 
 const FEATURE_ICONS: LucideIcon[] = [BarChart3, Bot, ShieldCheck];
 
@@ -15,9 +16,26 @@ export default function AboutPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-12 sm:py-16">
       {/* Hero */}
-      <section className="text-center">
-        <p className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--accent))' }}>BETANALYSE.PRO</p>
-        <h1 className="mt-4 text-4xl font-extrabold leading-tight tracking-tight sm:text-6xl" style={{ color: 'rgb(var(--fg-primary))' }}>
+      <section className="relative overflow-hidden rounded-3xl px-6 py-14 text-center sm:py-20"
+        style={{
+          background: 'radial-gradient(120% 120% at 50% -10%, rgb(var(--accent) / 0.16), transparent 60%), rgb(var(--pitch-900))',
+          border: '1px solid rgb(var(--pitch-700))',
+        }}
+      >
+        {/* Big brand mark with glow */}
+        <div className="relative mx-auto flex w-fit items-center justify-center">
+          <span
+            className="absolute inset-0 -z-10 rounded-full blur-2xl"
+            style={{ background: 'rgb(var(--accent) / 0.35)' }}
+          />
+          <BrandMark size={104} className="drop-shadow-[0_0_24px_rgb(var(--accent)/0.5)]" />
+        </div>
+        <div className="mt-5 text-3xl font-extrabold lowercase tracking-tight sm:text-4xl">
+          <span style={{ color: 'rgb(var(--fg-primary))' }}>betanalyse</span>
+          <span style={{ color: 'rgb(var(--accent))' }}>.pro</span>
+        </div>
+
+        <h1 className="mt-6 text-3xl font-extrabold leading-tight tracking-tight sm:text-5xl" style={{ color: 'rgb(var(--fg-primary))' }}>
           {L.heroTitle}
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed sm:text-lg" style={{ color: 'rgb(var(--fg-secondary))' }}>
@@ -25,12 +43,12 @@ export default function AboutPage() {
         </p>
         <Link
           href="/"
-          className="mt-9 inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-base font-semibold transition-transform hover:scale-[1.02]"
-          style={{ background: 'rgb(var(--fg-primary))', color: 'rgb(var(--pitch-950))' }}
+          className="mt-8 inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-base font-semibold transition-transform hover:scale-[1.03]"
+          style={{ background: 'linear-gradient(90deg, rgb(var(--accent)), #c46a2c)', color: '#04140a' }}
         >
           {L.heroCta} <ArrowRight className="h-5 w-5" />
         </Link>
-        <p className="mt-10 text-sm font-semibold" style={{ color: 'rgb(var(--fg-secondary))' }}>{L.heroTagline}</p>
+        <p className="mt-8 text-sm font-semibold" style={{ color: 'rgb(var(--fg-secondary))' }}>{L.heroTagline}</p>
       </section>
 
       {/* Feature cards */}
