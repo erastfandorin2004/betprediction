@@ -4,8 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { and, eq, gte, lte, isNull } from 'drizzle-orm';
 import * as schema from '@ai-score/db';
 import { DatabaseService } from '../database/database.service';
-import { LaozhangClient } from '../laozhang/laozhang.client';
-import { buildSystemPrompt, buildUserPrompt, type MatchContext } from './prediction.prompts';
+import { LaozhangClient, buildSystemPrompt, buildUserPrompt, type MatchContext } from '@ai-score/shared';
 import { parseAndValidate, aggregate } from './prediction.aggregator';
 
 const DEFAULT_MODELS = [

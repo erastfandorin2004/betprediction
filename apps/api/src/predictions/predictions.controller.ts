@@ -1,11 +1,15 @@
-import { Controller, Get, Query } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { PredictionsService } from './predictions.service';
+import { AiAnalysisService } from './ai-analysis.service';
 
 @ApiTags('predictions')
 @Controller('predictions')
 export class PredictionsController {
-  constructor(private readonly predictionsService: PredictionsService) {}
+  constructor(
+    private readonly predictionsService: PredictionsService,
+    private readonly aiAnalysis: AiAnalysisService,
+  ) {}
 
   @Get('daily-picks')
   @ApiOperation({ summary: 'Top AI picks of the day sorted by confidence' })
@@ -29,5 +33,12 @@ export class PredictionsController {
   @ApiOperation({ summary: 'Latest backtest run of the value-bet logic over the control sample' })
   getBacktest() {
     return this.predictionsService.getBacktest();
+  }
+
+  @Post(':fixtureId/analyze')
+  @ApiOperation({ summary: 'Run on-demand AI analysis for a fixture (free in test phase)' })
+  @ApiParam({ name: 'fixtureId', type: Number })
+  analyze(@Param('fixtureId', ParseIntPipe) fixtureId: number) {
+    return this.aiAnalysis.analyze(fixtureId);
   }
 }

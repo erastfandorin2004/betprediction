@@ -2,10 +2,12 @@ import { Suspense } from 'react';
 import { api, type WorldCupDay } from '@/lib/api-client';
 import { DayGroup } from '@/components/match/day-group';
 import { WcHeader } from '@/components/match/wc-header';
+import { TestMatchCard } from '@/components/match/test-match-card';
 
 export default function HomePage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
+      <TestMatchCard />
       <WcHeader />
 
       <Suspense fallback={<ScheduleSkeleton />}>

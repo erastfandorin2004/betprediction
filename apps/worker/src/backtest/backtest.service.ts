@@ -9,14 +9,14 @@ import type {
   BacktestSegmentStats,
   BacktestSummary,
 } from '@ai-score/shared';
-import { DatabaseService } from '../database/database.service';
-import { LaozhangClient } from '../laozhang/laozhang.client';
 import {
+  LaozhangClient,
   buildSystemPrompt,
   buildUserPrompt,
   formatOddsBlock,
   type MatchContext,
-} from '../predictions/prediction.prompts';
+} from '@ai-score/shared';
+import { DatabaseService } from '../database/database.service';
 import {
   parseResults,
   type LlmResponse,

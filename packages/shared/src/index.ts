@@ -77,3 +77,13 @@ export {
   CONFIDENCE_STAR_THRESHOLDS,
   VALUE_EDGE_THRESHOLD,
 } from './constants/markets';
+
+// LLM (laozhang ensemble) — shared by worker (batch + backtest) and API (on-demand).
+export { LaozhangClient } from './llm/laozhang.client';
+export type { LlmMessage, LlmRequest, ModelCallResult } from './llm/laozhang.client';
+export {
+  buildSystemPrompt,
+  buildUserPrompt,
+  formatOddsBlock,
+} from './llm/prompts';
+export type { MatchContext } from './llm/prompts';

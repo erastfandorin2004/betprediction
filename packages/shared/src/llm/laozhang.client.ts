@@ -1,6 +1,6 @@
 // OpenAI-compatible client for the laozhang (老张) API aggregator.
 // Docs: https://docs.laozhang.ai — base https://api.laozhang.ai/v1, Bearer auth.
-// Used as the single LLM provider for the prediction ensemble (replaces OpenRouter).
+// Single LLM provider for the prediction ensemble. Used by worker and API.
 
 export interface LlmMessage {
   role: 'system' | 'user' | 'assistant';

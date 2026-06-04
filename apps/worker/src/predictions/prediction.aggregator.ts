@@ -1,7 +1,6 @@
 import { z } from 'zod';
-import type { ModelConsensus } from '@ai-score/shared';
+import type { ModelConsensus, ModelCallResult } from '@ai-score/shared';
 import { llmPredictionResponseSchema } from '@ai-score/shared';
-import type { ModelCallResult } from '../laozhang/laozhang.client';
 
 export type LlmResponse = z.infer<typeof llmPredictionResponseSchema>;
 type LlmMarket = LlmResponse['markets'][number];

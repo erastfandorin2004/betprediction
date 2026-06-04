@@ -31,6 +31,14 @@ export default () => {
     laozhang: {
       apiKey: process.env['LAOZHANG_API_KEY'] ?? '',
       baseUrl: process.env['LAOZHANG_BASE_URL'] ?? 'https://api.laozhang.ai/v1',
+      models: process.env['LAOZHANG_MODELS'] ??
+        ['gpt-4o', 'claude-sonnet-4-6', 'gemini-2.5-flash-nothinking', 'deepseek-v3'].join(','),
+    },
+    // On-demand AI prediction. Tokens disabled in the test phase — structure ready
+    // to flip TOKENS_ENABLED=true and charge AI_PREDICTION_COST tokens later.
+    predictions: {
+      tokensEnabled: process.env['TOKENS_ENABLED'] === 'true',
+      aiCostTokens: parseInt(process.env['AI_PREDICTION_COST'] ?? '5', 10),
     },
     newsApi: {
       apiKey: process.env['NEWS_API_KEY'] ?? '',

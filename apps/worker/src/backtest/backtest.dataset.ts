@@ -1,4 +1,4 @@
-import type { MatchContext } from '../predictions/prediction.prompts';
+import type { MatchContext } from '@ai-score/shared';
 
 // ── Контрольная выборка для бэктеста (spec §9) ──────────────────────────────
 // Фиксированный набор из 20 завершённых матчей: 7 АПЛ + 7 Лиги чемпионов + 6

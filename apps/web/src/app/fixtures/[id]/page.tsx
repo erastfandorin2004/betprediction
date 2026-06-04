@@ -7,7 +7,7 @@ import type { FixtureContext } from '@/lib/api-client';
 import { formatTime, formatDateLabel } from '@/lib/format';
 import { LiveBadge } from '@/components/match/live-badge';
 import { ScoreDisplay } from '@/components/match/score-display';
-import { PredictionCard } from '@/components/prediction/prediction-card';
+import { AiPredictionPanel } from '@/components/prediction/ai-prediction-panel';
 import type { FixtureDetail } from '@ai-score/shared';
 import { ContextDisplay } from './display';
 import { FixtureLabels, FixtureEventsWrapper, TeamBlockClient } from './fixture-labels';
@@ -93,12 +93,8 @@ export default async function FixturePage({ params }: Props) {
         </div>
       </div>
 
-      {/* AI Prediction */}
-      {fixture.prediction ? (
-        <PredictionCard prediction={fixture.prediction} />
-      ) : (
-        <FixtureLabels type="no-prediction" hasStarted={hasStarted} />
-      )}
+      {/* AI Prediction — on-demand run (free in test phase) */}
+      <AiPredictionPanel fixtureId={fixtureId} initialPrediction={fixture.prediction} />
 
       {/* Events */}
       {fixture.events.length > 0 && (
