@@ -10,9 +10,19 @@ import {
   type MatchContext,
   type ModelCallResult,
 } from '@ai-score/shared';
-import type { PredictionDetail, ModelConsensus } from '@ai-score/shared';
+import type { PredictionDetail, ModelConsensus, Lineups } from '@ai-score/shared';
 import { DatabaseService } from '../database/database.service';
 import { PredictionsService } from './predictions.service';
+import { FixturesService } from '../fixtures/fixtures.service';
+
+// Минимальная форма матча из провайдерского контекста (mapH2HFixture).
+interface ProviderFixture {
+  date?: string;
+  homeTeam?: { name?: string };
+  awayTeam?: { name?: string };
+  scoreHome?: number | null;
+  scoreAway?: number | null;
+}
 
 type LlmResponse = ReturnType<typeof llmPredictionResponseSchema.parse>;
 type AggMarket = {
@@ -31,6 +41,7 @@ export class AiAnalysisService {
     private readonly db: DatabaseService,
     private readonly config: ConfigService,
     private readonly predictions: PredictionsService,
+    private readonly fixtures: FixturesService,
   ) {}
 
   // On-demand full AI analysis for a single fixture (the "AI-прогноз" button).
@@ -100,7 +111,7 @@ export class AiAnalysisService {
     if (!home || !away || !league) return null;
 
     const isFriendly = /friendl|товарищ/i.test(`${league.name} ${league.type ?? ''}`);
-    return {
+    const ctx: MatchContext = {
       homeTeam: home.name,
       awayTeam: away.name,
       homeTeamShort: home.shortName || home.name,
@@ -111,6 +122,35 @@ export class AiAnalysisService {
       date: fixture.startsAt.toISOString().slice(0, 10),
       importance: isFriendly ? 'Товарищеский матч — невысокие ставки, возможна ротация составов' : undefined,
     };
+
+    // Enrich with live provider data (form, H2H, lineups). Best-effort — the
+    // provider may be rate-limited or have no data for this fixture.
+    try {
+      const c = (await this.fixtures.findContext(fixtureId, 'ru')) as Record<string, unknown>;
+      const homeFlash = (c['homeFormFlash'] as ProviderFixture[] | undefined) ?? [];
+      const awayFlash = (c['awayFormFlash'] as ProviderFixture[] | undefined) ?? [];
+      const h2hAll = (c['h2hAll'] as ProviderFixture[] | undefined) ?? [];
+      const lineups = (c['lineups'] as Lineups | null) ?? null;
+
+      const homeForm = formString(homeFlash, home.name);
+      const awayForm = formString(awayFlash, away.name);
+      if (homeForm) ctx.homeForm = homeForm;
+      if (awayForm) ctx.awayForm = awayForm;
+
+      const h2h = h2hSummary(h2hAll, home.name);
+      if (h2h) ctx.h2hSummary = h2h;
+
+      if (lineups) {
+        const lineupText = lineupsSummary(lineups, home.shortName || home.name, away.shortName || away.name);
+        if (lineupText) ctx.lineups = lineupText;
+        const inj = injuriesSummary(lineups, home.shortName || home.name, away.shortName || away.name);
+        if (inj) ctx.injuries = inj;
+      }
+    } catch (err) {
+      this.logger.warn(`Provider context unavailable for ${fixtureId}: ${err instanceof Error ? err.message : err}`);
+    }
+
+    return ctx;
   }
 }
 
@@ -246,4 +286,57 @@ function toStars(c: number): 1 | 2 | 3 | 4 | 5 {
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
+}
+
+// "W W D L W" из последних 5 матчей команды с точки зрения teamName.
+function formString(fixtures: ProviderFixture[], teamName: string): string {
+  const out: string[] = [];
+  for (const f of fixtures.slice(0, 5)) {
+    if (f.scoreHome == null || f.scoreAway == null) continue;
+    const isHome = (f.homeTeam?.name ?? '') === teamName;
+    const gf = isHome ? f.scoreHome : f.scoreAway;
+    const ga = isHome ? f.scoreAway : f.scoreHome;
+    out.push(gf > ga ? 'W' : gf < ga ? 'L' : 'D');
+  }
+  return out.join(' ');
+}
+
+// Сводка очных встреч с точки зрения home team + средняя результативность.
+function h2hSummary(fixtures: ProviderFixture[], homeName: string): string {
+  const played = fixtures.filter((f) => f.scoreHome != null && f.scoreAway != null).slice(0, 6);
+  if (!played.length) return '';
+  let w = 0, d = 0, l = 0, goals = 0;
+  for (const f of played) {
+    const isHome = (f.homeTeam?.name ?? '') === homeName;
+    const gf = (isHome ? f.scoreHome : f.scoreAway) ?? 0;
+    const ga = (isHome ? f.scoreAway : f.scoreHome) ?? 0;
+    if (gf > ga) w++; else if (gf < ga) l++; else d++;
+    goals += (f.scoreHome ?? 0) + (f.scoreAway ?? 0);
+  }
+  const avg = (goals / played.length).toFixed(1);
+  return `Последние ${played.length} очных: ${w}П ${d}Н ${l}П (с точки зрения ${homeName}), в среднем ${avg} гола за матч`;
+}
+
+function lineupsSummary(lineups: Lineups, homeShort: string, awayShort: string): string {
+  const side = (team: Lineups['home'], name: string): string | null => {
+    const names = team.starters.map((p) => p.name).filter(Boolean);
+    if (!names.length && !team.formation) return null;
+    const formation = team.formation ? ` (${team.formation})` : '';
+    return `${name}${formation}: ${names.slice(0, 11).join(', ') || '—'}`;
+  };
+  const home = side(lineups.home, homeShort);
+  const away = side(lineups.away, awayShort);
+  const parts = [home, away].filter(Boolean) as string[];
+  if (!parts.length) return '';
+  const prefix = lineups.confirmed ? 'Официальные составы' : 'Ожидаемые составы';
+  return `${prefix}. ${parts.join('. ')}`;
+}
+
+function injuriesSummary(lineups: Lineups, homeShort: string, awayShort: string): string {
+  const fmt = (team: Lineups['home'], name: string): string | null => {
+    if (!team.injuries.length) return null;
+    return `${name}: ${team.injuries.map((i) => i.player.name + (i.reason ? ` (${i.reason})` : '')).join(', ')}`;
+  };
+  const parts = [fmt(lineups.home, homeShort), fmt(lineups.away, awayShort)].filter(Boolean) as string[];
+  return parts.join('; ');
 }

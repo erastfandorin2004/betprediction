@@ -24,6 +24,7 @@ export interface MatchContext {
   cardsStats?: string;     // e.g. "Среднее 4.3 жёлтых на матч, строгий арбитр"
   style?: string;          // e.g. "Обе команды атакуют через фланги, высокий темп"
   weather?: string;        // e.g. "Дождь, сильный ветер"
+  lineups?: string;        // стартовые составы / расстановка, если известны
   odds?: string;           // pre-match bookmaker odds block (see formatOddsBlock)
 }
 
@@ -73,6 +74,9 @@ export function buildUserPrompt(ctx: MatchContext): string {
   push('Карточки', ctx.cardsStats);
   push('Стиль игры', ctx.style);
   push('Погода', ctx.weather);
+  if (ctx.lineups && ctx.lineups.trim()) {
+    lines.push('Составы:', ctx.lineups.trim());
+  }
   if (ctx.odds && ctx.odds.trim()) {
     lines.push('', 'Коэффициенты букмекера:', ctx.odds.trim());
   }
