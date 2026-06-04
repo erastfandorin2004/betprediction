@@ -56,6 +56,10 @@ export default () => {
     apiFootball: {
       apiKey: process.env['API_FOOTBALL_KEY'] ?? '',
     },
+    // Live bookmaker line — The Odds API (the-odds-api.com), free tier.
+    theOddsApi: {
+      apiKey: process.env['THE_ODDS_API_KEY'] ?? '',
+    },
     cors: {
       origins: (process.env['CORS_ORIGINS'] ?? 'http://localhost:3000').split(','),
     },

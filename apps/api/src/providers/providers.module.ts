@@ -5,6 +5,7 @@ import { ApiFootballAdapter } from './api-football/api-football.adapter';
 import { AllSportsAdapter } from './allsports/allsports.adapter';
 import { FlashLiveAdapter } from './flashlive/flashlive.adapter';
 import { InjuriesAdapter } from './injuries/injuries.adapter';
+import { OddsAdapter } from './odds/odds.adapter';
 
 @Module({
   providers: [
@@ -17,7 +18,8 @@ import { InjuriesAdapter } from './injuries/injuries.adapter';
     AllSportsAdapter,
     FlashLiveAdapter,
     InjuriesAdapter,
+    OddsAdapter,
   ],
-  exports: [SportsDataProvider, FootballDataAdapter, ApiFootballAdapter, AllSportsAdapter, FlashLiveAdapter, InjuriesAdapter],
+  exports: [SportsDataProvider, FootballDataAdapter, ApiFootballAdapter, AllSportsAdapter, FlashLiveAdapter, InjuriesAdapter, OddsAdapter],
 })
 export class ProvidersModule {}

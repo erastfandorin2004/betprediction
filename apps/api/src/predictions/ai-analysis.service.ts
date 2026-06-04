@@ -6,6 +6,7 @@ import {
   LaozhangClient,
   buildSystemPrompt,
   buildUserPrompt,
+  formatOddsBlock,
   llmPredictionResponseSchema,
   MARKET_LABELS,
   type MatchContext,
@@ -16,6 +17,7 @@ import { DatabaseService } from '../database/database.service';
 import { PredictionsService } from './predictions.service';
 import { FixturesService } from '../fixtures/fixtures.service';
 import { InjuriesAdapter } from '../providers/injuries/injuries.adapter';
+import { OddsAdapter } from '../providers/odds/odds.adapter';
 
 // Минимальная форма матча из провайдерского контекста (mapH2HFixture).
 interface ProviderFixture {
@@ -45,6 +47,7 @@ export class AiAnalysisService {
     private readonly predictions: PredictionsService,
     private readonly fixtures: FixturesService,
     private readonly injuries: InjuriesAdapter,
+    private readonly odds: OddsAdapter,
   ) {}
 
   // On-demand full AI analysis for a single fixture (the "AI-прогноз" button).
@@ -53,8 +56,9 @@ export class AiAnalysisService {
     const apiKey = this.config.get<string>('laozhang.apiKey') ?? '';
     if (!apiKey) throw new NotFoundException('LAOZHANG_API_KEY is not configured');
 
-    const ctx = await this.buildContext(fixtureId);
-    if (!ctx) throw new NotFoundException(`Fixture ${fixtureId} not found`);
+    const built = await this.buildContext(fixtureId);
+    if (!built) throw new NotFoundException(`Fixture ${fixtureId} not found`);
+    const { ctx, oddsMap } = built;
 
     // TODO(tokens): when config.predictions.tokensEnabled — verify & charge
     // config.predictions.aiCostTokens here before running the analysis.
@@ -79,6 +83,11 @@ export class AiAnalysisService {
     const modelViews = buildModelViews(parsed, agg.recommendedMarket, agg.recommendedOutcome);
     const summary = await this.synthesize(client, models[0]!, ctx, modelViews, agg);
 
+    // Value vs the live line for the recommended pick (when odds are available).
+    const recOdds = oddsMap[oddsKeyFor(agg.recommendedMarket, agg.recommendedOutcome)];
+    const impliedProbability = recOdds ? round(1 / recOdds) : null;
+    const valueEdge = impliedProbability != null ? round(agg.probability - impliedProbability) : null;
+
     // Persist as an immutable-style snapshot; re-running replaces the prior one.
     await this.db.db.delete(schema.predictions).where(eq(schema.predictions.fixtureId, fixtureId));
     const [row] = await this.db.db
@@ -96,8 +105,8 @@ export class AiAnalysisService {
         summary,
         rationale: agg.rationale,
         keyFactors: agg.keyFactors,
-        valueEdge: null,
-        impliedProbability: null,
+        valueEdge,
+        impliedProbability,
         status: 'pending',
       })
       .returning();
@@ -147,7 +156,7 @@ export class AiAnalysisService {
     return res.content.trim().slice(0, 700);
   }
 
-  private async buildContext(fixtureId: number): Promise<MatchContext | null> {
+  private async buildContext(fixtureId: number): Promise<{ ctx: MatchContext; oddsMap: Record<string, number> } | null> {
     const [fixture] = await this.db.db
       .select()
       .from(schema.fixtures)
@@ -221,8 +230,26 @@ export class AiAnalysisService {
       this.logger.warn(`Injuries feed unavailable for ${fixtureId}: ${err instanceof Error ? err.message : err}`);
     }
 
-    return ctx;
+    // Live bookmaker line — fed to the model for value detection vs implied prob.
+    let oddsMap: Record<string, number> = {};
+    try {
+      oddsMap = await this.odds.getOdds(home.name, away.name);
+      if (Object.keys(oddsMap).length) ctx.odds = formatOddsBlock(oddsMap);
+    } catch (err) {
+      this.logger.warn(`Odds unavailable for ${fixtureId}: ${err instanceof Error ? err.message : err}`);
+    }
+
+    return { ctx, oddsMap };
   }
+}
+
+// Map a recommended (market, outcome) to the odds-map key used by the live line.
+function oddsKeyFor(market: string, outcome: string): string {
+  if (market === '1X2') return outcome; // '1' | 'X' | '2'
+  if (market === 'O_U_1_5') return `${outcome}_1_5`;
+  if (market === 'O_U_2_5') return `${outcome}_2_5`;
+  if (market === 'O_U_3_5') return `${outcome}_3_5`;
+  return `${market}:${outcome}`; // no live key (DC/BTTS/team totals not fetched)
 }
 
 // ── Pure aggregation (all markets the ensemble returned → PredictionDetail) ──
