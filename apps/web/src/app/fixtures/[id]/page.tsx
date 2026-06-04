@@ -32,16 +32,18 @@ export default async function FixturePage({ params }: Props) {
     throw err;
   }
 
-  // After a match finishes, settle the prediction against the real result (once).
-  let prediction = fixture.prediction;
-  if (fixture.status === 'finished' && prediction && !prediction.settlement) {
-    const settled = await settlePrediction(fixtureId);
-    if (settled) prediction = settled;
-  }
-
   const isLive = fixture.status === 'live';
   const isFinished = fixture.status === 'finished';
   const hasStarted = isLive || isFinished;
+
+  // Before the match: don't auto-show the analysis — the user must press
+  // «Сделать анализ». After the match: settle the bet and show the result.
+  let prediction = fixture.prediction;
+  if (isFinished && prediction && !prediction.settlement) {
+    const settled = await settlePrediction(fixtureId);
+    if (settled) prediction = settled;
+  }
+  const initialPrediction = isFinished ? prediction : null;
 
   const staticVenue = getVenue(fixtureId);
   const venueInfo = fixture.venue ?? (staticVenue ? {
@@ -101,7 +103,7 @@ export default async function FixturePage({ params }: Props) {
       </div>
 
       {/* AI Prediction — on-demand run (free in test phase) */}
-      <AiPredictionPanel fixtureId={fixtureId} initialPrediction={prediction} />
+      <AiPredictionPanel fixtureId={fixtureId} initialPrediction={initialPrediction} />
 
       {/* Events */}
       {fixture.events.length > 0 && (
