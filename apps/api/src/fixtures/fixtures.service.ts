@@ -483,6 +483,8 @@ export class FixturesService {
       keyFactors: pred.keyFactors as string[] | null,
       valueEdge: pred.valueEdge,
       impliedProbability: pred.impliedProbability,
+      models: (pred.modelViews as PredictionDetail['models']) ?? null,
+      summary: pred.summary ?? null,
       outcome: pred.isCorrect !== null
         ? { isCorrect: pred.isCorrect!, actualResult: pred.actualResult ?? '', resolvedAt: pred.resolvedAt?.toISOString() ?? '' }
         : null,

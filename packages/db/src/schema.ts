@@ -101,6 +101,8 @@ export const predictions = pgTable(
     confidence: real('confidence').notNull(),
     stars: integer('stars').notNull(),
     modelConsensus: jsonb('model_consensus').$type<unknown>(),
+    modelViews: jsonb('model_views').$type<unknown[]>(),
+    summary: text('summary'),
     rationale: text('rationale'),
     keyFactors: jsonb('key_factors').$type<string[]>(),
     valueEdge: real('value_edge'),

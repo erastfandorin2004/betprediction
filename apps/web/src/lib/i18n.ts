@@ -112,6 +112,11 @@ export const translations = {
       aiError: 'Не удалось получить прогноз. Попробуй ещё раз.',
       testMatchTitle: 'Тестовый матч · AI-прогноз',
       testMatchHint: 'Открой карточку и запусти бесплатный AI-анализ',
+      summaryLabel: 'Общее мнение всех моделей',
+      modelForecasts: 'Прогнозы моделей',
+      ownPick: 'выбор',
+      agrees: 'за итог',
+      noResponse: 'нет ответа',
       outcomes: {
         '1': 'Победа хозяев',
         X: 'Ничья',
@@ -341,6 +346,11 @@ export const translations = {
       aiError: 'Could not get the prediction. Please try again.',
       testMatchTitle: 'Test match · AI prediction',
       testMatchHint: 'Open the card and run a free AI analysis',
+      summaryLabel: 'Combined opinion of all models',
+      modelForecasts: 'Model forecasts',
+      ownPick: 'pick',
+      agrees: 'agrees',
+      noResponse: 'no response',
       outcomes: {
         '1': 'Home win',
         X: 'Draw',

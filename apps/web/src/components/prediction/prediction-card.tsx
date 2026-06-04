@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Lock, TrendingUp, Bot, Sparkles } from 'lucide-react';
-import type { PredictionDetail } from '@ai-score/shared';
+import { Lock, TrendingUp, Bot, Sparkles, Cpu } from 'lucide-react';
+import type { PredictionDetail, ModelForecast } from '@ai-score/shared';
 import { formatPct } from '@/lib/format';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { StarRating } from '@/components/ui/star-rating';
@@ -52,6 +52,7 @@ export function PredictionCard({ prediction }: PredictionCardProps) {
 
       <div className="space-y-5 px-5 py-5">
         <RecommendationBlock prediction={prediction} />
+        {prediction.summary && <SummaryBlock summary={prediction.summary} />}
         <MarketBars markets={prediction.markets} />
         {prediction.modelConsensus && <ConsensusBlock consensus={prediction.modelConsensus} />}
         {prediction.valueEdge !== null && prediction.valueEdge > 0.03 && (
@@ -59,6 +60,9 @@ export function PredictionCard({ prediction }: PredictionCardProps) {
         )}
         {prediction.rationale && (
           <RationaleBlock rationale={prediction.rationale} keyFactors={prediction.keyFactors} />
+        )}
+        {prediction.models && prediction.models.length > 0 && (
+          <ModelForecastsBlock models={prediction.models} />
         )}
       </div>
 
@@ -144,6 +148,61 @@ function RationaleBlock({ rationale, keyFactors }: { rationale: string; keyFacto
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function SummaryBlock({ summary }: { summary: string }) {
+  const { t } = useLocale();
+  return (
+    <div className="rounded-xl p-4" style={{ background: 'rgb(var(--accent) / 0.1)', border: '1px solid rgb(var(--accent) / 0.25)' }}>
+      <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'rgb(var(--accent))' }}>
+        <Sparkles className="h-3.5 w-3.5" /> {t.prediction.summaryLabel}
+      </p>
+      <p className="text-sm leading-relaxed" style={{ color: 'rgb(var(--fg-card))' }}>{summary}</p>
+    </div>
+  );
+}
+
+function ModelForecastsBlock({ models }: { models: ModelForecast[] }) {
+  const { t } = useLocale();
+  const p = t.prediction;
+  return (
+    <div className="space-y-2.5">
+      <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted))' }}>
+        <Cpu className="h-3.5 w-3.5" /> {p.modelForecasts}
+      </p>
+      <div className="space-y-1.5">
+        {models.map((m, i) => (
+          <div key={i} className="rounded-lg px-3 py-2" style={{ background: 'rgb(var(--pitch-800))' }}>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="text-xs font-semibold" style={{ color: 'rgb(var(--fg-card))' }}>{m.modelId}</span>
+              {m.error ? (
+                <span className="text-[11px]" style={{ color: '#ef4444' }}>· {p.noResponse}</span>
+              ) : (
+                <>
+                  {m.probability !== null && (
+                    <span className="tabular text-[11px] font-medium" style={{ color: 'rgb(var(--fg-secondary))' }}>
+                      {Math.round(m.probability * 100)}%
+                    </span>
+                  )}
+                  {m.ownOutcomeLabel && (
+                    <span className="text-[11px]" style={{ color: 'rgb(var(--fg-muted))' }}>{p.ownPick}: {m.ownOutcomeLabel}</span>
+                  )}
+                  {m.agreed && (
+                    <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold" style={{ background: 'rgb(var(--accent) / 0.16)', color: 'rgb(var(--accent))' }}>
+                      ✓ {p.agrees}
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+            {m.rationale && (
+              <p className="mt-1 text-[11px] leading-snug" style={{ color: 'rgb(var(--fg-muted))' }}>{m.rationale}</p>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

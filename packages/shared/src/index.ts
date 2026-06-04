@@ -30,6 +30,7 @@ export type {
   PredictionOutcome,
   PredictionBadge,
   PredictionDetail,
+  ModelForecast,
   AccuracyStats,
   TrackRecordStats,
   BacktestResult,

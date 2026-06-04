@@ -7,10 +7,11 @@ import {
   buildSystemPrompt,
   buildUserPrompt,
   llmPredictionResponseSchema,
+  MARKET_LABELS,
   type MatchContext,
   type ModelCallResult,
 } from '@ai-score/shared';
-import type { PredictionDetail, ModelConsensus, Lineups } from '@ai-score/shared';
+import type { PredictionDetail, ModelConsensus, ModelForecast, Lineups } from '@ai-score/shared';
 import { DatabaseService } from '../database/database.service';
 import { PredictionsService } from './predictions.service';
 import { FixturesService } from '../fixtures/fixtures.service';
@@ -67,11 +68,14 @@ export class AiAnalysisService {
       { role: 'user', content: buildUserPrompt(ctx) },
     ]);
 
-    const valid = parseValid(results);
+    const parsed = parseWithModel(results);
+    const valid = parsed.filter((p) => p.parsed).map((p) => p.parsed!);
     this.logger.log(`AI analysis: ${valid.length}/${results.length} models responded for ${fixtureId}`);
     if (!valid.length) throw new NotFoundException('All AI models failed to produce a prediction');
 
     const agg = aggregate(valid, results.length);
+    const modelViews = buildModelViews(parsed, agg.recommendedMarket, agg.recommendedOutcome);
+    const summary = await this.synthesize(client, models[0]!, ctx, modelViews, agg);
 
     // Persist as an immutable-style snapshot; re-running replaces the prior one.
     await this.db.db.delete(schema.predictions).where(eq(schema.predictions.fixtureId, fixtureId));
@@ -86,6 +90,8 @@ export class AiAnalysisService {
         confidence: agg.confidence,
         stars: agg.stars,
         modelConsensus: agg.modelConsensus as unknown,
+        modelViews: modelViews as unknown[],
+        summary,
         rationale: agg.rationale,
         keyFactors: agg.keyFactors,
         valueEdge: null,
@@ -95,6 +101,48 @@ export class AiAnalysisService {
       .returning();
 
     return this.predictions.toDetail(row!, false);
+  }
+
+  // Синтез: одна модель объединяет прогнозы всех моделей в общий вывод.
+  private async synthesize(
+    client: LaozhangClient,
+    model: string,
+    ctx: MatchContext,
+    views: ModelForecast[],
+    agg: Aggregated,
+  ): Promise<string | null> {
+    const opinions = views
+      .filter((v) => !v.error)
+      .map((v) => {
+        const conf = v.confidence != null ? `, уверенность ${Math.round(v.confidence * 100)}%` : '';
+        const prob = v.probability != null ? `, по итоговому исходу ${Math.round(v.probability * 100)}%` : '';
+        return `- ${v.modelId}: выбирает «${v.ownOutcomeLabel ?? '—'}»${conf}${prob}. ${v.rationale ?? ''}`.trim();
+      })
+      .join('\n');
+    if (!opinions) return null;
+
+    const decision = `Итоговая рекомендация ансамбля: «${labelFor(agg.recommendedMarket, agg.recommendedOutcome)}» (${Math.round(agg.probability * 100)}%).`;
+    const res = await client.complete({
+      model,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Ты — главный аналитик, объединяющий мнения нескольких независимых AI-моделей в один консенсус. ' +
+            'Верни ТОЛЬКО связный текст на русском (3–4 предложения), без JSON и markdown.',
+        },
+        {
+          role: 'user',
+          content:
+            `Матч: ${ctx.homeTeam} — ${ctx.awayTeam} (${ctx.league}).\n\nПрогнозы моделей:\n${opinions}\n\n${decision}\n\n` +
+            'Сформулируй ОБЩЕЕ мнение всех моделей: в чём они согласны, в чём расходятся, насколько единодушен консенсус и почему итог именно такой.',
+        },
+      ],
+      max_tokens: 450,
+      temperature: 0.3,
+    });
+    if (res.error || !res.content.trim()) return null;
+    return res.content.trim().slice(0, 700);
   }
 
   private async buildContext(fixtureId: number): Promise<MatchContext | null> {
@@ -131,6 +179,8 @@ export class AiAnalysisService {
       const awayFlash = (c['awayFormFlash'] as ProviderFixture[] | undefined) ?? [];
       const h2hAll = (c['h2hAll'] as ProviderFixture[] | undefined) ?? [];
       const lineups = (c['lineups'] as Lineups | null) ?? null;
+      const homeCoach = (c['homeCoach'] as { name?: string } | null)?.name;
+      const awayCoach = (c['awayCoach'] as { name?: string } | null)?.name;
 
       const homeForm = formString(homeFlash, home.name);
       const awayForm = formString(awayFlash, away.name);
@@ -139,6 +189,12 @@ export class AiAnalysisService {
 
       const h2h = h2hSummary(h2hAll, home.name);
       if (h2h) ctx.h2hSummary = h2h;
+
+      const coaches = [
+        homeCoach ? `${home.shortName || home.name}: ${homeCoach}` : null,
+        awayCoach ? `${away.shortName || away.name}: ${awayCoach}` : null,
+      ].filter(Boolean);
+      if (coaches.length) ctx.coaches = coaches.join('; ');
 
       if (lineups) {
         const lineupText = lineupsSummary(lineups, home.shortName || home.name, away.shortName || away.name);
@@ -156,17 +212,66 @@ export class AiAnalysisService {
 
 // ── Pure aggregation (all markets the ensemble returned → PredictionDetail) ──
 
-function parseValid(results: ModelCallResult[]): LlmResponse[] {
-  const valid: LlmResponse[] = [];
-  for (const r of results) {
-    if (r.error) continue;
+interface ParsedModel {
+  modelId: string;
+  parsed: LlmResponse | null;
+  error: string | null;
+}
+
+function parseWithModel(results: ModelCallResult[]): ParsedModel[] {
+  return results.map((r) => {
+    if (r.error) return { modelId: r.modelId, parsed: null, error: r.error };
     try {
-      valid.push(llmPredictionResponseSchema.parse(JSON.parse(extractJson(r.content))));
-    } catch {
-      /* skip unparseable */
+      return { modelId: r.modelId, parsed: llmPredictionResponseSchema.parse(JSON.parse(extractJson(r.content))), error: null };
+    } catch (err) {
+      return { modelId: r.modelId, parsed: null, error: err instanceof Error ? err.message.slice(0, 200) : 'parse error' };
     }
-  }
-  return valid;
+  });
+}
+
+// Прогноз каждой модели по итоговому рынку/исходу: её вероятность, собственный
+// выбор, согласие с итогом и индивидуальное обоснование.
+function buildModelViews(parsed: ParsedModel[], recMarket: string, recOutcome: string): ModelForecast[] {
+  return parsed.map((pm) => {
+    if (!pm.parsed) {
+      return { modelId: pm.modelId, probability: null, ownMarket: null, ownOutcomeLabel: null, confidence: null, agreed: false, rationale: null, error: pm.error };
+    }
+    const r = pm.parsed;
+    let probability: number | null = null;
+    let agreed = false;
+    const mkt = r.markets.find((m) => m.market === recMarket);
+    const out = mkt?.outcomes.find((o) => o.outcome === recOutcome);
+    if (out && mkt) {
+      probability = round(out.probability);
+      const maxProb = Math.max(...mkt.outcomes.map((o) => o.probability));
+      agreed = out.probability >= maxProb - 1e-9;
+    }
+    return {
+      modelId: pm.modelId,
+      probability,
+      ownMarket: r.recommendedMarket,
+      ownOutcomeLabel: labelFor(r.recommendedMarket, r.recommendedOutcome),
+      confidence: round(r.confidence),
+      agreed,
+      rationale: r.rationale ?? null,
+      error: null,
+    };
+  });
+}
+
+const OUTCOME_NAMES: Record<string, string> = {
+  '1': 'П1', X: 'Ничья', '2': 'П2', '1X': '1X', '12': '12', X2: 'X2',
+  yes: 'Да', no: 'Нет', over: 'Больше', under: 'Меньше',
+};
+function labelFor(market: string, outcome: string): string {
+  const o = OUTCOME_NAMES[outcome] ?? outcome;
+  if (market === '1X2') return o;
+  const m = (MARKET_LABELS as Record<string, string>)[market] ?? market;
+  return `${m} — ${o}`;
+}
+
+function round(n: number): number {
+  return Math.round(n * 1000) / 1000;
 }
 
 function extractJson(raw: string): string {

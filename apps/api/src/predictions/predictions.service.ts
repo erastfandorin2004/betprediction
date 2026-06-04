@@ -155,6 +155,8 @@ export class PredictionsService {
       keyFactors: isLocked ? null : (row.keyFactors as string[] | null),
       valueEdge: isLocked ? null : row.valueEdge,
       impliedProbability: row.impliedProbability,
+      models: isLocked ? null : (row.modelViews as PredictionDetail['models']),
+      summary: isLocked ? null : row.summary,
       outcome: row.isCorrect !== null
         ? { isCorrect: row.isCorrect!, actualResult: row.actualResult ?? '', resolvedAt: row.resolvedAt?.toISOString() ?? '' }
         : null,

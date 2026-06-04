@@ -62,8 +62,22 @@ export interface PredictionDetail {
   valueEdge: number | null;
   impliedProbability: number | null;
   outcome: PredictionOutcome | null;
+  models: ModelForecast[] | null;   // прогноз каждой модели ансамбля
+  summary: string | null;           // синтез мнений всех моделей (общий вывод)
   isLocked: boolean;
   lockedFields: string[];
+}
+
+// Прогноз одной модели ансамбля по матчу (для on-demand AI-прогноза).
+export interface ModelForecast {
+  modelId: string;
+  probability: number | null;   // вероятность итогового исхода по этой модели
+  ownMarket: string | null;     // рынок, рекомендованный самой моделью
+  ownOutcomeLabel: string | null;
+  confidence: number | null;
+  agreed: boolean;              // согласна ли модель с итоговым выбором
+  rationale: string | null;
+  error: string | null;
 }
 
 export interface AccuracyStats {
