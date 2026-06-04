@@ -19,6 +19,7 @@ const MATCHES = [
   [990100, 990010, 'Sweden', 'SWE', 990011, 'Greece', 'GRE'],
   [990101, 990020, 'France', 'FRA', 990021, "Cote d'Ivoire", 'CIV'],
   [990102, 990022, 'Mexico', 'MEX', 990023, 'Serbia', 'SRB'],
+  [990103, 990024, 'Moldova', 'MDA', 990025, 'Bulgaria', 'BUL'],
 ];
 
 async function main() {

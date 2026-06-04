@@ -9,6 +9,7 @@ const TEST_MATCHES = [
   { id: 990100, ru: 'Швеция — Греция', en: 'Sweden — Greece' },
   { id: 990101, ru: 'Франция — Кот-д’Ивуар', en: "France — Côte d'Ivoire" },
   { id: 990102, ru: 'Мексика — Сербия', en: 'Mexico — Serbia' },
+  { id: 990103, ru: 'Молдова — Болгария', en: 'Moldova — Bulgaria' },
 ];
 
 export function TestMatchCard() {
