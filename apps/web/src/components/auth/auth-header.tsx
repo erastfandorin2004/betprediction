@@ -45,10 +45,10 @@ export function AuthHeader() {
         style={{ background: 'linear-gradient(90deg, transparent, rgb(var(--accent) / 0.6), rgba(59,130,246,0.6), transparent)' }}
       />
 
-      <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4">
         {/* Logo */}
-        <Link href="/" className="flex shrink-0 items-center">
-          <BrandLogo size={28} />
+        <Link href="/" className="flex shrink-0 items-center transition-transform hover:scale-[1.03]">
+          <BrandLogo size={36} wordClassName="text-2xl" />
         </Link>
 
         {/* Nav — icons + gradient underline indicator */}

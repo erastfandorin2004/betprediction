@@ -25,11 +25,19 @@ export function BrandMark({ size = 28, className }: { size?: number; className?:
   );
 }
 
-export function BrandLogo({ size = 28, className }: { size?: number; className?: string }) {
+export function BrandLogo({
+  size = 38,
+  wordClassName = 'text-2xl',
+  className,
+}: {
+  size?: number;
+  wordClassName?: string;
+  className?: string;
+}) {
   return (
-    <span className={`flex items-center gap-2 ${className ?? ''}`}>
-      <BrandMark size={size} className="shrink-0" />
-      <span className="text-base font-extrabold lowercase tracking-tight">
+    <span className={`flex items-center gap-2.5 ${className ?? ''}`}>
+      <BrandMark size={size} className="shrink-0 drop-shadow-[0_0_10px_rgb(var(--accent)/0.45)]" />
+      <span className={`font-extrabold lowercase tracking-tight ${wordClassName}`}>
         <span style={{ color: 'rgb(var(--fg-primary))' }}>betanalyse</span>
         <span style={{ color: 'rgb(var(--accent))' }}>.pro</span>
       </span>
