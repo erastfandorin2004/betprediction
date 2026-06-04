@@ -4,34 +4,46 @@ import Link from 'next/link';
 import { Sparkles, ChevronRight } from 'lucide-react';
 import { useLocale } from '@/components/i18n/locale-provider';
 
-// Test fixture seeded for the on-demand AI-prediction flow (Sweden — Greece).
-const TEST_FIXTURE_ID = 990100;
+// Test fixtures seeded for the on-demand AI-prediction flow.
+const TEST_MATCHES = [
+  { id: 990100, ru: 'Швеция — Греция', en: 'Sweden — Greece' },
+  { id: 990101, ru: 'Франция — Кот-д’Ивуар', en: "France — Côte d'Ivoire" },
+  { id: 990102, ru: 'Мексика — Сербия', en: 'Mexico — Serbia' },
+];
 
 export function TestMatchCard() {
   const { t, locale } = useLocale();
   const p = t.prediction;
-  const teams = locale === 'ru' ? 'Швеция — Греция' : 'Sweden — Greece';
   const sub = locale === 'ru' ? 'Товарищеский матч · сегодня' : 'Friendly · today';
 
   return (
-    <Link
-      href={`/fixtures/${TEST_FIXTURE_ID}`}
-      className="mb-6 block overflow-hidden rounded-2xl transition-transform hover:scale-[1.01]"
+    <div
+      className="mb-6 overflow-hidden rounded-2xl"
       style={{ background: 'rgb(var(--accent) / 0.08)', border: '1px solid rgb(var(--accent) / 0.3)' }}
     >
-      <div className="flex items-center gap-3 px-5 py-4">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: 'rgb(var(--accent) / 0.16)' }}>
-          <Sparkles className="h-5 w-5" style={{ color: 'rgb(var(--accent))' }} />
+      <div className="flex items-center gap-2 px-5 pt-4">
+        <Sparkles className="h-4 w-4" style={{ color: 'rgb(var(--accent))' }} />
+        <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'rgb(var(--accent))' }}>
+          {p.testMatchTitle}
         </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'rgb(var(--accent))' }}>
-            {p.testMatchTitle}
-          </p>
-          <p className="mt-0.5 truncate text-base font-bold" style={{ color: 'rgb(var(--fg-primary))' }}>{teams}</p>
-          <p className="truncate text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>{sub} · {p.testMatchHint}</p>
-        </div>
-        <ChevronRight className="h-5 w-5 shrink-0" style={{ color: 'rgb(var(--accent))' }} />
       </div>
-    </Link>
+      <div className="space-y-1.5 p-3">
+        {TEST_MATCHES.map((m) => (
+          <Link
+            key={m.id}
+            href={`/fixtures/${m.id}`}
+            className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-[rgb(var(--accent)/0.1)]"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold" style={{ color: 'rgb(var(--fg-primary))' }}>
+                {locale === 'ru' ? m.ru : m.en}
+              </p>
+              <p className="truncate text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>{sub} · {p.testMatchHint}</p>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0" style={{ color: 'rgb(var(--accent))' }} />
+          </Link>
+        ))}
+      </div>
+    </div>
   );
 }
