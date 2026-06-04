@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import {
   BarChart3,
@@ -182,7 +183,12 @@ function HistorySection({ history }: { history: PredictionHistoryItem[] }) {
           {history.map((item) => {
             const v = verdict(item);
             return (
-              <div key={item.fixtureId + item.createdAt} className="rounded-xl px-3.5 py-2.5" style={{ background: 'rgb(var(--pitch-800))' }}>
+              <Link
+                key={item.fixtureId + item.createdAt}
+                href={`/fixtures/${item.fixtureId}`}
+                className="block rounded-xl px-3.5 py-2.5 transition-colors hover:brightness-110"
+                style={{ background: 'rgb(var(--pitch-800))' }}
+              >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium" style={{ color: 'rgb(var(--fg-card))' }}>{item.match}</p>
@@ -209,7 +215,7 @@ function HistorySection({ history }: { history: PredictionHistoryItem[] }) {
                     <span className="tabular">{h.wonOf(item.wonCount, item.total)}</span>
                   )}
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>

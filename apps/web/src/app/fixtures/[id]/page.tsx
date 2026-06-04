@@ -36,14 +36,15 @@ export default async function FixturePage({ params }: Props) {
   const isFinished = fixture.status === 'finished';
   const hasStarted = isLive || isFinished;
 
-  // Before the match: don't auto-show the analysis — the user must press
-  // «Сделать анализ». After the match: settle the bet and show the result.
+  // Show the saved analysis if one exists (the user already ran it); only when
+  // there's no analysis yet do we show the «Сделать анализ» button. After the
+  // match, settle the bet so the verdict is shown.
   let prediction = fixture.prediction;
   if (isFinished && prediction && !prediction.settlement) {
     const settled = await settlePrediction(fixtureId);
     if (settled) prediction = settled;
   }
-  const initialPrediction = isFinished ? prediction : null;
+  const initialPrediction = prediction;
 
   const staticVenue = getVenue(fixtureId);
   const venueInfo = fixture.venue ?? (staticVenue ? {
