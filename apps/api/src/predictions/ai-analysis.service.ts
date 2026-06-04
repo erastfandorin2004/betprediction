@@ -66,7 +66,7 @@ export class AiAnalysisService {
     const baseUrl = this.config.get<string>('laozhang.baseUrl');
     const models = (this.config.get<string>('laozhang.models') ?? DEFAULT_MODELS.join(','))
       .split(',').map((m) => m.trim()).filter(Boolean);
-    const client = new LaozhangClient(apiKey, baseUrl, 90_000);
+    const client = new LaozhangClient(apiKey, baseUrl, 120_000);
 
     this.logger.log(`AI analysis: ${ctx.homeTeam} vs ${ctx.awayTeam} × ${models.length} models`);
     const results = await client.fanOut(models, [

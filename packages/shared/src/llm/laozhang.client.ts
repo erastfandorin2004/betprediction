@@ -103,16 +103,20 @@ export class LaozhangClient {
   }
 
   // Fan-out to multiple models in parallel — each is an independent prediction.
+  // Models that error/time out (slower ones like deepseek) get one retry.
   async fanOut(models: string[], messages: LlmMessage[]): Promise<ModelCallResult[]> {
-    const requests = models.map((model) =>
+    const call = (model: string) =>
       this.complete({
         model,
         messages,
         response_format: { type: 'json_object' },
         max_tokens: 2000,
         temperature: 0.3,
-      }),
+      });
+
+    const results = await Promise.all(models.map(call));
+    return Promise.all(
+      results.map((r) => (r.error ? call(r.modelId) : Promise.resolve(r))),
     );
-    return Promise.all(requests);
   }
 }
