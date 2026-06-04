@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Lock, TrendingUp, Bot, Sparkles, Cpu, CheckCircle2, XCircle, MinusCircle, ClipboardCheck } from 'lucide-react';
-import type { PredictionDetail, ModelForecast, PredictionSettlement, MarketCheck } from '@ai-score/shared';
+import { Lock, TrendingUp, Bot, Sparkles, Cpu, CheckCircle2, XCircle, MinusCircle, ClipboardCheck, Target, Star } from 'lucide-react';
+import type { PredictionDetail, ModelForecast, PredictionSettlement, MarketCheck, PredictionMarket } from '@ai-score/shared';
+import { MARKET_LABELS } from '@ai-score/shared';
 import { formatPct } from '@/lib/format';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { StarRating } from '@/components/ui/star-rating';
@@ -53,6 +54,11 @@ export function PredictionCard({ prediction }: PredictionCardProps) {
       <div className="space-y-5 px-5 py-5">
         {prediction.settlement && <SettlementBlock s={prediction.settlement} />}
         <RecommendationBlock prediction={prediction} />
+        <ProposedBetsBlock
+          markets={prediction.markets}
+          recMarket={prediction.recommendedMarket}
+          recOutcome={prediction.recommendedOutcome}
+        />
         {prediction.summary && <SummaryBlock summary={prediction.summary} />}
         <MarketBars markets={prediction.markets} />
         {prediction.modelConsensus && <ConsensusBlock consensus={prediction.modelConsensus} />}
@@ -210,6 +216,68 @@ function CheckRow({ chk, stLabels, forecast, fact }: { chk: MarketCheck; stLabel
         <span>{fact}: <span style={{ color: 'rgb(var(--fg-secondary))' }}>{chk.actual}</span></span>
       </div>
       {chk.explanation && <p className="mt-0.5 text-[11px] leading-snug" style={{ color: 'rgb(var(--fg-muted))' }}>{chk.explanation}</p>}
+    </div>
+  );
+}
+
+// Concrete bets the AI proposes — the top pick of every market (these are
+// exactly what gets checked after the match in «Проверка прогноза»).
+function ProposedBetsBlock({
+  markets,
+  recMarket,
+  recOutcome,
+}: {
+  markets: PredictionMarket[];
+  recMarket: string;
+  recOutcome: string;
+}) {
+  const { t } = useLocale();
+  const p = t.prediction;
+  const bets = markets
+    .map((m) => {
+      if (!m.outcomes.length) return null;
+      const top = m.outcomes.reduce((b, o) => (o.probability > b.probability ? o : b));
+      return { market: m.market, label: (MARKET_LABELS as Record<string, string>)[m.market] ?? m.market, pick: top };
+    })
+    .filter(Boolean) as { market: string; label: string; pick: { label: string; outcome: string; probability: number } }[];
+  if (!bets.length) return null;
+
+  return (
+    <div>
+      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted))' }}>
+        <Target className="h-3.5 w-3.5" style={{ color: 'rgb(var(--accent))' }} /> {p.proposedTitle}
+        <span className="font-normal normal-case tracking-normal" style={{ color: 'rgb(var(--fg-muted))' }}>· {p.proposedHint}</span>
+      </p>
+      <div className="space-y-1.5">
+        {bets.map((b, i) => {
+          const isMain = b.market === recMarket && b.pick.outcome === recOutcome;
+          return (
+            <div
+              key={i}
+              className="flex items-center justify-between gap-3 rounded-lg px-3 py-2"
+              style={{
+                background: isMain ? 'rgb(var(--accent) / 0.1)' : 'rgb(var(--pitch-800))',
+                border: isMain ? '1px solid rgb(var(--accent) / 0.3)' : '1px solid transparent',
+              }}
+            >
+              <div className="min-w-0">
+                <span className="text-[11px]" style={{ color: 'rgb(var(--fg-muted))' }}>{b.label}</span>
+                <p className="text-sm font-semibold" style={{ color: 'rgb(var(--fg-card))' }}>
+                  {b.pick.label}
+                  {isMain && (
+                    <span className="ml-2 inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase" style={{ background: 'rgb(var(--accent) / 0.18)', color: 'rgb(var(--accent))' }}>
+                      <Star className="h-2.5 w-2.5" /> {p.mainBet}
+                    </span>
+                  )}
+                </p>
+              </div>
+              <span className="tabular shrink-0 text-sm font-bold" style={{ color: isMain ? 'rgb(var(--accent))' : 'rgb(var(--fg-secondary))' }}>
+                {formatPct(b.pick.probability)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
