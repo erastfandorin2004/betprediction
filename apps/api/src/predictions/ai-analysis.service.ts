@@ -15,6 +15,7 @@ import type { PredictionDetail, ModelConsensus, ModelForecast, Lineups } from '@
 import { DatabaseService } from '../database/database.service';
 import { PredictionsService } from './predictions.service';
 import { FixturesService } from '../fixtures/fixtures.service';
+import { InjuriesAdapter } from '../providers/injuries/injuries.adapter';
 
 // Минимальная форма матча из провайдерского контекста (mapH2HFixture).
 interface ProviderFixture {
@@ -43,6 +44,7 @@ export class AiAnalysisService {
     private readonly config: ConfigService,
     private readonly predictions: PredictionsService,
     private readonly fixtures: FixturesService,
+    private readonly injuries: InjuriesAdapter,
   ) {}
 
   // On-demand full AI analysis for a single fixture (the "AI-прогноз" button).
@@ -204,6 +206,19 @@ export class AiAnalysisService {
       }
     } catch (err) {
       this.logger.warn(`Provider context unavailable for ${fixtureId}: ${err instanceof Error ? err.message : err}`);
+    }
+
+    // Dedicated injuries/suspensions feed (API-Football). Overrides the
+    // lineup-derived list when available (it's richer and works pre-match).
+    try {
+      const season = fixture.startsAt.getUTCFullYear();
+      const inj = await this.injuries.getInjuries(
+        home.name, away.name, season,
+        home.shortName || home.name, away.shortName || away.name,
+      );
+      if (inj) ctx.injuries = inj;
+    } catch (err) {
+      this.logger.warn(`Injuries feed unavailable for ${fixtureId}: ${err instanceof Error ? err.message : err}`);
     }
 
     return ctx;

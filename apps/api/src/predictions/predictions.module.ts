@@ -3,9 +3,10 @@ import { PredictionsController } from './predictions.controller';
 import { PredictionsService } from './predictions.service';
 import { AiAnalysisService } from './ai-analysis.service';
 import { FixturesModule } from '../fixtures/fixtures.module';
+import { ProvidersModule } from '../providers/providers.module';
 
 @Module({
-  imports: [FixturesModule],
+  imports: [FixturesModule, ProvidersModule],
   controllers: [PredictionsController],
   providers: [PredictionsService, AiAnalysisService],
   exports: [PredictionsService],
