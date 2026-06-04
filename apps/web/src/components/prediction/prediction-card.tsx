@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Lock, TrendingUp, Bot, Sparkles, Cpu } from 'lucide-react';
-import type { PredictionDetail, ModelForecast } from '@ai-score/shared';
+import { Lock, TrendingUp, Bot, Sparkles, Cpu, CheckCircle2, XCircle, MinusCircle, ClipboardCheck } from 'lucide-react';
+import type { PredictionDetail, ModelForecast, PredictionSettlement, MarketCheck } from '@ai-score/shared';
 import { formatPct } from '@/lib/format';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { StarRating } from '@/components/ui/star-rating';
@@ -51,6 +51,7 @@ export function PredictionCard({ prediction }: PredictionCardProps) {
       />
 
       <div className="space-y-5 px-5 py-5">
+        {prediction.settlement && <SettlementBlock s={prediction.settlement} />}
         <RecommendationBlock prediction={prediction} />
         {prediction.summary && <SummaryBlock summary={prediction.summary} />}
         <MarketBars markets={prediction.markets} />
@@ -148,6 +149,67 @@ function RationaleBlock({ rationale, keyFactors }: { rationale: string; keyFacto
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+const ST_COLOR: Record<string, string> = {
+  won: '#22c55e', lost: '#ef4444', push: '#f59e0b', unknown: 'rgb(var(--fg-muted))',
+};
+
+function SettlementBlock({ s }: { s: PredictionSettlement }) {
+  const { t } = useLocale();
+  const c = t.prediction.check;
+  const headColor = s.overall === 'won' ? '#22c55e' : s.overall === 'partial' ? '#f59e0b' : '#ef4444';
+  const headLabel = s.overall === 'won' ? c.won : s.overall === 'partial' ? c.partial : c.lost;
+  const HeadIcon = s.overall === 'won' ? CheckCircle2 : s.overall === 'partial' ? MinusCircle : XCircle;
+
+  return (
+    <div className="rounded-xl" style={{ background: 'rgb(var(--pitch-800))', border: `1px solid ${headColor}40` }}>
+      <div className="flex items-center justify-between gap-3 border-b px-4 py-3" style={{ borderColor: 'rgb(var(--pitch-700))' }}>
+        <span className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: 'rgb(var(--fg-card))' }}>
+          <ClipboardCheck className="h-4 w-4" style={{ color: headColor }} /> {c.title}
+        </span>
+        <span className="tabular text-sm font-bold" style={{ color: 'rgb(var(--fg-primary))' }}>
+          {c.final}: {s.finalScore.home}:{s.finalScore.away}
+        </span>
+      </div>
+
+      <div className="px-4 py-3">
+        <div className="flex items-center gap-2">
+          <HeadIcon className="h-5 w-5" style={{ color: headColor }} />
+          <span className="text-base font-bold" style={{ color: headColor }}>{headLabel}</span>
+          <span className="ml-auto text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>{c.summary(s.wonCount, s.total)}</span>
+        </div>
+
+        <div className="mt-3 space-y-1.5">
+          {s.checks.map((chk, i) => <CheckRow key={i} chk={chk} stLabels={c.st} forecast={c.forecast} fact={c.fact} />)}
+        </div>
+
+        <p className="mt-3 flex items-center gap-1.5 text-[11px]" style={{ color: 'rgb(var(--fg-muted))' }}>
+          <Lock className="h-3 w-3" /> {c.locked}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function CheckRow({ chk, stLabels, forecast, fact }: { chk: MarketCheck; stLabels: Record<string, string>; forecast: string; fact: string }) {
+  const color = ST_COLOR[chk.status] ?? 'rgb(var(--fg-muted))';
+  const Icon = chk.status === 'won' ? CheckCircle2 : chk.status === 'lost' ? XCircle : MinusCircle;
+  return (
+    <div className="rounded-lg px-3 py-2" style={{ background: 'rgb(var(--pitch-900))' }}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold" style={{ color: 'rgb(var(--fg-card))' }}>{chk.marketLabel}</span>
+        <span className="flex shrink-0 items-center gap-1 text-[11px] font-semibold" style={{ color }}>
+          <Icon className="h-3.5 w-3.5" /> {stLabels[chk.status] ?? chk.status}
+        </span>
+      </div>
+      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]" style={{ color: 'rgb(var(--fg-muted))' }}>
+        <span>{forecast}: <span style={{ color: 'rgb(var(--fg-secondary))' }}>{chk.predictedLabel}</span></span>
+        <span>{fact}: <span style={{ color: 'rgb(var(--fg-secondary))' }}>{chk.actual}</span></span>
+      </div>
+      {chk.explanation && <p className="mt-0.5 text-[11px] leading-snug" style={{ color: 'rgb(var(--fg-muted))' }}>{chk.explanation}</p>}
     </div>
   );
 }

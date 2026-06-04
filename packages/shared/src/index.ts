@@ -31,6 +31,9 @@ export type {
   PredictionBadge,
   PredictionDetail,
   ModelForecast,
+  SettlementStatus,
+  MarketCheck,
+  PredictionSettlement,
   AccuracyStats,
   TrackRecordStats,
   BacktestResult,
@@ -88,3 +91,6 @@ export {
   formatOddsBlock,
 } from './llm/prompts';
 export type { MatchContext } from './llm/prompts';
+
+export { settlePrediction } from './settlement/settle';
+export type { ActualResult } from './settlement/settle';

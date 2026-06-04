@@ -32,6 +32,13 @@ export default async function FixturePage({ params }: Props) {
     throw err;
   }
 
+  // After a match finishes, settle the prediction against the real result (once).
+  let prediction = fixture.prediction;
+  if (fixture.status === 'finished' && prediction && !prediction.settlement) {
+    const settled = await settlePrediction(fixtureId);
+    if (settled) prediction = settled;
+  }
+
   const isLive = fixture.status === 'live';
   const isFinished = fixture.status === 'finished';
   const hasStarted = isLive || isFinished;
@@ -94,7 +101,7 @@ export default async function FixturePage({ params }: Props) {
       </div>
 
       {/* AI Prediction — on-demand run (free in test phase) */}
-      <AiPredictionPanel fixtureId={fixtureId} initialPrediction={fixture.prediction} />
+      <AiPredictionPanel fixtureId={fixtureId} initialPrediction={prediction} />
 
       {/* Events */}
       {fixture.events.length > 0 && (
@@ -163,6 +170,19 @@ async function ContextSections({ fixtureId, homeTeam, awayTeam }: {
       espnAwayForm={espnAwayForm}
     />
   );
+}
+
+// Server-side settle call for finished matches (POST, not cached).
+async function settlePrediction(fixtureId: number): Promise<FixtureDetail['prediction']> {
+  const base = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
+  try {
+    const res = await fetch(`${base}/v1/predictions/${fixtureId}/settle`, { method: 'POST', cache: 'no-store' });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { data: FixtureDetail['prediction'] };
+    return json.data ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function ContextSkeleton() {

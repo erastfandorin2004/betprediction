@@ -2,6 +2,7 @@ import { Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/commo
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { PredictionsService } from './predictions.service';
 import { AiAnalysisService } from './ai-analysis.service';
+import { SettlementService } from './settlement.service';
 
 @ApiTags('predictions')
 @Controller('predictions')
@@ -9,6 +10,7 @@ export class PredictionsController {
   constructor(
     private readonly predictionsService: PredictionsService,
     private readonly aiAnalysis: AiAnalysisService,
+    private readonly settlement: SettlementService,
   ) {}
 
   @Get('daily-picks')
@@ -40,5 +42,12 @@ export class PredictionsController {
   @ApiParam({ name: 'fixtureId', type: Number })
   analyze(@Param('fixtureId', ParseIntPipe) fixtureId: number) {
     return this.aiAnalysis.analyze(fixtureId);
+  }
+
+  @Post(':fixtureId/settle')
+  @ApiOperation({ summary: 'Settle the prediction for a finished fixture against the real result' })
+  @ApiParam({ name: 'fixtureId', type: Number })
+  settle(@Param('fixtureId', ParseIntPipe) fixtureId: number) {
+    return this.settlement.settle(fixtureId);
   }
 }

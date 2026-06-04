@@ -8,7 +8,9 @@ export type MarketType =
   | 'CS_TOP3'
   | 'HANDICAP'
   | 'HOME_TOTAL'
-  | 'AWAY_TOTAL';
+  | 'AWAY_TOTAL'
+  | 'CORNERS_OU'
+  | 'CARDS_OU';
 
 export interface MarketOutcome {
   label: string;
@@ -64,8 +66,35 @@ export interface PredictionDetail {
   outcome: PredictionOutcome | null;
   models: ModelForecast[] | null;   // прогноз каждой модели ансамбля
   summary: string | null;           // синтез мнений всех моделей (общий вывод)
+  settlement: PredictionSettlement | null; // проверка прогноза после матча
   isLocked: boolean;
   lockedFields: string[];
+}
+
+// ── Проверка прогноза после матча (settlement) ──────────────────────────────
+export type SettlementStatus = 'won' | 'lost' | 'push' | 'unknown';
+
+export interface MarketCheck {
+  market: string;            // код рынка (1X2, CORNERS_OU, …)
+  marketLabel: string;       // «Тотал угловых», «Исход 1X2» …
+  predictedLabel: string;    // что выбрала AI: «Больше 8.5», «П1» …
+  predictedProbability: number | null;
+  actual: string;            // фактический показатель: «10 угловых», «2:1» …
+  status: SettlementStatus;
+  explanation: string;       // краткое объяснение, почему засчитан/нет
+}
+
+export interface PredictionSettlement {
+  resolvedAt: string;
+  finalScore: { home: number; away: number };
+  winner: 'home' | 'away' | 'draw';
+  mainStatus: 'won' | 'lost';            // основной прогноз
+  overall: 'won' | 'partial' | 'lost';   // итог с учётом всех рынков
+  wonCount: number;
+  total: number;                         // проверяемых рынков (без unknown)
+  mainCheck: MarketCheck;
+  checks: MarketCheck[];                 // все рынки, включая основной
+  stats: { corners: number | null; cards: number | null };
 }
 
 // Прогноз одной модели ансамбля по матчу (для on-demand AI-прогноза).

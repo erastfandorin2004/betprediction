@@ -485,6 +485,7 @@ export class FixturesService {
       impliedProbability: pred.impliedProbability,
       models: (pred.modelViews as PredictionDetail['models']) ?? null,
       summary: pred.summary ?? null,
+      settlement: (pred.settlement as PredictionDetail['settlement']) ?? null,
       outcome: pred.isCorrect !== null
         ? { isCorrect: pred.isCorrect!, actualResult: pred.actualResult ?? '', resolvedAt: pred.resolvedAt?.toISOString() ?? '' }
         : null,

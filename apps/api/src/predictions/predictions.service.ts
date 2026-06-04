@@ -157,6 +157,7 @@ export class PredictionsService {
       impliedProbability: row.impliedProbability,
       models: isLocked ? null : (row.modelViews as PredictionDetail['models']),
       summary: isLocked ? null : row.summary,
+      settlement: (row.settlement as PredictionDetail['settlement']) ?? null,
       outcome: row.isCorrect !== null
         ? { isCorrect: row.isCorrect!, actualResult: row.actualResult ?? '', resolvedAt: row.resolvedAt?.toISOString() ?? '' }
         : null,
