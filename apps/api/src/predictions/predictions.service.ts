@@ -1,11 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { and, desc, eq, gte, lte, not, isNull, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import * as schema from '@ai-score/db';
 import { DatabaseService } from '../database/database.service';
 import { RedisService } from '../redis/redis.service';
 import type {
   PredictionDetail,
   PredictionMarket,
+  PredictionSettlement,
+  PredictionHistoryItem,
   ModelConsensus,
   PredictionStatus,
   TrackRecordStats,
@@ -131,6 +134,46 @@ export class PredictionsService {
         picks: row.picks as BacktestPick[],
         createdAt: row.createdAt.toISOString(),
       } satisfies BacktestSummary;
+    });
+  }
+
+  // История всех сделанных анализов с их итогом (для раздела «Трек-рекорд»).
+  async getHistory(limit = 50): Promise<PredictionHistoryItem[]> {
+    return this.redis.getOrSet(`predictions:history:${limit}`, 30, async () => {
+      const home = alias(schema.teams, 'hist_home');
+      const away = alias(schema.teams, 'hist_away');
+      const rows = await this.db.db
+        .select({ pred: schema.predictions, fixture: schema.fixtures, home, away, league: schema.leagues })
+        .from(schema.predictions)
+        .innerJoin(schema.fixtures, eq(schema.fixtures.id, schema.predictions.fixtureId))
+        .leftJoin(home, eq(home.id, schema.fixtures.homeTeamId))
+        .leftJoin(away, eq(away.id, schema.fixtures.awayTeamId))
+        .leftJoin(schema.leagues, eq(schema.leagues.id, schema.fixtures.leagueId))
+        .orderBy(desc(schema.predictions.createdAt))
+        .limit(limit);
+
+      return rows.map((r): PredictionHistoryItem => {
+        const settlement = r.pred.settlement as PredictionSettlement | null;
+        const markets = (r.pred.markets as PredictionMarket[] | null) ?? [];
+        const recMkt = markets.find((m) => m.market === r.pred.recommendedMarket);
+        const recOut = recMkt?.outcomes.find((o) => o.outcome === r.pred.recommendedOutcome);
+        return {
+          fixtureId: r.pred.fixtureId,
+          match: `${r.home?.name ?? '—'} — ${r.away?.name ?? '—'}`,
+          league: r.league?.name ?? '',
+          kickoff: r.fixture.startsAt.toISOString(),
+          createdAt: r.pred.createdAt.toISOString(),
+          status: r.pred.status as PredictionStatus,
+          market: r.pred.recommendedMarket,
+          pick: recOut?.label ?? r.pred.recommendedOutcome,
+          probability: r.pred.probability,
+          stars: r.pred.stars ?? 1,
+          finalScore: settlement?.finalScore ?? null,
+          verdict: settlement?.overall ?? null,
+          wonCount: settlement?.wonCount ?? null,
+          total: settlement?.total ?? null,
+        };
+      });
     });
   }
 

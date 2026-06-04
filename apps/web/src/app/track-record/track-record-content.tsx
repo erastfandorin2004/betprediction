@@ -12,10 +12,11 @@ import {
   Sparkles,
   Cpu,
   ChevronDown,
+  History,
 } from 'lucide-react';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { StarRating } from '@/components/ui/star-rating';
-import type { TrackRecordStats, BacktestSummary, BacktestPick, BacktestModelView } from '@ai-score/shared';
+import type { TrackRecordStats, BacktestSummary, BacktestPick, BacktestModelView, PredictionHistoryItem } from '@ai-score/shared';
 
 const CARD = {
   background: 'rgb(var(--pitch-900))',
@@ -41,9 +42,11 @@ const MARKET_LABEL: Record<string, string> = {
 export function TrackRecordContent({
   stats,
   backtest,
+  history = [],
 }: {
   stats: TrackRecordStats | null;
   backtest: BacktestSummary | null;
+  history?: PredictionHistoryItem[];
 }) {
   const { t } = useLocale();
   const tr = t.trackRecord;
@@ -63,7 +66,11 @@ export function TrackRecordContent({
         </div>
       </div>
 
-      <BacktestSection backtest={backtest} />
+      <HistorySection history={history} />
+
+      <div className="mt-6">
+        <BacktestSection backtest={backtest} />
+      </div>
 
       {!stats || stats.overall.total === 0 ? (
         <div className="mt-6 flex flex-col items-center rounded-2xl px-6 py-12 text-center" style={CARD}>
@@ -142,6 +149,72 @@ export function TrackRecordContent({
         </ul>
       </div>
     </div>
+  );
+}
+
+function HistorySection({ history }: { history: PredictionHistoryItem[] }) {
+  const { t } = useLocale();
+  const h = t.trackRecord.history;
+
+  const verdict = (item: PredictionHistoryItem) => {
+    if (item.status !== 'resolved' || !item.verdict) {
+      return { label: h.pending, color: 'rgb(var(--fg-muted))', Icon: MinusCircle };
+    }
+    if (item.verdict === 'won') return { label: h.won, color: POSITIVE, Icon: CheckCircle2 };
+    if (item.verdict === 'partial') return { label: h.partial, color: '#f59e0b', Icon: MinusCircle };
+    return { label: h.lost, color: NEGATIVE, Icon: XCircle };
+  };
+
+  return (
+    <section className="rounded-2xl p-5" style={CARD}>
+      <div className="flex items-center gap-2.5">
+        <History className="h-5 w-5" style={{ color: 'rgb(var(--accent))' }} />
+        <h2 className="text-base font-bold" style={{ color: 'rgb(var(--fg-primary))' }}>{h.title}</h2>
+      </div>
+      <p className="mt-1.5 text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>{h.hint}</p>
+
+      {history.length === 0 ? (
+        <div className="mt-4 rounded-xl px-4 py-6 text-center text-sm" style={{ background: 'rgb(var(--pitch-800))', color: 'rgb(var(--fg-muted))' }}>
+          {h.empty}
+        </div>
+      ) : (
+        <div className="mt-4 space-y-2">
+          {history.map((item) => {
+            const v = verdict(item);
+            return (
+              <div key={item.fixtureId + item.createdAt} className="rounded-xl px-3.5 py-2.5" style={{ background: 'rgb(var(--pitch-800))' }}>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium" style={{ color: 'rgb(var(--fg-card))' }}>{item.match}</p>
+                    <p className="truncate text-[11px]" style={{ color: 'rgb(var(--fg-muted))' }}>
+                      {item.league} · {new Date(item.kickoff).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold" style={{ color: v.color }}>
+                    <v.Icon className="h-4 w-4" />
+                    {v.label}
+                    {item.finalScore && (
+                      <span className="tabular ml-1" style={{ color: 'rgb(var(--fg-secondary))' }}>
+                        {item.finalScore.home}:{item.finalScore.away}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="mt-1.5 flex items-center justify-between gap-2 text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
+                  <span>
+                    {h.pick}: <span style={{ color: 'rgb(var(--fg-secondary))' }}>{MARKET_LABEL[item.market] ?? item.market} — {item.pick}</span>
+                    <span className="ml-1.5 tabular" style={{ color: 'rgb(var(--accent))' }}>{Math.round(item.probability * 100)}%</span>
+                  </span>
+                  {item.status === 'resolved' && item.total != null && item.wonCount != null && (
+                    <span className="tabular">{h.wonOf(item.wonCount, item.total)}</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 

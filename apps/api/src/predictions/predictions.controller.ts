@@ -37,6 +37,12 @@ export class PredictionsController {
     return this.predictionsService.getBacktest();
   }
 
+  @Get('history')
+  @ApiOperation({ summary: 'History of all AI analyses with their post-match verdict' })
+  getHistory(@Query('limit') limit?: string) {
+    return this.predictionsService.getHistory(limit ? parseInt(limit, 10) : 50);
+  }
+
   @Post(':fixtureId/analyze')
   @ApiOperation({ summary: 'Run on-demand AI analysis for a fixture (free in test phase)' })
   @ApiParam({ name: 'fixtureId', type: Number })

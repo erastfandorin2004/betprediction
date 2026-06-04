@@ -34,6 +34,7 @@ export type {
   SettlementStatus,
   MarketCheck,
   PredictionSettlement,
+  PredictionHistoryItem,
   AccuracyStats,
   TrackRecordStats,
   BacktestResult,

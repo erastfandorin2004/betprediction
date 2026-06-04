@@ -5,6 +5,7 @@ import type {
   PaginationMeta,
   TrackRecordStats,
   BacktestSummary,
+  PredictionHistoryItem,
 } from '@ai-score/shared';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
@@ -226,6 +227,10 @@ export const api = {
   backtest: {
     get: () =>
       apiFetch<BacktestSummary | null>('/v1/predictions/backtest', { revalidate: 300 }),
+  },
+  history: {
+    get: () =>
+      apiFetch<PredictionHistoryItem[]>('/v1/predictions/history', { revalidate: 30 }),
   },
 } as const;
 

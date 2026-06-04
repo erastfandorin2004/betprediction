@@ -109,6 +109,24 @@ export interface ModelForecast {
   error: string | null;
 }
 
+// Запись истории анализов (для раздела «Трек-рекорд»).
+export interface PredictionHistoryItem {
+  fixtureId: number;
+  match: string;            // «Швеция — Греция»
+  league: string;
+  kickoff: string;          // ISO старта матча
+  createdAt: string;        // когда сделан анализ
+  status: PredictionStatus; // pending | resolved
+  market: string;           // рекомендованный рынок
+  pick: string;             // подпись ставки («П1», «Меньше 2.5»…)
+  probability: number;
+  stars: number;
+  finalScore: { home: number; away: number } | null;
+  verdict: 'won' | 'partial' | 'lost' | null; // итог после матча
+  wonCount: number | null;
+  total: number | null;
+}
+
 export interface AccuracyStats {
   total: number;
   correct: number;
