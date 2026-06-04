@@ -6,7 +6,6 @@ import {
   LaozhangClient,
   buildSystemPrompt,
   buildUserPrompt,
-  formatOddsBlock,
   llmPredictionResponseSchema,
   MARKET_LABELS,
   type MatchContext,
@@ -233,8 +232,9 @@ export class AiAnalysisService {
     // Live bookmaker line — fed to the model for value detection vs implied prob.
     let oddsMap: Record<string, number> = {};
     try {
-      oddsMap = await this.odds.getOdds(home.name, away.name);
-      if (Object.keys(oddsMap).length) ctx.odds = formatOddsBlock(oddsMap);
+      const line = await this.odds.getOdds(home.name, away.name);
+      oddsMap = line.map;
+      if (line.block) ctx.odds = line.block;
     } catch (err) {
       this.logger.warn(`Odds unavailable for ${fixtureId}: ${err instanceof Error ? err.message : err}`);
     }

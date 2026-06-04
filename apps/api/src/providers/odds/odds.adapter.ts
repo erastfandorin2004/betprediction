@@ -1,5 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { formatOddsBlock } from '@ai-score/shared';
+import { manualOddsFor } from './manual-odds';
+
+export interface OddsLine {
+  map: Record<string, number>; // for value calc
+  block: string;               // human-readable odds block for the prompt
+}
 
 // Live bookmaker line via The Odds API (the-odds-api.com). Real decimal odds for
 // 1X2 (h2h) and totals across EU bookmakers. Needs THE_ODDS_API_KEY (free tier).
@@ -42,9 +49,14 @@ export class OddsAdapter {
     return this.soccerKeys;
   }
 
-  // Real line for a match (searched across soccer competitions by team names).
-  async getOdds(homeName: string, awayName: string): Promise<Record<string, number>> {
-    if (!this.hasKey) return {};
+  // Real line for a match: user-provided manual line first, then The Odds API.
+  async getOdds(homeName: string, awayName: string): Promise<OddsLine> {
+    const manual = manualOddsFor(homeName, awayName);
+    if (manual) {
+      this.logger.log(`Manual odds line used for ${homeName} vs ${awayName}`);
+      return { map: manual.map, block: manual.block };
+    }
+    if (!this.hasKey) return { map: {}, block: '' };
     const home = OddsAdapter.norm(homeName);
     const away = OddsAdapter.norm(awayName);
     try {
@@ -69,14 +81,15 @@ export class OddsAdapter {
         });
         if (ev) {
           this.logger.log(`Odds found for ${homeName} vs ${awayName} in ${key}`);
-          return this.mapEvent(ev, homeName, awayName);
+          const map = this.mapEvent(ev, homeName, awayName);
+          return { map, block: formatOddsBlock(map) };
         }
       }
       this.logger.warn(`No live odds found for ${homeName} vs ${awayName}`);
-      return {};
+      return { map: {}, block: '' };
     } catch (err) {
       this.logger.warn(`Odds fetch failed: ${err instanceof Error ? err.message : String(err)}`);
-      return {};
+      return { map: {}, block: '' };
     }
   }
 
