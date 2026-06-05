@@ -74,7 +74,6 @@ export function PredictionCard({ prediction }: PredictionCardProps) {
       <div className="space-y-6 px-5 py-6 sm:px-6">
         {prediction.settlement && <SettlementBlock s={prediction.settlement} />}
         <RecommendationBlock prediction={prediction} />
-        {prediction.summary && <SummaryBlock summary={prediction.summary} />}
         <ProposedBetsBlock
           markets={prediction.markets}
           recMarket={prediction.recommendedMarket}
@@ -83,13 +82,16 @@ export function PredictionCard({ prediction }: PredictionCardProps) {
         {prediction.valueEdge !== null && prediction.valueEdge > 0.03 && (
           <ValueBlock edge={prediction.valueEdge} impliedProb={prediction.impliedProbability} probability={prediction.probability} />
         )}
-        {prediction.rationale && (
-          <RationaleBlock rationale={prediction.rationale} keyFactors={prediction.keyFactors} />
-        )}
         <MarketBars markets={prediction.markets} />
-        {prediction.modelConsensus && <ConsensusBlock consensus={prediction.modelConsensus} />}
+
+        {/* Порядок блоков по моделям: общее мнение → прогнозы моделей → согласие → обоснование */}
+        {prediction.summary && <SummaryBlock summary={prediction.summary} />}
         {prediction.models && prediction.models.length > 0 && (
           <ModelForecastsBlock models={prediction.models} />
+        )}
+        {prediction.modelConsensus && <ConsensusBlock consensus={prediction.modelConsensus} />}
+        {prediction.rationale && (
+          <RationaleBlock rationale={prediction.rationale} keyFactors={prediction.keyFactors} />
         )}
       </div>
 
