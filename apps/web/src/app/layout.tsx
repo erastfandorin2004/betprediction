@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, JetBrains_Mono } from 'next/font/google';
+import { Manrope, JetBrains_Mono } from 'next/font/google';
 import { AuthProvider } from '@/components/auth/auth-provider';
 import { AuthHeader } from '@/components/auth/auth-header';
 import { ThemeProvider } from '@/components/theme/theme-provider';
@@ -7,7 +7,7 @@ import { LocaleProvider } from '@/components/i18n/locale-provider';
 import { Footer } from '@/components/layout/footer';
 import './globals.css';
 
-const inter = Inter({
+const sans = Manrope({
   subsets: ['latin', 'cyrillic'],
   variable: '--font-inter',
   display: 'swap',
@@ -36,7 +36,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ru" suppressHydrationWarning className={`dark ${inter.variable} ${jetbrainsMono.variable}`}>
+    <html lang="ru" suppressHydrationWarning className={`dark ${sans.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen bg-pitch-950">
         <ThemeProvider>
           <LocaleProvider>
