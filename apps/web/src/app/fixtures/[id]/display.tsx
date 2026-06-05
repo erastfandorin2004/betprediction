@@ -1239,24 +1239,11 @@ export function ContextDisplay({ ctx, homeTeam, awayTeam, espnH2h = [], espnHome
 
   const statsPanel = <StatsPanel stats={ctx.stats} />;
 
-  const newsPanel = (
-    <SectionCard title={t.fixture.news}>
-      {ctx.news.length > 0 ? (
-        <div className="space-y-3">
-          {ctx.news.map((article, i) => <NewsCard key={i} article={article} />)}
-        </div>
-      ) : (
-        <p className="text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>{t.fixture.newsEmpty}</p>
-      )}
-    </SectionCard>
-  );
-
   const tabs: { id: string; label: string; panel: React.ReactNode }[] = [
     { id: 'lineups', label: locale === 'ru' ? 'Составы' : 'Line-ups', panel: lineupsPanel },
     { id: 'stats', label: locale === 'ru' ? 'Статистика' : 'Stats', panel: statsPanel },
     { id: 'h2h', label: locale === 'ru' ? 'H2H / Форма' : 'H2H / Form', panel: h2hPanel },
     ...(groupPanel ? [{ id: 'table', label: locale === 'ru' ? 'Таблица' : 'Table', panel: groupPanel }] : []),
-    { id: 'news', label: locale === 'ru' ? 'Новости' : 'News', panel: newsPanel },
   ];
   const active = tabs.find((tb) => tb.id === activeTab) ?? tabs[0];
 
