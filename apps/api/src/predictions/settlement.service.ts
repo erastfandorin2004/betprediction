@@ -5,6 +5,7 @@ import { settlePrediction, type ActualResult, type PredictionMarket, type Predic
 import { DatabaseService } from '../database/database.service';
 import { PredictionsService } from './predictions.service';
 import { FixturesService } from '../fixtures/fixtures.service';
+import { manualStatsFor } from '../providers/odds/manual-results';
 
 interface RawStat { name: string; home: string; away: string }
 
@@ -78,25 +79,30 @@ export class SettlementService {
     return this.predictions.toDetail(updated!, false);
   }
 
-  // Extract total corners and cards (yellow + red) from provider match stats.
+  // Total corners and cards (yellow + red) — from provider match stats, with a
+  // fallback to user-provided manual stats (for synthetic test fixtures).
   private async fetchStats(fixtureId: number): Promise<{ corners: number | null; cards: number | null }> {
+    const manual = manualStatsFor(fixtureId);
     try {
       const ctx = (await this.fixtures.findContext(fixtureId, 'ru')) as Record<string, unknown>;
       const stats = (ctx['stats'] as RawStat[] | null) ?? null;
-      if (!stats?.length) return { corners: null, cards: null };
-
-      const sum = (re: RegExp): number | null => {
-        const rows = stats.filter((s) => re.test(s.name));
-        if (!rows.length) return null;
-        return rows.reduce((acc, s) => acc + (parseInt(s.home, 10) || 0) + (parseInt(s.away, 10) || 0), 0);
-      };
-      const corners = sum(/corner/i);
-      const yellow = sum(/yellow/i);
-      const red = sum(/red card/i);
-      const cards = yellow == null && red == null ? null : (yellow ?? 0) + (red ?? 0);
-      return { corners, cards };
+      if (stats?.length) {
+        const sum = (re: RegExp): number | null => {
+          const rows = stats.filter((s) => re.test(s.name));
+          if (!rows.length) return null;
+          return rows.reduce((acc, s) => acc + (parseInt(s.home, 10) || 0) + (parseInt(s.away, 10) || 0), 0);
+        };
+        const yellow = sum(/yellow/i);
+        const red = sum(/red card/i);
+        const cardsFromStats = yellow == null && red == null ? null : (yellow ?? 0) + (red ?? 0);
+        return {
+          corners: sum(/corner/i) ?? manual?.corners ?? null,
+          cards: cardsFromStats ?? manual?.cards ?? null,
+        };
+      }
     } catch {
-      return { corners: null, cards: null };
+      /* fall through to manual */
     }
+    return { corners: manual?.corners ?? null, cards: manual?.cards ?? null };
   }
 }
