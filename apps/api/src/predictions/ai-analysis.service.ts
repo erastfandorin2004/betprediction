@@ -450,15 +450,29 @@ function round(n: number): number {
   return Math.round(n * 1000) / 1000;
 }
 
+// Достаём первый СБАЛАНСИРОВАННЫЙ JSON-объект, игнорируя текст вокруг и после
+// него (claude иногда дописывает фразу после JSON — это роняло парс). Учитываем
+// строки/экранирование, чтобы не считать скобки внутри текстовых значений.
 function extractJson(raw: string): string {
   let s = raw.trim();
   const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fence) s = fence[1]!.trim();
-  if (s.startsWith('{') && s.endsWith('}')) return s;
-  const first = s.indexOf('{');
-  const last = s.lastIndexOf('}');
-  if (first !== -1 && last > first) return s.slice(first, last + 1);
-  return s;
+  const start = s.indexOf('{');
+  if (start === -1) return s;
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = start; i < s.length; i++) {
+    const ch = s[i]!;
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === '\\') esc = true;
+      else if (ch === '"') inStr = false;
+    } else if (ch === '"') inStr = true;
+    else if (ch === '{') depth++;
+    else if (ch === '}' && --depth === 0) return s.slice(start, i + 1);
+  }
+  return s.slice(start); // несбалансированно (обрезано) — пусть JSON.parse упадёт
 }
 
 interface Aggregated {
