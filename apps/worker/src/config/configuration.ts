@@ -15,7 +15,7 @@ export default () => ({
     apiKey: process.env['LAOZHANG_API_KEY'] ?? '',
     baseUrl: process.env['LAOZHANG_BASE_URL'] ?? 'https://api.laozhang.ai/v1',
     models: process.env['LAOZHANG_MODELS'] ?? [
-      'gpt-5.5', 'claude-opus-4-8', 'deepseek-v4',
+      'gpt-5.5', 'claude-opus-4-8', 'deepseek-chat',
     ].join(','),
   },
 });
