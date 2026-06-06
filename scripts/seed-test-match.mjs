@@ -15,11 +15,10 @@ const LEAGUE_ID = 990001;
 const startsAt = new Date(Date.now() + 3 * 60 * 60 * 1000);
 
 // [fixtureId, homeId, homeName, homeShort, awayId, awayName, awayShort]
+// Только сегодняшние матчи. Вчерашние (990100–990103) НЕ пересеваем: у трёх из
+// них завершённый матч и проверенный прогноз в трек-рекорде, а ON CONFLICT здесь
+// сбросил бы статус/счёт — поэтому держим их вне сида.
 const MATCHES = [
-  [990100, 990010, 'Sweden', 'SWE', 990011, 'Greece', 'GRE'],
-  [990101, 990020, 'France', 'FRA', 990021, "Cote d'Ivoire", 'CIV'],
-  [990102, 990022, 'Mexico', 'MEX', 990023, 'Serbia', 'SRB'],
-  [990103, 990024, 'Moldova', 'MDA', 990025, 'Bulgaria', 'BUL'],
   [990104, 990030, 'Portugal', 'POR', 990031, 'Chile', 'CHI'],
   [990105, 990032, 'Romania', 'ROU', 990033, 'Wales', 'WAL'],
   [990106, 990034, 'USA', 'USA', 990035, 'Germany', 'GER'],

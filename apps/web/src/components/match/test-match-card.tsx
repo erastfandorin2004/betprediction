@@ -4,15 +4,13 @@ import Link from 'next/link';
 import { Sparkles, ChevronRight } from 'lucide-react';
 import { useLocale } from '@/components/i18n/locale-provider';
 
-// Test fixtures seeded for the on-demand AI-prediction flow.
+// Test fixtures seeded for the on-demand AI-prediction flow (только сегодняшние).
+// Вчерашние матчи (990100–990103) убраны из списка; проверенные прогнозы по ним
+// остаются в трек-рекорде (их не удаляем).
 const TEST_MATCHES = [
   { id: 990104, ru: 'Португалия — Чили', en: 'Portugal — Chile' },
   { id: 990105, ru: 'Румыния — Уэльс', en: 'Romania — Wales' },
   { id: 990106, ru: 'США — Германия', en: 'USA — Germany' },
-  { id: 990100, ru: 'Швеция — Греция', en: 'Sweden — Greece' },
-  { id: 990101, ru: 'Франция — Кот-д’Ивуар', en: "France — Côte d'Ivoire" },
-  { id: 990102, ru: 'Мексика — Сербия', en: 'Mexico — Serbia' },
-  { id: 990103, ru: 'Молдова — Болгария', en: 'Moldova — Bulgaria' },
 ];
 
 export function TestMatchCard() {
