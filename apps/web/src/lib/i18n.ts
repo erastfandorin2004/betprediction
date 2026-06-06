@@ -83,7 +83,7 @@ export const translations = {
       tomorrow: 'Завтра',
       loadError: 'Не удалось загрузить расписание ЧМ',
       loading: 'Расписание загружается...',
-      countSuffix: (n: number) => n === 1 ? 'матч' : n >= 2 && n <= 4 ? 'матча' : 'матчей',
+      countSuffix: (n: number): string => n === 1 ? 'матч' : n >= 2 && n <= 4 ? 'матча' : 'матчей',
     },
     wc: {
       subtitle: '11 июня — 19 июля · США, Канада, Мексика',
@@ -116,6 +116,13 @@ export const translations = {
       summaryLabel: 'Общее мнение всех моделей',
       proposedTitle: 'Предложенные ставки',
       proposedHint: 'Лучший выбор AI по каждому рынку',
+      bestBets: 'Лучшие ставки на матч',
+      bestBetsHint: 'выбраны ИИ по вероятности, коэффициенту и ценности',
+      oddsLabel: 'коэф.',
+      noOdds: 'коэф. уточняйте',
+      passProb: 'вероятность прохода',
+      riskTitle: 'Ставки нет — высокий риск',
+      riskDefault: 'В этом матче нет варианта с приемлемым сочетанием вероятности и коэффициента — лучше пропустить это событие.',
       mainBet: 'основная',
       modelForecasts: 'Прогнозы моделей',
       ownPick: 'выбор',
@@ -345,7 +352,7 @@ export const translations = {
       tomorrow: 'Tomorrow',
       loadError: 'Failed to load World Cup schedule',
       loading: 'Schedule loading...',
-      countSuffix: (n: number) => n === 1 ? 'match' : 'matches',
+      countSuffix: (n: number): string => n === 1 ? 'match' : 'matches',
     },
     wc: {
       subtitle: 'Jun 11 – Jul 19 · USA, Canada, Mexico',
@@ -378,6 +385,13 @@ export const translations = {
       summaryLabel: 'Combined opinion of all models',
       proposedTitle: 'Proposed bets',
       proposedHint: 'Best AI pick for each market',
+      bestBets: 'Best bets for this match',
+      bestBetsHint: 'picked by AI on probability, odds and value',
+      oddsLabel: 'odds',
+      noOdds: 'check odds',
+      passProb: 'win probability',
+      riskTitle: 'No clear bet — high risk',
+      riskDefault: 'No outcome offers an acceptable mix of probability and odds in this match — better to skip it.',
       mainBet: 'main',
       modelForecasts: 'Model forecasts',
       ownPick: 'pick',
@@ -525,6 +539,6 @@ export const translations = {
     },
     footer: 'betanalyse.pro — analytics for educational purposes. Predictions do not guarantee results. 18+.',
   },
-} as const;
+};
 
 export type Translations = typeof translations.ru;
