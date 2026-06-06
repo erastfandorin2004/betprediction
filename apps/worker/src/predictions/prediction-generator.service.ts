@@ -8,10 +8,7 @@ import { LaozhangClient, buildSystemPrompt, buildUserPrompt, type MatchContext }
 import { parseAndValidate, aggregate } from './prediction.aggregator';
 
 const DEFAULT_MODELS = [
-  'gpt-4o',
-  'claude-sonnet-4-6',
-  'gemini-2.5-flash-nothinking',
-  'deepseek-v3',
+  'gpt-5.5', 'claude-opus-4-8', 'deepseek-v4',
 ];
 
 @Injectable()

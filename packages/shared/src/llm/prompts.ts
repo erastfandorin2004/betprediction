@@ -30,23 +30,13 @@ export interface MatchContext {
 }
 
 export function buildSystemPrompt(): string {
-  return [
-    'Ты — профессиональная система анализа футбольных матчей и поиска value bets.',
-    'Твоя задача — оценить вероятности исходов по разным рынкам, сравнить их с коэффициентами',
-    'букмекера (implied probability) и найти рынок с математическим преимуществом (value).',
-    '',
-    'Принципы:',
-    '- Опирайся ТОЛЬКО на предматчевые данные из запроса (форма, таблица, мотивация, H2H, травмы,',
-    '  календарь, статистика, стиль, погода, коэффициенты). Не используй знание итогового счёта.',
-    '- Для каждого рынка оцени честную вероятность каждого исхода (сумма по рынку = 1.0).',
-    '- Сравни свою вероятность с implied probability букмекера (1 / коэффициент).',
-    '- Value есть, когда твоя вероятность ЗАМЕТНО выше вероятности букмекера при адекватном риске.',
-    '- Не рекомендуй ставку ради количества. Если value нигде нет — выбери самый обоснованный',
-    '  рынок, но поставь низкий confidence (модель сама отфильтрует слабые сигналы).',
-    '- recommendedMarket/recommendedOutcome — единственный лучший по сочетанию вероятности, value и риска.',
-    '',
-    'Ты ОБЯЗАН ответить ТОЛЬКО валидным JSON — без markdown, без текста до или после.',
-  ].join('\n');
+  return (
+    'Ты — система анализа футбола и поиска value bets. По предматчевым данным из запроса оцени ' +
+    'вероятности исходов по рынкам (сумма в каждом рынке = 1.0), сравни с implied probability ' +
+    'букмекера (1/коэф) и найди рынок с перевесом (value). Не используй знание итогового счёта. ' +
+    'Если перевеса нет нигде — выбери самый обоснованный исход, но снизь confidence. ' +
+    'Ответь ТОЛЬКО валидным JSON, без markdown и текста вне JSON.'
+  );
 }
 
 export function buildUserPrompt(ctx: MatchContext): string {
@@ -85,85 +75,17 @@ export function buildUserPrompt(ctx: MatchContext): string {
 
   return `${lines.join('\n')}
 
-Проанализируй матч и верни ТОЛЬКО JSON строго по схеме:
-{
-  "markets": [
-    {
-      "market": "1X2",
-      "outcomes": [
-        {"label": "П1", "outcome": "1", "probability": 0.XX},
-        {"label": "Ничья", "outcome": "X", "probability": 0.XX},
-        {"label": "П2", "outcome": "2", "probability": 0.XX}
-      ]
-    },
-    {
-      "market": "DC",
-      "outcomes": [
-        {"label": "1X", "outcome": "1X", "probability": 0.XX},
-        {"label": "12", "outcome": "12", "probability": 0.XX},
-        {"label": "X2", "outcome": "X2", "probability": 0.XX}
-      ]
-    },
-    {
-      "market": "BTTS",
-      "outcomes": [
-        {"label": "Да", "outcome": "yes", "probability": 0.XX},
-        {"label": "Нет", "outcome": "no", "probability": 0.XX}
-      ]
-    },
-    {
-      "market": "O_U_2_5",
-      "outcomes": [
-        {"label": "Больше 2.5", "outcome": "over", "probability": 0.XX},
-        {"label": "Меньше 2.5", "outcome": "under", "probability": 0.XX}
-      ]
-    },
-    {
-      "market": "CORNERS_OU",
-      "outcomes": [
-        {"label": "Больше", "outcome": "over", "probability": 0.XX},
-        {"label": "Меньше", "outcome": "under", "probability": 0.XX}
-      ]
-    },
-    {
-      "market": "CARDS_OU",
-      "outcomes": [
-        {"label": "Больше", "outcome": "over", "probability": 0.XX},
-        {"label": "Меньше", "outcome": "under", "probability": 0.XX}
-      ]
-    },
-    {
-      "market": "HOME_TOTAL",
-      "outcomes": [
-        {"label": "Больше", "outcome": "over", "probability": 0.XX},
-        {"label": "Меньше", "outcome": "under", "probability": 0.XX}
-      ]
-    },
-    {
-      "market": "AWAY_TOTAL",
-      "outcomes": [
-        {"label": "Больше", "outcome": "over", "probability": 0.XX},
-        {"label": "Меньше", "outcome": "under", "probability": 0.XX}
-      ]
-    }
-  ],
-  "recommendedMarket": "1X2",
-  "recommendedOutcome": "1",
-  "rationale": "2-4 предложения на русском: почему именно этот рынок, есть ли value vs коэффициент, какой риск.",
-  "keyFactors": ["Фактор 1", "Фактор 2", "Фактор 3"],
-  "confidence": 0.XX
-}
+Верни ТОЛЬКО JSON. Пример формата одного рынка:
+{"market":"1X2","outcomes":[{"label":"П1","outcome":"1","probability":0.0},{"label":"Ничья","outcome":"X","probability":0.0},{"label":"П2","outcome":"2","probability":0.0}]}
 
-Допустимые market: "1X2", "DC", "BTTS", "O_U_1_5", "O_U_2_5", "O_U_3_5", "HOME_TOTAL", "AWAY_TOTAL", "CORNERS_OU", "CARDS_OU".
-- "HOME_TOTAL"/"AWAY_TOTAL" — индивидуальный тотал голов команды (исходы "over"/"under" относительно линии из коэффициентов).
-- "CORNERS_OU" — тотал угловых, "CARDS_OU" — тотал карточек (исходы "over"/"under" относительно линии из коэффициентов).
-- Если по рынку даны коэффициенты с линией (напр. «Тотал угловых больше 9.5») — оценивай вероятность именно для этой линии; в label укажи линию, напр. "Больше 9.5".
-Правила:
-- Вероятности ВНУТРИ каждого рынка суммируются ровно в 1.0.
-- confidence (0.0–1.0) — твоя уверенность с учётом и вероятности, и наличия value, и риска.
-- rationale и keyFactors — на русском языке.
-- recommendedMarket/recommendedOutcome — лучший рынок по сочетанию вероятности и value к коэффициенту.
-- Если по коэффициентам нигде нет преимущества — всё равно выбери самый обоснованный исход, но снизь confidence.`;
+Структура ответа: {"markets":[...],"recommendedMarket":"1X2","recommendedOutcome":"1","rationale":"2-4 предложения на русском","keyFactors":["...","...","..."],"confidence":0.0}
+
+Добавь в "markets" по одному объекту на КАЖДЫЙ рынок (outcomes как у примера, сумма probability в рынке = 1.0):
+- 1X2 → 1/X/2; DC → 1X/12/X2; BTTS → yes/no
+- O_U_2_5 → over/under; HOME_TOTAL → over/under; AWAY_TOTAL → over/under
+- CORNERS_OU (угловые) → over/under; CARDS_OU (карточки) → over/under
+Для тоталов/угловых/карточек/инд.тоталов в label укажи линию, напр. "Больше 9.5" (бери линию из коэффициентов, если даны).
+rationale и keyFactors — на русском. recommendedMarket/recommendedOutcome — лучший рынок по сочетанию вероятности и перевеса (value) к коэффициенту.`;
 }
 
 // Renders a bookmaker odds map into a readable block for the prompt.
