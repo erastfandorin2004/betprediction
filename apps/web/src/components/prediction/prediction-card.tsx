@@ -194,7 +194,7 @@ function SelectedBetsBlock({ bets }: { bets: BetPick[] }) {
           </div>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <BetChip>{primary.odds !== null ? `${p.oddsLabel} ${primary.odds.toFixed(2)}` : p.noOdds}</BetChip>
+          {primary.odds !== null ? <OddsPill value={primary.odds} large /> : <BetChip>{p.noOdds}</BetChip>}
           {primary.valueEdge !== null && primary.valueEdge > 0.02 && (
             <BetChip tone={WARN}>{p.valueLabel} +{Math.round(primary.valueEdge * 100)}%</BetChip>
           )}
@@ -215,7 +215,7 @@ function SelectedBetsBlock({ bets }: { bets: BetPick[] }) {
             <span className="text-xs font-medium" style={{ color: 'rgb(var(--fg-muted))' }}>{b.marketLabel}</span>
             <p className="mt-0.5 flex flex-wrap items-center gap-2 text-base font-bold" style={{ color: 'rgb(var(--fg-card))' }}>
               {b.label}
-              {b.odds !== null && <BetChip>{p.oddsLabel} {b.odds.toFixed(2)}</BetChip>}
+              {b.odds !== null ? <OddsPill value={b.odds} /> : <BetChip>{p.noOdds}</BetChip>}
               {b.valueEdge !== null && b.valueEdge > 0.02 && <BetChip tone={WARN}>{p.valueLabel} +{Math.round(b.valueEdge * 100)}%</BetChip>}
             </p>
           </div>
@@ -223,6 +223,23 @@ function SelectedBetsBlock({ bets }: { bets: BetPick[] }) {
         </div>
       ))}
     </div>
+  );
+}
+
+// Коэффициент букмекера на выбранную ставку — выделенный «залитый» элемент,
+// чтобы пользователь сразу видел, с каким коэффициентом он будет ставить.
+function OddsPill({ value, large }: { value: number; large?: boolean }) {
+  const { t } = useLocale();
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-lg font-bold"
+      style={{ background: 'rgb(var(--accent))', color: '#04140a', padding: large ? '4px 12px' : '2px 9px' }}
+    >
+      <span className={`uppercase tracking-wide ${large ? 'text-[11px]' : 'text-[10px]'}`} style={{ opacity: 0.7 }}>
+        {t.prediction.oddsLabel}
+      </span>
+      <span className={`tabular font-black ${large ? 'text-xl' : 'text-sm'}`}>{value.toFixed(2)}</span>
+    </span>
   );
 }
 

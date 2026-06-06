@@ -207,8 +207,50 @@ const MANUAL_ODDS: Record<string, ManualOdds> = {
   'germany|usa': USA_GER,
 };
 
+// Из читаемого блока достаём структурированные коэффициенты по рынкам, которых
+// нет в `map` (инд. тоталы, угловые, карточки) — чтобы показывать коэффициент на
+// выбранную ставку. Ключи: `MARKET:side:line`, напр. `CARDS_OU:over:2.5`.
+// Блок — единый источник (его заполняет пользователь), поэтому новые матчи
+// получают расширенные коэффициенты автоматически.
+function parsePairs(line: string): { side: 'over' | 'under'; point: string; odd: number }[] {
+  const out: { side: 'over' | 'under'; point: string; odd: number }[] = [];
+  const re = /(ТБ|ТМ)\s*(\d+(?:[.,]\d+)?)\s+(\d+(?:[.,]\d+)?)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(line))) {
+    out.push({
+      side: m[1] === 'ТБ' ? 'over' : 'under',
+      point: m[2]!.replace(',', '.'),
+      odd: parseFloat(m[3]!),
+    });
+  }
+  return out;
+}
+
+function extendedOddsFromBlock(block: string): Record<string, number> {
+  const map: Record<string, number> = {};
+  let indTotalSeen = 0; // первый «Инд. тотал …» — хозяева, второй — гости (порядок в блоке фиксирован).
+  for (const raw of block.split('\n')) {
+    const line = raw.trim();
+    let market: string | null = null;
+    if (/^Инд\.?\s*тотал/i.test(line)) {
+      market = indTotalSeen === 0 ? 'HOME_TOTAL' : 'AWAY_TOTAL';
+      indTotalSeen++;
+    } else if (/^Тотал\s+углов/i.test(line)) {
+      market = 'CORNERS_OU';
+    } else if (/^Тотал.*карточ/i.test(line)) {
+      market = 'CARDS_OU';
+    }
+    if (!market) continue;
+    for (const p of parsePairs(line)) map[`${market}:${p.side}:${p.point}`] = p.odd;
+  }
+  return map;
+}
+
 export function manualOddsFor(homeName: string, awayName: string): ManualOdds | null {
   const a = norm(homeName);
   const b = norm(awayName);
-  return MANUAL_ODDS[`${a}|${b}`] ?? MANUAL_ODDS[`${b}|${a}`] ?? null;
+  const entry = MANUAL_ODDS[`${a}|${b}`] ?? MANUAL_ODDS[`${b}|${a}`] ?? null;
+  if (!entry) return null;
+  // Обогащаем структурный map рынками из блока (угловые/карточки/инд.тоталы).
+  return { block: entry.block, map: { ...entry.map, ...extendedOddsFromBlock(entry.block) } };
 }

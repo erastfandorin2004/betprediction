@@ -96,7 +96,10 @@ export class AiAnalysisService {
     const recommendedMarket = primary?.market ?? agg.recommendedMarket;
     const recommendedOutcome = primary?.outcome ?? agg.recommendedOutcome;
     const probability = primary?.probability ?? agg.probability;
-    const recOdds = oddsMap[oddsKeyFor(recommendedMarket, recommendedOutcome)];
+    const recLabel = agg.markets
+      .find((m) => m.market === recommendedMarket)
+      ?.outcomes.find((o) => o.outcome === recommendedOutcome)?.label;
+    const recOdds = primary?.odds ?? oddsMap[oddsKeyFor(recommendedMarket, recommendedOutcome, recLabel)];
     const impliedProbability = primary?.impliedProbability ?? (recOdds ? round(1 / recOdds) : null);
     const valueEdge = primary?.valueEdge ?? (impliedProbability != null ? round(probability - impliedProbability) : null);
 
@@ -261,13 +264,27 @@ export class AiAnalysisService {
   }
 }
 
-// Map a recommended (market, outcome) to the odds-map key used by the live line.
-function oddsKeyFor(market: string, outcome: string): string {
+// Map a (market, outcome) to the odds-map key used by the live line. Для рынков
+// с линией (инд. тоталы/угловые/карточки) линия берётся из label ставки.
+function oddsKeyFor(market: string, outcome: string, label?: string): string {
   if (market === '1X2') return outcome; // '1' | 'X' | '2'
+  if (market === 'DC') return outcome; // '1X' | '12' | 'X2'
+  if (market === 'BTTS') return `btts_${outcome}`; // btts_yes | btts_no
   if (market === 'O_U_1_5') return `${outcome}_1_5`;
   if (market === 'O_U_2_5') return `${outcome}_2_5`;
   if (market === 'O_U_3_5') return `${outcome}_3_5`;
-  return `${market}:${outcome}`; // no live key (DC/BTTS/team totals not fetched)
+  if (market === 'HOME_TOTAL' || market === 'AWAY_TOTAL' || market === 'CORNERS_OU' || market === 'CARDS_OU') {
+    const line = parseLine(label);
+    return line ? `${market}:${outcome}:${line}` : `${market}:${outcome}:?`;
+  }
+  return `${market}:${outcome}`;
+}
+
+// Достаём линию (напр. «2.5») из лейбла исхода: «Больше 2.5», «ТБ 9.5», «Тотал хозяев — Больше 1.5».
+function parseLine(label?: string): string | null {
+  if (!label) return null;
+  const m = label.match(/(\d+(?:[.,]\d+)?)/);
+  return m ? m[1]!.replace(',', '.') : null;
 }
 
 // ── Bet selection ───────────────────────────────────────────────────────────
@@ -293,7 +310,7 @@ function selectBets(markets: AggMarket[], oddsMap: Record<string, number>): BetP
     if (!m.outcomes.length) continue;
     const top = m.outcomes.reduce((b, o) => (o.probability > b.probability ? o : b));
     const marketLabel = (MARKET_LABELS as Record<string, string>)[m.market] ?? m.market;
-    const realOdds = oddsMap[oddsKeyFor(m.market, top.outcome)];
+    const realOdds = oddsMap[oddsKeyFor(m.market, top.outcome, top.label)];
 
     if (realOdds != null) {
       // Реальная линия: жёсткие пороги вероятности и коэффициента + value.
