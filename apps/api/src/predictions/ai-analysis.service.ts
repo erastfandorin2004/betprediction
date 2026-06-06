@@ -288,16 +288,21 @@ function parseLine(label?: string): string | null {
 }
 
 // ── Bet selection ───────────────────────────────────────────────────────────
-// Из консенсус-вероятностей по рынкам + реальных коэффициентов выбираем 1–3
-// лучших исхода НА МАТЧ. Правила (запрос продукта):
-//  • показываем ставку только при вероятности прохода ≥ 60%;
-//  • при известном реальном коэффициенте он должен быть ≥ 1.60 (отсекаем
-//    неинтересные фавориты вроде 1.24) — ранжируем такие по value;
-//  • для рынков без живой линии (угловые/карточки/обе забьют/инд. тоталы)
-//    порог строже — вероятность ≥ 65%, коэффициент неизвестен;
+// Ищем 1–3 ЛУЧШИХ ставки по ВСЕЙ линии букмекера, а не только по исходу матча.
+// Все рынки конкурируют наравне (исход, двойной шанс, тоталы голов и инд., обе
+// забьют, угловые, карточки) — выбор value-first:
+//  • value-ставка: перевес (edge) ≥ 5% при вероятности ≥ 52% и коэф. 1.5–6.0;
+//  • уверенный фаворит: вероятность ≥ 68% и коэф. ≥ 1.55 (даже без большого перевеса);
+//  • рынок без живого коэффициента — только при вероятности ≥ 65%;
+//  • ранжируем по силе (перевес + бонус за вероятность): первым идёт самый
+//    сильный рынок — угловые/карточки/тотал/исход, что окажется выгоднее;
 //  • если ничего не проходит — ставок нет (вызывающий помечает высокий риск).
-const MIN_PROB = 0.6;
-const MIN_ODDS = 1.6;
+const MIN_EDGE = 0.05;
+const VALUE_MIN_PROB = 0.52;
+const FAV_MIN_PROB = 0.68;
+const FAV_MIN_ODDS = 1.55;
+const MIN_ODDS = 1.5;
+const MAX_ODDS = 6.0;
 const NO_ODDS_MIN_PROB = 0.65;
 // Рынки, которые без реального коэффициента почти всегда низкокоэффициентные —
 // не предлагаем их «вслепую».
@@ -313,9 +318,12 @@ function selectBets(markets: AggMarket[], oddsMap: Record<string, number>): BetP
     const realOdds = oddsMap[oddsKeyFor(m.market, top.outcome, top.label)];
 
     if (realOdds != null) {
-      // Реальная линия: жёсткие пороги вероятности и коэффициента + value.
-      if (top.probability < MIN_PROB || realOdds < MIN_ODDS) continue;
+      if (realOdds < MIN_ODDS || realOdds > MAX_ODDS) continue;
       const implied = round(1 / realOdds);
+      const edge = round(top.probability - implied);
+      const isValue = edge >= MIN_EDGE && top.probability >= VALUE_MIN_PROB;
+      const isFavourite = top.probability >= FAV_MIN_PROB && realOdds >= FAV_MIN_ODDS;
+      if (!isValue && !isFavourite) continue;
       candidates.push({
         market: m.market as MarketType,
         marketLabel,
@@ -324,7 +332,7 @@ function selectBets(markets: AggMarket[], oddsMap: Record<string, number>): BetP
         probability: round(top.probability),
         odds: realOdds,
         impliedProbability: implied,
-        valueEdge: round(top.probability - implied),
+        valueEdge: edge,
         isPrimary: false,
       });
     } else {
@@ -344,12 +352,16 @@ function selectBets(markets: AggMarket[], oddsMap: Record<string, number>): BetP
     }
   }
 
-  // Сначала value-ставки (с реальным коэф.) по убыванию выгоды, затем
-  // уверенные исходы без коэффициента по убыванию вероятности.
+  // Сила ставки = перевес + небольшой бонус за вероятность прохода. Так value на
+  // угловых/карточках/тоталах обгоняет скучного низкого фаворита, но при равном
+  // перевесе предпочтём более вероятный исход. Ставки без коэф. — в конце.
+  const strength = (b: BetPick) => (b.valueEdge ?? 0) + 0.1 * (b.probability - 0.5);
   candidates.sort((a, b) => {
-    if (a.valueEdge != null && b.valueEdge != null) return b.valueEdge - a.valueEdge;
-    if (a.valueEdge != null) return -1;
-    if (b.valueEdge != null) return 1;
+    const av = a.valueEdge != null;
+    const bv = b.valueEdge != null;
+    if (av && bv) return strength(b) - strength(a);
+    if (av) return -1;
+    if (bv) return 1;
     return b.probability - a.probability;
   });
 
@@ -365,11 +377,12 @@ function buildRiskNote(agg: Aggregated): string {
     .filter((o): o is NonNullable<typeof o> => o !== null)
     .sort((a, b) => b.probability - a.probability)[0];
   const hint = best
-    ? ` Самый вероятный исход — «${best.label}» (${Math.round(best.probability * 100)}%), но он не даёт интересного коэффициента.`
+    ? ` Самый вероятный исход — «${best.label}» (${Math.round(best.probability * 100)}%), но по нему нет приемлемого сочетания коэффициента и перевеса.`
     : '';
   return (
-    'В этом матче нет ставки с приемлемым сочетанием вероятности (от 60%) и коэффициента (от 1.60) — ' +
-    `риск высокий, такое событие лучше пропустить.${hint}`
+    'Проанализировали всю линию — исход, двойной шанс, тоталы голов и индивидуальные, обе забьют, ' +
+    'угловые, карточки — но нигде нет ставки с нормальным коэффициентом (1.5–6.0), перевесом (от 5%) ' +
+    `и вероятностью прохода. Такой матч лучше пропустить.${hint}`
   );
 }
 
