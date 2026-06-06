@@ -33,6 +33,10 @@ export class PredictionGeneratorService implements OnModuleInit {
 
     if (!apiKey) {
       this.logger.warn('LAOZHANG_API_KEY not set — prediction generation disabled');
+    } else if (!this.config.get<boolean>('autoPredictions')) {
+      // По умолчанию авто-анализ выключен: матчи анализируются только вручную по
+      // кнопке «Сделать анализ» (API /v1/predictions/:id/analyze).
+      this.logger.log('Auto prediction generation is OFF — matches are analysed only on manual request (set AUTO_PREDICTIONS=true to enable)');
     } else {
       this.logger.log(`Prediction engine ready with ${this.models.length} models`);
       setImmediate(() => void this.generatePendingPredictions());
@@ -41,6 +45,10 @@ export class PredictionGeneratorService implements OnModuleInit {
 
   @Cron('0 * * * *') // every hour
   async generatePendingPredictions(): Promise<void> {
+    // Никаких авто-прогонов по матчам, пока AUTO_PREDICTIONS не включён явно —
+    // токены/запросы к моделям тратятся только при ручном запуске анализа.
+    if (!this.config.get<boolean>('autoPredictions')) return;
+
     const apiKey = this.config.get<string>('laozhang.apiKey');
     if (!apiKey) return;
 

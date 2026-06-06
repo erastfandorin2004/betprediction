@@ -1,5 +1,9 @@
 export default () => ({
   nodeEnv: process.env['NODE_ENV'] ?? 'development',
+  // AI-анализ матчей запускается ТОЛЬКО вручную (кнопка «Сделать анализ» в карточке
+  // матча → API /analyze). Авто-генерация прогнозов по всем матчам выключена по
+  // умолчанию; включается явно через AUTO_PREDICTIONS=true.
+  autoPredictions: process.env['AUTO_PREDICTIONS'] === 'true',
   database: {
     url: process.env['DATABASE_URL'] ?? 'postgresql://aiscore:aiscore@localhost:5432/aiscore',
   },
