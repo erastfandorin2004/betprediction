@@ -108,6 +108,9 @@ export const predictions = pgTable(
     keyFactors: jsonb('key_factors').$type<string[]>(),
     valueEdge: real('value_edge'),
     impliedProbability: real('implied_probability'),
+    // 1–3 лучших исхода на матч, выбранных по вероятности + реальному коэф. + value.
+    selectedBets: jsonb('selected_bets').$type<unknown[]>(),
+    riskNote: text('risk_note'),
     status: varchar('status', { length: 20 }).notNull().default('pending'),
     isCorrect: boolean('is_correct'),
     actualResult: varchar('actual_result', { length: 50 }),

@@ -198,6 +198,8 @@ export class PredictionsService {
       keyFactors: isLocked ? null : (row.keyFactors as string[] | null),
       valueEdge: isLocked ? null : row.valueEdge,
       impliedProbability: row.impliedProbability,
+      selectedBets: isLocked ? null : ((row.selectedBets as PredictionDetail['selectedBets']) ?? null),
+      riskNote: isLocked ? null : row.riskNote,
       models: isLocked ? null : (row.modelViews as PredictionDetail['models']),
       summary: isLocked ? null : row.summary,
       settlement: (row.settlement as PredictionDetail['settlement']) ?? null,

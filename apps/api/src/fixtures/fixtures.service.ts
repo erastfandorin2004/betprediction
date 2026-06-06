@@ -483,6 +483,8 @@ export class FixturesService {
       keyFactors: pred.keyFactors as string[] | null,
       valueEdge: pred.valueEdge,
       impliedProbability: pred.impliedProbability,
+      selectedBets: (pred.selectedBets as PredictionDetail['selectedBets']) ?? null,
+      riskNote: pred.riskNote ?? null,
       models: (pred.modelViews as PredictionDetail['models']) ?? null,
       summary: pred.summary ?? null,
       settlement: (pred.settlement as PredictionDetail['settlement']) ?? null,

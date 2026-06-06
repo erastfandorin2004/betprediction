@@ -32,6 +32,20 @@ export interface ModelConsensus {
   summary: string;
 }
 
+// Конкретная ставка, отобранная ИИ как лучший вариант на матч (1–3 на событие).
+// Выбирается по сочетанию вероятности прохода, реального коэффициента и value.
+export interface BetPick {
+  market: MarketType;
+  marketLabel: string;          // «Тотал угловых», «Исход 1X2» …
+  outcome: string;              // код исхода (1/X/2, over/under, yes/no …)
+  label: string;               // подпись с линией: «Больше 9.5», «П1» …
+  probability: number;          // вероятность прохода по ансамблю (0..1)
+  odds: number | null;          // реальный коэффициент букмекера (null — нет линии)
+  impliedProbability: number | null;
+  valueEdge: number | null;     // probability − implied (только при известном коэф.)
+  isPrimary: boolean;           // самый сильный вариант на матч
+}
+
 export type PredictionStatus = 'pending' | 'resolved' | 'cancelled';
 
 export interface PredictionOutcome {
@@ -63,6 +77,8 @@ export interface PredictionDetail {
   keyFactors: string[] | null;
   valueEdge: number | null;
   impliedProbability: number | null;
+  selectedBets: BetPick[] | null;   // 1–3 лучших исхода на матч (null — старый прогноз)
+  riskNote: string | null;          // пояснение, когда нормальной ставки нет (высокий риск)
   outcome: PredictionOutcome | null;
   models: ModelForecast[] | null;   // прогноз каждой модели ансамбля
   summary: string | null;           // синтез мнений всех моделей (общий вывод)

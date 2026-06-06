@@ -30,6 +30,7 @@ export type {
   PredictionOutcome,
   PredictionBadge,
   PredictionDetail,
+  BetPick,
   ModelForecast,
   SettlementStatus,
   MarketCheck,

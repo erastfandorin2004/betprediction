@@ -4,9 +4,9 @@ import Link from 'next/link';
 import type { ComponentType } from 'react';
 import {
   Lock, TrendingUp, Bot, Sparkles, Cpu, CheckCircle2, XCircle, MinusCircle,
-  ClipboardCheck, Target, Star, Lightbulb, ListChecks, Trophy, Percent, type LucideIcon,
+  ClipboardCheck, Target, Star, Lightbulb, ListChecks, Trophy, Percent, ShieldAlert, type LucideIcon,
 } from 'lucide-react';
-import type { PredictionDetail, ModelForecast, PredictionSettlement, MarketCheck, PredictionMarket } from '@ai-score/shared';
+import type { PredictionDetail, ModelForecast, PredictionSettlement, MarketCheck, PredictionMarket, BetPick } from '@ai-score/shared';
 import { MARKET_LABELS } from '@ai-score/shared';
 import { formatPct } from '@/lib/format';
 import { useLocale } from '@/components/i18n/locale-provider';
@@ -73,16 +73,29 @@ export function PredictionCard({ prediction }: PredictionCardProps) {
 
       <div className="space-y-6 px-5 py-6 sm:px-6">
         {prediction.settlement && <SettlementBlock s={prediction.settlement} />}
-        <RecommendationBlock prediction={prediction} />
-        <ProposedBetsBlock
-          markets={prediction.markets}
-          recMarket={prediction.recommendedMarket}
-          recOutcome={prediction.recommendedOutcome}
-        />
-        {prediction.valueEdge !== null && prediction.valueEdge > 0.03 && (
-          <ValueBlock edge={prediction.valueEdge} impliedProb={prediction.impliedProbability} probability={prediction.probability} />
+
+        {prediction.selectedBets !== null ? (
+          // Новый формат: только лучшие исходы на матч (или «ставки нет»).
+          prediction.selectedBets.length > 0 ? (
+            <SelectedBetsBlock bets={prediction.selectedBets} />
+          ) : (
+            <RiskBlock note={prediction.riskNote} />
+          )
+        ) : (
+          // Старые прогнозы (воркер): прежний вид со всеми рынками.
+          <>
+            <RecommendationBlock prediction={prediction} />
+            <ProposedBetsBlock
+              markets={prediction.markets}
+              recMarket={prediction.recommendedMarket}
+              recOutcome={prediction.recommendedOutcome}
+            />
+            {prediction.valueEdge !== null && prediction.valueEdge > 0.03 && (
+              <ValueBlock edge={prediction.valueEdge} impliedProb={prediction.impliedProbability} probability={prediction.probability} />
+            )}
+            <MarketBars markets={prediction.markets} />
+          </>
         )}
-        <MarketBars markets={prediction.markets} />
 
         {/* Порядок блоков по моделям: общее мнение → прогнозы моделей → согласие → обоснование */}
         {prediction.summary && <SummaryBlock summary={prediction.summary} />}
@@ -140,6 +153,106 @@ function RecommendationBlock({ prediction }: { prediction: PredictionDetail }) {
           <span className="tabular text-sm font-bold" style={{ color: 'rgb(var(--fg-secondary))' }}>{conf}%</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Selected bets: the 1–3 strongest picks for this match ───────────────────
+function SelectedBetsBlock({ bets }: { bets: BetPick[] }) {
+  const { t } = useLocale();
+  const p = t.prediction;
+  const [primary, ...rest] = bets;
+  if (!primary) return null;
+
+  return (
+    <div className="space-y-3">
+      <SectionLabel icon={Target} hint={p.bestBetsHint}>{p.bestBets}</SectionLabel>
+
+      {/* Primary pick — hero */}
+      <div
+        className="rounded-2xl p-5 sm:p-6"
+        style={{
+          background: 'linear-gradient(135deg, rgb(var(--accent) / 0.16), rgb(var(--accent) / 0.05))',
+          border: '1px solid rgb(var(--accent) / 0.35)',
+          boxShadow: '0 0 24px rgb(var(--accent) / 0.12)',
+        }}
+      >
+        <div className="flex items-end justify-between gap-4">
+          <div className="min-w-0">
+            <span className="text-xs font-medium" style={{ color: 'rgb(var(--fg-muted))' }}>{primary.marketLabel}</span>
+            <p className="mt-0.5 text-2xl font-extrabold leading-tight sm:text-3xl" style={{ color: 'rgb(var(--fg-primary))' }}>
+              {primary.label}
+            </p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="tabular text-4xl font-black leading-none sm:text-5xl" style={{ color: 'rgb(var(--accent))' }}>
+              {formatPct(primary.probability)}
+            </p>
+            <p className="mt-1 flex items-center justify-end gap-1 text-[11px] font-medium uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted))' }}>
+              <Percent className="h-3 w-3" /> {p.passProb}
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <BetChip>{primary.odds !== null ? `${p.oddsLabel} ${primary.odds.toFixed(2)}` : p.noOdds}</BetChip>
+          {primary.valueEdge !== null && primary.valueEdge > 0.02 && (
+            <BetChip tone={WARN}>{p.valueLabel} +{Math.round(primary.valueEdge * 100)}%</BetChip>
+          )}
+          <span className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold uppercase" style={{ background: 'rgb(var(--accent) / 0.2)', color: 'rgb(var(--accent))' }}>
+            <Star className="h-3 w-3 fill-current" /> {p.mainBet}
+          </span>
+        </div>
+      </div>
+
+      {/* Secondary picks */}
+      {rest.map((b, i) => (
+        <div
+          key={i}
+          className="flex items-center justify-between gap-3 rounded-xl px-4 py-3"
+          style={{ background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}
+        >
+          <div className="min-w-0">
+            <span className="text-xs font-medium" style={{ color: 'rgb(var(--fg-muted))' }}>{b.marketLabel}</span>
+            <p className="mt-0.5 flex flex-wrap items-center gap-2 text-base font-bold" style={{ color: 'rgb(var(--fg-card))' }}>
+              {b.label}
+              {b.odds !== null && <BetChip>{p.oddsLabel} {b.odds.toFixed(2)}</BetChip>}
+              {b.valueEdge !== null && b.valueEdge > 0.02 && <BetChip tone={WARN}>{p.valueLabel} +{Math.round(b.valueEdge * 100)}%</BetChip>}
+            </p>
+          </div>
+          <span className="tabular shrink-0 text-lg font-extrabold" style={{ color: 'rgb(var(--fg-secondary))' }}>{formatPct(b.probability)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BetChip({ children, tone }: { children: React.ReactNode; tone?: string }) {
+  const color = tone ?? 'rgb(var(--fg-secondary))';
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold tabular"
+      style={{ background: tone ? `${tone}22` : 'rgb(var(--pitch-800))', color, border: `1px solid ${tone ? `${tone}55` : 'rgb(var(--pitch-700))'}` }}
+    >
+      {children}
+    </span>
+  );
+}
+
+// ── No qualifying bet — high-risk event ─────────────────────────────────────
+function RiskBlock({ note }: { note: string | null }) {
+  const { t } = useLocale();
+  const p = t.prediction;
+  return (
+    <div
+      className="rounded-2xl p-5 sm:p-6"
+      style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.35)' }}
+    >
+      <p className="flex items-center gap-2 text-base font-extrabold uppercase tracking-wide" style={{ color: NEGATIVE }}>
+        <ShieldAlert className="h-5 w-5" /> {p.riskTitle}
+      </p>
+      <p className="mt-2.5 text-[15px] leading-relaxed" style={{ color: 'rgb(var(--fg-secondary))' }}>
+        {note ?? p.riskDefault}
+      </p>
     </div>
   );
 }

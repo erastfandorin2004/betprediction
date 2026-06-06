@@ -11,7 +11,7 @@ import {
   type MatchContext,
   type ModelCallResult,
 } from '@ai-score/shared';
-import type { PredictionDetail, ModelConsensus, ModelForecast, Lineups } from '@ai-score/shared';
+import type { PredictionDetail, ModelConsensus, ModelForecast, Lineups, BetPick, MarketType } from '@ai-score/shared';
 import { DatabaseService } from '../database/database.service';
 import { PredictionsService } from './predictions.service';
 import { FixturesService } from '../fixtures/fixtures.service';
@@ -34,7 +34,9 @@ type AggMarket = {
   isLocked: boolean;
 };
 
-const DEFAULT_MODELS = ['gpt-4o', 'claude-sonnet-4-6', 'gemini-2.5-flash-nothinking', 'deepseek-v3'];
+const DEFAULT_MODELS = ['gpt-5.5', 'claude-opus-4-8', 'deepseek-v4'];
+// Дешёвая быстрая модель для синтеза общего вывода (экономия токенов).
+const SYNTH_MODEL = 'gemini-2.5-flash-nothinking';
 
 @Injectable()
 export class AiAnalysisService {
@@ -80,12 +82,29 @@ export class AiAnalysisService {
 
     const agg = aggregate(valid, results.length);
     const modelViews = buildModelViews(parsed, agg.recommendedMarket, agg.recommendedOutcome);
-    const summary = await this.synthesize(client, models[0]!, ctx, modelViews, agg);
 
-    // Value vs the live line for the recommended pick (when odds are available).
-    const recOdds = oddsMap[oddsKeyFor(agg.recommendedMarket, agg.recommendedOutcome)];
-    const impliedProbability = recOdds ? round(1 / recOdds) : null;
-    const valueEdge = impliedProbability != null ? round(agg.probability - impliedProbability) : null;
+    // Select the 1–3 strongest bets for THIS match (prob + real odds + value).
+    // Не показываем проценты по всем рынкам — только лучшие исходы на событие.
+    const selectedBets = selectBets(agg.markets, oddsMap);
+    const primary = selectedBets[0] ?? null;
+    const riskNote = selectedBets.length ? null : buildRiskNote(agg);
+
+    const summary = await this.synthesize(client, SYNTH_MODEL, ctx, modelViews, agg);
+
+    // The hero recommendation follows the primary selected bet when one passes
+    // the thresholds; otherwise it falls back to the ensemble's majority pick.
+    const recommendedMarket = primary?.market ?? agg.recommendedMarket;
+    const recommendedOutcome = primary?.outcome ?? agg.recommendedOutcome;
+    const probability = primary?.probability ?? agg.probability;
+    const recOdds = oddsMap[oddsKeyFor(recommendedMarket, recommendedOutcome)];
+    const impliedProbability = primary?.impliedProbability ?? (recOdds ? round(1 / recOdds) : null);
+    const valueEdge = primary?.valueEdge ?? (impliedProbability != null ? round(probability - impliedProbability) : null);
+
+    this.logger.log(
+      selectedBets.length
+        ? `Selected ${selectedBets.length} bet(s) for ${fixtureId}; primary ${recommendedMarket}/${recommendedOutcome} @ ${Math.round(probability * 100)}%`
+        : `No qualifying bet for ${fixtureId} — flagged high risk`,
+    );
 
     // Persist as an immutable-style snapshot; re-running replaces the prior one.
     await this.db.db.delete(schema.predictions).where(eq(schema.predictions.fixtureId, fixtureId));
@@ -94,9 +113,9 @@ export class AiAnalysisService {
       .values({
         fixtureId,
         markets: agg.markets as unknown[],
-        recommendedMarket: agg.recommendedMarket,
-        recommendedOutcome: agg.recommendedOutcome,
-        probability: agg.probability,
+        recommendedMarket,
+        recommendedOutcome,
+        probability,
         confidence: agg.confidence,
         stars: agg.stars,
         modelConsensus: agg.modelConsensus as unknown,
@@ -106,6 +125,8 @@ export class AiAnalysisService {
         keyFactors: agg.keyFactors,
         valueEdge,
         impliedProbability,
+        selectedBets: selectedBets as unknown[],
+        riskNote,
         status: 'pending',
       })
       .returning();
@@ -121,38 +142,35 @@ export class AiAnalysisService {
     views: ModelForecast[],
     agg: Aggregated,
   ): Promise<string | null> {
+    // Компактный вход: выбор каждой модели + укороченное обоснование (экономия токенов).
     const opinions = views
       .filter((v) => !v.error)
       .map((v) => {
-        const conf = v.confidence != null ? `, уверенность ${Math.round(v.confidence * 100)}%` : '';
-        const prob = v.probability != null ? `, по итоговому исходу ${Math.round(v.probability * 100)}%` : '';
-        return `- ${v.modelId}: выбирает «${v.ownOutcomeLabel ?? '—'}»${conf}${prob}. ${v.rationale ?? ''}`.trim();
+        const prob = v.probability != null ? ` (${Math.round(v.probability * 100)}%)` : '';
+        const why = (v.rationale ?? '').slice(0, 140);
+        return `- ${v.modelId}: «${v.ownOutcomeLabel ?? '—'}»${prob}. ${why}`.trim();
       })
       .join('\n');
     if (!opinions) return null;
 
-    const decision = `Итоговая рекомендация ансамбля: «${labelFor(agg.recommendedMarket, agg.recommendedOutcome)}» (${Math.round(agg.probability * 100)}%).`;
+    const decision = `Итог ансамбля: «${labelFor(agg.recommendedMarket, agg.recommendedOutcome)}» (${Math.round(agg.probability * 100)}%).`;
     const res = await client.complete({
       model,
       messages: [
         {
           role: 'system',
-          content:
-            'Ты — главный аналитик, объединяющий мнения нескольких независимых AI-моделей в один консенсус. ' +
-            'Верни ТОЛЬКО связный текст на русском (3–4 предложения), без JSON и markdown.',
+          content: 'Объедини мнения AI-моделей в один вывод. Только связный текст на русском, 2–3 предложения, без markdown.',
         },
         {
           role: 'user',
-          content:
-            `Матч: ${ctx.homeTeam} — ${ctx.awayTeam} (${ctx.league}).\n\nПрогнозы моделей:\n${opinions}\n\n${decision}\n\n` +
-            'Сформулируй ОБЩЕЕ мнение всех моделей: в чём они согласны, в чём расходятся, насколько единодушен консенсус и почему итог именно такой.',
+          content: `${ctx.homeTeam} — ${ctx.awayTeam}.\nМодели:\n${opinions}\n${decision}\nВ чём модели согласны/расходятся и почему такой итог.`,
         },
       ],
-      max_tokens: 450,
+      max_tokens: 300,
       temperature: 0.3,
     });
     if (res.error || !res.content.trim()) return null;
-    return res.content.trim().slice(0, 700);
+    return res.content.trim().slice(0, 600);
   }
 
   private async buildContext(fixtureId: number): Promise<{ ctx: MatchContext; oddsMap: Record<string, number> } | null> {
@@ -250,6 +268,92 @@ function oddsKeyFor(market: string, outcome: string): string {
   if (market === 'O_U_2_5') return `${outcome}_2_5`;
   if (market === 'O_U_3_5') return `${outcome}_3_5`;
   return `${market}:${outcome}`; // no live key (DC/BTTS/team totals not fetched)
+}
+
+// ── Bet selection ───────────────────────────────────────────────────────────
+// Из консенсус-вероятностей по рынкам + реальных коэффициентов выбираем 1–3
+// лучших исхода НА МАТЧ. Правила (запрос продукта):
+//  • показываем ставку только при вероятности прохода ≥ 60%;
+//  • при известном реальном коэффициенте он должен быть ≥ 1.60 (отсекаем
+//    неинтересные фавориты вроде 1.24) — ранжируем такие по value;
+//  • для рынков без живой линии (угловые/карточки/обе забьют/инд. тоталы)
+//    порог строже — вероятность ≥ 65%, коэффициент неизвестен;
+//  • если ничего не проходит — ставок нет (вызывающий помечает высокий риск).
+const MIN_PROB = 0.6;
+const MIN_ODDS = 1.6;
+const NO_ODDS_MIN_PROB = 0.65;
+// Рынки, которые без реального коэффициента почти всегда низкокоэффициентные —
+// не предлагаем их «вслепую».
+const NO_ODDS_INELIGIBLE = new Set(['DC', 'O_U_1_5']);
+
+function selectBets(markets: AggMarket[], oddsMap: Record<string, number>): BetPick[] {
+  const candidates: BetPick[] = [];
+
+  for (const m of markets) {
+    if (!m.outcomes.length) continue;
+    const top = m.outcomes.reduce((b, o) => (o.probability > b.probability ? o : b));
+    const marketLabel = (MARKET_LABELS as Record<string, string>)[m.market] ?? m.market;
+    const realOdds = oddsMap[oddsKeyFor(m.market, top.outcome)];
+
+    if (realOdds != null) {
+      // Реальная линия: жёсткие пороги вероятности и коэффициента + value.
+      if (top.probability < MIN_PROB || realOdds < MIN_ODDS) continue;
+      const implied = round(1 / realOdds);
+      candidates.push({
+        market: m.market as MarketType,
+        marketLabel,
+        outcome: top.outcome,
+        label: top.label,
+        probability: round(top.probability),
+        odds: realOdds,
+        impliedProbability: implied,
+        valueEdge: round(top.probability - implied),
+        isPrimary: false,
+      });
+    } else {
+      // Нет живого коэффициента: берём только уверенные исходы по вероятности.
+      if (NO_ODDS_INELIGIBLE.has(m.market) || top.probability < NO_ODDS_MIN_PROB) continue;
+      candidates.push({
+        market: m.market as MarketType,
+        marketLabel,
+        outcome: top.outcome,
+        label: top.label,
+        probability: round(top.probability),
+        odds: null,
+        impliedProbability: null,
+        valueEdge: null,
+        isPrimary: false,
+      });
+    }
+  }
+
+  // Сначала value-ставки (с реальным коэф.) по убыванию выгоды, затем
+  // уверенные исходы без коэффициента по убыванию вероятности.
+  candidates.sort((a, b) => {
+    if (a.valueEdge != null && b.valueEdge != null) return b.valueEdge - a.valueEdge;
+    if (a.valueEdge != null) return -1;
+    if (b.valueEdge != null) return 1;
+    return b.probability - a.probability;
+  });
+
+  const top3 = candidates.slice(0, 3);
+  if (top3[0]) top3[0].isPrimary = true;
+  return top3;
+}
+
+// Пояснение для случая «нормальной ставки нет» — показываем вместо рекомендации.
+function buildRiskNote(agg: Aggregated): string {
+  const best = agg.markets
+    .map((m) => (m.outcomes.length ? m.outcomes.reduce((b, o) => (o.probability > b.probability ? o : b)) : null))
+    .filter((o): o is NonNullable<typeof o> => o !== null)
+    .sort((a, b) => b.probability - a.probability)[0];
+  const hint = best
+    ? ` Самый вероятный исход — «${best.label}» (${Math.round(best.probability * 100)}%), но он не даёт интересного коэффициента.`
+    : '';
+  return (
+    'В этом матче нет ставки с приемлемым сочетанием вероятности (от 60%) и коэффициента (от 1.60) — ' +
+    `риск высокий, такое событие лучше пропустить.${hint}`
+  );
 }
 
 // ── Pure aggregation (all markets the ensemble returned → PredictionDetail) ──
