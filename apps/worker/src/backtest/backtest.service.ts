@@ -56,7 +56,7 @@ const GOAL_MARKETS: GoalMarket[] = [
   { market: 'O_U_3_5', oddsKey: 'under_3_5', modelOutcome: 'under', label: 'Тотал меньше 3.5', settle: (h, a) => h + a < 3.5 },
 ];
 
-const DEFAULT_MODELS = ['gpt-5.1', 'claude-opus-4-7', 'deepseek-v3.2-exp', 'gemini-2.5-flash-nothinking'];
+const DEFAULT_MODELS = ['gpt-5.5', 'claude-opus-4-8', 'deepseek-chat'];
 
 // Оцениваемый исход конкретного матча: рынок/исход модели, коэффициент и уже
 // рассчитанный результат (из счёта или фактических угловых/карточек).

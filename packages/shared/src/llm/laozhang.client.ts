@@ -13,6 +13,9 @@ export interface LlmRequest {
   response_format?: { type: 'json_object' };
   max_tokens?: number;
   temperature?: number;
+  // Только для reasoning-моделей gpt-5.x — урезает «размышления», иначе они
+  // съедают весь бюджет токенов и JSON обрывается. Допустимо: low/medium/high.
+  reasoning_effort?: 'low' | 'medium' | 'high';
 }
 
 interface ChatChoice {
@@ -105,18 +108,23 @@ export class LaozhangClient {
   // Fan-out to multiple models in parallel — each is an independent prediction.
   // Models that error/time out (slower ones like deepseek) get one retry.
   async fanOut(models: string[], messages: LlmMessage[]): Promise<ModelCallResult[]> {
-    const call = (model: string) =>
-      this.complete({
+    const call = (model: string) => {
+      // gpt-5.x — reasoning-модели: без reasoning_effort:'low' «размышления»
+      // съедают весь бюджет токенов и JSON обрывается (даже при 8000 ток).
+      // С 'low' gpt-5.5 отдаёт полный JSON (~1300 ток вывода). Параметр шлём
+      // ТОЛЬКО этим моделям — claude/deepseek отвечают на него HTTP 400.
+      const isGpt5 = /^gpt-5/i.test(model);
+      return this.complete({
         model,
         messages,
-        // 1800: на полном промпте (8 рынков) реальный вывод ~700–1400 ток
-        // (gemini-flash 1379, opus-4-7 1090) — запас, чтобы JSON не обрезался.
-        // NB: reasoning-модели (gpt-5.5) сюда не годятся — съедают весь бюджет
-        // на размышления и не успевают дописать JSON; используем gpt-5.1.
-        max_tokens: 1800,
+        // 2500: запас под reasoning gpt-5.x + полный JSON по 8 рынкам.
+        // Обычным моделям этот лимит не мешает (реальный вывод ~700–1400 ток).
+        max_tokens: 2500,
+        ...(isGpt5 ? { reasoning_effort: 'low' as const } : {}),
         response_format: { type: 'json_object' },
         temperature: 0.3,
       });
+    };
 
     const results = await Promise.all(models.map(call));
     return Promise.all(

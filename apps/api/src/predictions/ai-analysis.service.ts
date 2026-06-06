@@ -34,7 +34,7 @@ type AggMarket = {
   isLocked: boolean;
 };
 
-const DEFAULT_MODELS = ['gpt-5.1', 'claude-opus-4-7', 'deepseek-v3.2-exp', 'gemini-2.5-flash-nothinking'];
+const DEFAULT_MODELS = ['gpt-5.5', 'claude-opus-4-8', 'deepseek-chat'];
 // Дешёвая быстрая модель для синтеза общего вывода (экономия токенов).
 const SYNTH_MODEL = 'gemini-2.5-flash-nothinking';
 
