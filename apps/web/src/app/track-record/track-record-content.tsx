@@ -413,7 +413,7 @@ function PickRow({ pick }: { pick: BacktestPick }) {
               {pick.odds != null && <span style={{ color: 'rgb(var(--fg-muted))' }}> @ {pick.odds.toFixed(2)}</span>}
               {pick.valueEdge != null && (
                 <span className="ml-1.5 font-semibold" style={{ color: 'rgb(var(--accent))' }}>
-                  value +{(pick.valueEdge * 100).toFixed(1)}%
+                  {bt.valueShort} +{(pick.valueEdge * 100).toFixed(1)}%
                 </span>
               )}
             </span>

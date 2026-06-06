@@ -220,7 +220,7 @@ function ValueBlock({ edge, impliedProb, probability }: { edge: number; impliedP
         <TrendingUp className="h-5 w-5" style={{ color: WARN }} />
       </span>
       <div>
-        <p className="text-base font-extrabold" style={{ color: WARN }}>VALUE +{edgePct}%</p>
+        <p className="text-base font-extrabold uppercase" style={{ color: WARN }}>{t.prediction.valueLabel} +{edgePct}%</p>
         {impliedProb !== null && (
           <p className="mt-0.5 text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
             AI {formatPct(probability)} · {t.prediction.market} {formatPct(impliedProb)} → {t.prediction.edge} {edgePct}%

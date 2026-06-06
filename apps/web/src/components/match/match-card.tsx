@@ -82,7 +82,7 @@ export function MatchCard({ fixture }: MatchCardProps) {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {fixture.hasValue && <Badge variant="value">VALUE</Badge>}
+          {fixture.hasValue && <Badge variant="value">{t.prediction.valueLabel.toUpperCase()}</Badge>}
           {fixture.prediction && <PredictionBadge prediction={fixture.prediction} />}
         </div>
       </div>
