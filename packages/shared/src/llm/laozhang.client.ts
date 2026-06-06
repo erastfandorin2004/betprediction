@@ -109,9 +109,11 @@ export class LaozhangClient {
       this.complete({
         model,
         messages,
-        // 1600, чтобы gpt-5.5 не обрезал ответ на длину (на 1100 отдавал
-        // усечённый JSON и выпадал из ансамбля).
-        max_tokens: 1600,
+        // 1800: на полном промпте (8 рынков) реальный вывод ~700–1400 ток
+        // (gemini-flash 1379, opus-4-7 1090) — запас, чтобы JSON не обрезался.
+        // NB: reasoning-модели (gpt-5.5) сюда не годятся — съедают весь бюджет
+        // на размышления и не успевают дописать JSON; используем gpt-5.1.
+        max_tokens: 1800,
         response_format: { type: 'json_object' },
         temperature: 0.3,
       });

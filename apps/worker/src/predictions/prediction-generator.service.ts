@@ -8,7 +8,7 @@ import { LaozhangClient, buildSystemPrompt, buildUserPrompt, type MatchContext }
 import { parseAndValidate, aggregate } from './prediction.aggregator';
 
 const DEFAULT_MODELS = [
-  'gpt-5.5', 'claude-opus-4-8', 'deepseek-chat',
+  'gpt-5.1', 'claude-opus-4-7', 'deepseek-v3.2-exp', 'gemini-2.5-flash-nothinking',
 ];
 
 @Injectable()
@@ -25,7 +25,7 @@ export class PredictionGeneratorService implements OnModuleInit {
   onModuleInit(): void {
     const apiKey = this.config.get<string>('laozhang.apiKey') ?? '';
     const baseUrl = this.config.get<string>('laozhang.baseUrl');
-    // 120s — deepseek-chat иногда отвечает ~60с, при 60s таймауте отваливался.
+    // 120s — deepseek-v3.2-exp иногда отвечает ~60с, при 60s таймауте отваливался.
     this.client = new LaozhangClient(apiKey, baseUrl, 120_000);
     this.models = (
       this.config.get<string>('laozhang.models') ?? DEFAULT_MODELS.join(',')

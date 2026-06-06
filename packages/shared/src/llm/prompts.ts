@@ -85,7 +85,7 @@ export function buildUserPrompt(ctx: MatchContext): string {
 - O_U_2_5 → over/under; HOME_TOTAL → over/under; AWAY_TOTAL → over/under
 - CORNERS_OU (угловые) → over/under; CARDS_OU (карточки) → over/under
 Для тоталов/угловых/карточек/инд.тоталов в label укажи линию, напр. "Больше 9.5" (бери линию из коэффициентов, если даны).
-rationale и keyFactors — на русском. recommendedMarket/recommendedOutcome — лучший рынок по сочетанию вероятности и перевеса (value) к коэффициенту.`;
+rationale — 2-4 предложения; keyFactors — 3-5 КОРОТКИХ пунктов (до 140 символов каждый). Всё на русском. recommendedMarket/recommendedOutcome — лучший рынок по сочетанию вероятности и перевеса (value) к коэффициенту.`;
 }
 
 // Renders a bookmaker odds map into a readable block for the prompt.

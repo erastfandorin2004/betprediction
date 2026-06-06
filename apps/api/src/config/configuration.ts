@@ -32,7 +32,7 @@ export default () => {
       apiKey: process.env['LAOZHANG_API_KEY'] ?? '',
       baseUrl: process.env['LAOZHANG_BASE_URL'] ?? 'https://api.laozhang.ai/v1',
       models: process.env['LAOZHANG_MODELS'] ??
-        ['gpt-5.5', 'claude-opus-4-8', 'deepseek-chat'].join(','),
+        ['gpt-5.1', 'claude-opus-4-7', 'deepseek-v3.2-exp', 'gemini-2.5-flash-nothinking'].join(','),
     },
     // On-demand AI prediction. Tokens disabled in the test phase — structure ready
     // to flip TOKENS_ENABLED=true and charge AI_PREDICTION_COST tokens later.
