@@ -109,8 +109,10 @@ export class LaozhangClient {
       this.complete({
         model,
         messages,
+        // 1600, чтобы gpt-5.5 не обрезал ответ на длину (на 1100 отдавал
+        // усечённый JSON и выпадал из ансамбля).
+        max_tokens: 1600,
         response_format: { type: 'json_object' },
-        max_tokens: 1100,
         temperature: 0.3,
       });
 

@@ -25,7 +25,8 @@ export class PredictionGeneratorService implements OnModuleInit {
   onModuleInit(): void {
     const apiKey = this.config.get<string>('laozhang.apiKey') ?? '';
     const baseUrl = this.config.get<string>('laozhang.baseUrl');
-    this.client = new LaozhangClient(apiKey, baseUrl, 60_000);
+    // 120s — deepseek-chat иногда отвечает ~60с, при 60s таймауте отваливался.
+    this.client = new LaozhangClient(apiKey, baseUrl, 120_000);
     this.models = (
       this.config.get<string>('laozhang.models') ?? DEFAULT_MODELS.join(',')
     ).split(',').map((m) => m.trim()).filter(Boolean);

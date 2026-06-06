@@ -166,7 +166,8 @@ export class BacktestService {
     const baseUrl = this.config.get<string>('laozhang.baseUrl');
     const models = (this.config.get<string>('laozhang.models') ?? DEFAULT_MODELS.join(','))
       .split(',').map((m) => m.trim()).filter(Boolean);
-    const client = new LaozhangClient(apiKey, baseUrl, 90_000);
+    // 120s — deepseek-chat иногда отвечает ~60с, даём запас.
+    const client = new LaozhangClient(apiKey, baseUrl, 120_000);
 
     this.logger.log(
       `Backtest: ${BACKTEST_MATCHES.length} matches × ${models.length} models (${models.join(', ')})`,
