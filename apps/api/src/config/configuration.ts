@@ -25,9 +25,6 @@ export default () => {
     redis: {
       url: process.env['REDIS_URL'] ?? 'redis://localhost:6379',
     },
-    footballData: {
-      apiKey: process.env['FOOTBALL_DATA_API_KEY'] ?? '',
-    },
     laozhang: {
       apiKey: process.env['LAOZHANG_API_KEY'] ?? '',
       baseUrl: process.env['LAOZHANG_BASE_URL'] ?? 'https://api.laozhang.ai/v1',

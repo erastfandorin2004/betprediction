@@ -56,6 +56,27 @@ interface AfOddBookmaker { id: number; name: string; bets: AfOddBet[] }
 
 export interface OddsLine { map: Record<string, number>; block: string }
 
+// Состав/тренер и таблица групп (форматы, которые ждут findContext и страница).
+export interface SquadPlayer { id: number; name: string; position: string | null; shirtNumber: number | null; dateOfBirth: string | null; nationality: string | null }
+export interface TeamSquad { coach: { name: string | null } | null; squad: SquadPlayer[] }
+export interface StandingRow {
+  position: number;
+  team: { id: number; name: string; shortName: string; crest: string | null };
+  playedGames: number; won: number; draw: number; lost: number;
+  points: number; goalsFor: number; goalsAgainst: number; goalDifference: number; form: string | null;
+}
+export interface StandingGroup { stage: string; type: string; group: string | null; table: StandingRow[] }
+export interface StandingsResponse { standings: StandingGroup[] }
+
+interface AfSquadResp { response: { players: { id: number; name: string; position: string | null; number: number | null }[] }[] }
+interface AfCoachResp { response: { name: string | null }[] }
+interface AfStandingApi {
+  rank: number; points: number; goalsDiff: number; group: string | null; form: string | null;
+  team: { id: number; name: string; logo: string | null };
+  all: { played: number; win: number; draw: number; lose: number; goals: { for: number; against: number } };
+}
+interface AfStandingsApi { response: { league: { standings: AfStandingApi[][] } }[] }
+
 // Единый провайдер футбольных данных — API-Football (api-sports.io DIRECT,
 // ключ API_FOOTBALL_KEY, заголовок x-apisports-key). Заменяет FlashLive и
 // RapidAPI для формы/H2H/составов/статистики матча. Возвращает пустые значения
@@ -186,6 +207,49 @@ export class ApiFootballAdapter {
     } catch (err) {
       this.logger.warn(`Stats fetch failed: ${err instanceof Error ? err.message : String(err)}`);
       return null;
+    }
+  }
+
+  // Состав + тренер команды (заменяет football-data getTeamWithSquad).
+  async getTeamWithSquad(teamId: number): Promise<TeamSquad> {
+    if (!this.hasKey) return { coach: null, squad: [] };
+    const [sq, co] = await Promise.allSettled([
+      this.fetch<AfSquadResp>(`/players/squads?team=${teamId}`),
+      this.fetch<AfCoachResp>(`/coachs?team=${teamId}`),
+    ]);
+    const squad: SquadPlayer[] = sq.status === 'fulfilled'
+      ? (sq.value.response?.[0]?.players ?? []).map((p) => ({
+          id: p.id, name: p.name, position: p.position, shirtNumber: p.number,
+          dateOfBirth: null, nationality: null,
+        }))
+      : [];
+    const coachName = co.status === 'fulfilled' ? (co.value.response?.[0]?.name ?? null) : null;
+    return { coach: coachName ? { name: coachName } : null, squad };
+  }
+
+  // Таблица групп ЧМ-2026 (заменяет football-data getWcStandings).
+  async getWcStandings(): Promise<StandingsResponse> {
+    if (!this.hasKey) return { standings: [] };
+    try {
+      const data = await this.fetch<AfStandingsApi>(`/standings?league=1&season=2026`);
+      const groups = data.response?.[0]?.league?.standings ?? [];
+      return {
+        standings: groups.map((g) => ({
+          stage: 'GROUP_STAGE',
+          type: 'TOTAL',
+          group: g[0]?.group ?? null,
+          table: g.map((r) => ({
+            position: r.rank,
+            team: { id: r.team.id, name: r.team.name, shortName: r.team.name.slice(0, 3).toUpperCase(), crest: r.team.logo },
+            playedGames: r.all.played, won: r.all.win, draw: r.all.draw, lost: r.all.lose,
+            points: r.points, goalsFor: r.all.goals.for, goalsAgainst: r.all.goals.against,
+            goalDifference: r.goalsDiff, form: r.form,
+          })),
+        })),
+      };
+    } catch (err) {
+      this.logger.warn(`Standings fetch failed: ${err instanceof Error ? err.message : String(err)}`);
+      return { standings: [] };
     }
   }
 

@@ -4,7 +4,6 @@ import { alias } from 'drizzle-orm/pg-core';
 import * as schema from '@ai-score/db';
 import { DatabaseService } from '../database/database.service';
 import { RedisService } from '../redis/redis.service';
-import { FootballDataAdapter } from '../providers/football-data/football-data.adapter';
 import { ApiFootballAdapter, type AfH2HFixture } from '../providers/api-football/api-football.adapter';
 import { NewsService } from '../news/news.service';
 import type { FixtureListQueryDto } from './dto/fixture-list-query.dto';
@@ -40,7 +39,6 @@ export class FixturesService {
   constructor(
     private readonly db: DatabaseService,
     private readonly redis: RedisService,
-    private readonly fdAdapter: FootballDataAdapter,
     private readonly apiFootballAdapter: ApiFootballAdapter,
     private readonly newsService: NewsService,
   ) {}
@@ -303,15 +301,15 @@ export class FixturesService {
       || msToKickoff < 3 * 60 * 60 * 1000;
 
     // Источник формы/H2H/составов/статистики — единый API-Football. Составы/
-    // squads и таблица WC остаются из football-data (расписание ЧМ-2026).
+    // Составы/тренеры и таблица групп ЧМ — тоже из API-Football.
     const [
       homeSquadData, awaySquadData, standingsData, h2hData,
       homeFormData, awayFormData,
       lineupsData, statsData, newsData,
     ] = await Promise.allSettled([
-        this.fdAdapter.getTeamWithSquad(homeId),
-        this.fdAdapter.getTeamWithSquad(awayId),
-        this.fdAdapter.getWcStandings(),
+        this.apiFootballAdapter.getTeamWithSquad(homeId),
+        this.apiFootballAdapter.getTeamWithSquad(awayId),
+        this.apiFootballAdapter.getWcStandings(),
         this.apiFootballAdapter.getH2H(homeName, awayName),
         this.apiFootballAdapter.getTeamForm(homeName),
         this.apiFootballAdapter.getTeamForm(awayName),

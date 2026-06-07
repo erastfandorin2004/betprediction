@@ -10,9 +10,6 @@ export default () => ({
   redis: {
     url: process.env['REDIS_URL'] ?? 'redis://localhost:6379',
   },
-  footballData: {
-    apiKey: process.env['FOOTBALL_DATA_API_KEY'] ?? '',
-  },
   // API-Football (api-sports.io DIRECT) — основной источник расписания/линии.
   apiFootball: {
     apiKey: process.env['API_FOOTBALL_KEY'] ?? '',
