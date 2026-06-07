@@ -16,9 +16,12 @@ import type {
   BacktestSummary,
   BacktestSegmentStats,
   BacktestPick,
+  BetPick,
 } from '@ai-score/shared';
 
 type PredictionRow = typeof schema.predictions.$inferSelect;
+
+const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 @Injectable()
 export class PredictionsService {
@@ -137,8 +140,8 @@ export class PredictionsService {
     });
   }
 
-  // История всех сделанных анализов с их итогом (для раздела «Трек-рекорд»).
-  async getHistory(limit = 50): Promise<PredictionHistoryItem[]> {
+  // История всех сделанных анализов с их итогом (для раздела «История анализов»).
+  async getHistory(limit = 200): Promise<PredictionHistoryItem[]> {
     return this.redis.getOrSet(`predictions:history:${limit}`, 30, async () => {
       const home = alias(schema.teams, 'hist_home');
       const away = alias(schema.teams, 'hist_away');
@@ -157,6 +160,34 @@ export class PredictionsService {
         const markets = (r.pred.markets as PredictionMarket[] | null) ?? [];
         const recMkt = markets.find((m) => m.market === r.pred.recommendedMarket);
         const recOut = recMkt?.outcomes.find((o) => o.outcome === r.pred.recommendedOutcome);
+        const bets = (r.pred.selectedBets as BetPick[] | null) ?? [];
+        const primary = bets.find((b) => b.isPrimary) ?? bets[0] ?? null;
+        const odds = primary?.odds ?? null;
+
+        // Итог основной ставки: статус главного рынка из расчёта (won/lost/push).
+        // Если ставки не было (selectedBets пуст) — 'no_bet' (в ROI/проходимость не идёт).
+        let betResult: PredictionHistoryItem['betResult'];
+        let profit: number | null = null;
+        if (!primary) {
+          betResult = 'no_bet';
+        } else if (r.pred.status !== 'resolved' || !settlement) {
+          betResult = 'pending';
+        } else {
+          const s = settlement.mainCheck?.status ?? settlement.mainStatus;
+          if (s === 'won') {
+            betResult = 'won';
+            profit = odds != null ? round2(odds - 1) : null;
+          } else if (s === 'push') {
+            betResult = 'push';
+            profit = 0;
+          } else if (s === 'lost') {
+            betResult = 'lost';
+            profit = -1;
+          } else {
+            betResult = 'pending'; // 'unknown' — данных по рынку нет
+          }
+        }
+
         return {
           fixtureId: r.pred.fixtureId,
           match: `${r.home?.name ?? '—'} — ${r.away?.name ?? '—'}`,
@@ -165,9 +196,12 @@ export class PredictionsService {
           createdAt: r.pred.createdAt.toISOString(),
           status: r.pred.status as PredictionStatus,
           market: r.pred.recommendedMarket,
-          pick: recOut?.label ?? r.pred.recommendedOutcome,
-          probability: r.pred.probability,
+          pick: primary?.label ?? recOut?.label ?? r.pred.recommendedOutcome,
+          probability: primary?.probability ?? r.pred.probability,
           stars: r.pred.stars ?? 1,
+          odds,
+          betResult,
+          profit,
           finalScore: settlement?.finalScore ?? null,
           verdict: settlement?.overall ?? null,
           wonCount: settlement?.wonCount ?? null,

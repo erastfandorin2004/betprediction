@@ -36,6 +36,7 @@ export type {
   MarketCheck,
   PredictionSettlement,
   PredictionHistoryItem,
+  BetResult,
   AccuracyStats,
   TrackRecordStats,
   BacktestResult,

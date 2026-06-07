@@ -126,6 +126,9 @@ export interface ModelForecast {
 }
 
 // Запись истории анализов (для раздела «Трек-рекорд»).
+// Итог основной (рекомендованной) ставки для бухгалтерии трек-рекорда.
+export type BetResult = 'won' | 'lost' | 'push' | 'pending' | 'no_bet';
+
 export interface PredictionHistoryItem {
   fixtureId: number;
   match: string;            // «Швеция — Греция»
@@ -137,8 +140,11 @@ export interface PredictionHistoryItem {
   pick: string;             // подпись ставки («П1», «Меньше 2.5»…)
   probability: number;
   stars: number;
+  odds: number | null;      // коэффициент основной ставки
+  betResult: BetResult;     // итог основной ставки (сыграл/не сыграл/возврат/ожидание/нет ставки)
+  profit: number | null;    // прибыль в единицах (1 ед. ставка): won → odds-1, lost → -1, push → 0
   finalScore: { home: number; away: number } | null;
-  verdict: 'won' | 'partial' | 'lost' | null; // итог после матча
+  verdict: 'won' | 'partial' | 'lost' | null; // итог по всем рынкам (для совместимости)
   wonCount: number | null;
   total: number | null;
 }
