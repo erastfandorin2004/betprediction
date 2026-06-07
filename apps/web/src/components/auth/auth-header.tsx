@@ -18,14 +18,17 @@ export function AuthHeader() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const NAV: { href: string; label: string; Icon: LucideIcon; exact?: boolean }[] = [
+  type NavItem = { href: string; label: string; Icon: LucideIcon; exact?: boolean };
+  // Слева — основные разделы (сегментированный блок). Тарифы — справа.
+  const LEFT_NAV: NavItem[] = [
     { href: '/', label: t.nav.matches, Icon: Goal },
     { href: '/track-record', label: t.nav.trackRecord, Icon: Trophy },
     { href: '/lvs', label: t.nav.lvs, Icon: Target, exact: true },
     { href: '/lvs/history', label: t.nav.lvsHistory, Icon: History },
     { href: '/about', label: t.nav.about, Icon: Info },
-    { href: '/pricing', label: t.nav.pricing, Icon: Gem },
   ];
+  const pricingItem: NavItem = { href: '/pricing', label: t.nav.pricing, Icon: Gem };
+  const MOBILE_NAV: NavItem[] = [...LEFT_NAV, pricingItem];
 
   async function handleLogout() {
     const token = typeof window !== 'undefined' ? localStorage.getItem('ai-score-access') : null;
@@ -58,29 +61,24 @@ export function AuthHeader() {
           <BrandLogo size={36} wordClassName="text-2xl" />
         </Link>
 
-        {/* Nav — icons + gradient underline indicator */}
-        <nav className="ml-2 hidden items-center gap-0.5 md:flex">
-          {NAV.map(({ href, label, Icon, exact }) => {
+        {/* Left nav — сегментированный блок разделов с иконками */}
+        <nav
+          className="ml-2 hidden items-center gap-1 rounded-2xl p-1 md:flex"
+          style={{ background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}
+        >
+          {LEFT_NAV.map(({ href, label, Icon, exact }) => {
             const active = isActive(href, exact);
             return (
               <Link
                 key={href}
                 href={href}
                 className={cn(
-                  'nav-link group relative flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
-                  active && 'nav-active',
+                  'nav-chip flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-semibold',
+                  active && 'active',
                 )}
-                style={{ color: active ? 'rgb(var(--fg-primary))' : 'rgb(var(--fg-muted))' }}
               >
-                <Icon className="h-4 w-4 transition-colors" style={active ? { color: ACCENT } : undefined} />
+                <Icon className="h-4 w-4" style={active ? { color: ACCENT } : undefined} />
                 <span>{label}</span>
-                <span
-                  className={cn(
-                    'nav-underline absolute inset-x-2.5 bottom-0 h-0.5 origin-center rounded-full transition-transform duration-200',
-                    active ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-50',
-                  )}
-                  style={{ background: `linear-gradient(90deg, ${ACCENT}, #3b82f6)` }}
-                />
               </Link>
             );
           })}
@@ -88,6 +86,19 @@ export function AuthHeader() {
 
         {/* Right cluster */}
         <div className="ml-auto flex items-center gap-2">
+          {/* Тарифы — отдельный чип справа */}
+          <Link
+            href={pricingItem.href}
+            className={cn(
+              'nav-chip hidden items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-semibold sm:flex',
+              isActive(pricingItem.href) && 'active',
+            )}
+            style={{ border: '1px solid rgb(var(--pitch-700))' }}
+          >
+            <pricingItem.Icon className="h-4 w-4" style={isActive(pricingItem.href) ? { color: ACCENT } : undefined} />
+            <span>{pricingItem.label}</span>
+          </Link>
+
           {/* Requests-left badge — subtle, neutral surface with a soft accent icon */}
           <div
             className="hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold sm:flex"
@@ -156,7 +167,7 @@ export function AuthHeader() {
         className="flex gap-1.5 overflow-x-auto px-3 pb-2 pt-2 md:hidden"
         style={{ borderTop: '1px solid rgb(var(--pitch-700))' }}
       >
-        {NAV.map(({ href, label, Icon, exact }) => {
+        {MOBILE_NAV.map(({ href, label, Icon, exact }) => {
           const active = isActive(href, exact);
           return (
             <Link
