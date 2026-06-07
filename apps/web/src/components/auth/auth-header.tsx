@@ -73,11 +73,11 @@ export function AuthHeader() {
                 key={href}
                 href={href}
                 className={cn(
-                  'nav-chip flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-semibold',
+                  'nav-chip flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[13px]',
                   active && 'active',
                 )}
               >
-                <Icon className="h-4 w-4" style={active ? { color: ACCENT } : undefined} />
+                <Icon className="h-4 w-4" />
                 <span>{label}</span>
               </Link>
             );
@@ -90,12 +90,12 @@ export function AuthHeader() {
           <Link
             href={pricingItem.href}
             className={cn(
-              'nav-chip hidden items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-semibold sm:flex',
+              'nav-chip hidden items-center gap-1.5 rounded-xl px-3 py-1.5 text-[13px] sm:flex',
               isActive(pricingItem.href) && 'active',
             )}
             style={{ border: '1px solid rgb(var(--pitch-700))' }}
           >
-            <pricingItem.Icon className="h-4 w-4" style={isActive(pricingItem.href) ? { color: ACCENT } : undefined} />
+            <pricingItem.Icon className="h-4 w-4" />
             <span>{pricingItem.label}</span>
           </Link>
 
@@ -173,14 +173,13 @@ export function AuthHeader() {
             <Link
               key={href}
               href={href}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
-              style={{
-                color: active ? 'rgb(var(--fg-primary))' : 'rgb(var(--fg-muted))',
-                background: active ? 'rgb(var(--accent) / 0.12)' : 'rgb(var(--pitch-800))',
-                boxShadow: active ? 'inset 0 0 0 1px rgb(var(--accent) / 0.28)' : undefined,
-              }}
+              className={cn(
+                'nav-chip flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px]',
+                active && 'active',
+              )}
+              style={!active ? { border: '1px solid rgb(var(--pitch-700))' } : undefined}
             >
-              <Icon className="h-3.5 w-3.5" style={active ? { color: ACCENT } : undefined} />
+              <Icon className="h-3.5 w-3.5" />
               {label}
             </Link>
           );
