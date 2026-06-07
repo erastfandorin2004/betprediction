@@ -150,6 +150,8 @@ export const lvsPredictions = pgTable(
     stars: integer('stars').notNull(),
     rationale: text('rationale'),
     summary: text('summary'),
+    // Снимок букмекерской линии, подтянутой к анализу (читаемый блок для карточки).
+    oddsBlock: text('odds_block'),
     modelViews: jsonb('model_views').$type<unknown[]>(),
     // Результат (заполняется при сеттлменте после матча)
     status: varchar('status', { length: 20 }).notNull().default('pending'), // pending | resolved

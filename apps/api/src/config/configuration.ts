@@ -43,6 +43,12 @@ export default () => {
     // только по кнопке», действует только для ЛВС. Отключается LVS_AUTO=false.
     lvs: {
       auto: process.env['LVS_AUTO'] !== 'false',
+      // Доп. матчи (не ЧМ), которые показываются в разделе ЛВС по их fixture id —
+      // для теста/точечного добавления товарищеских. CSV: LVS_EXTRA_FIXTURES.
+      extraFixtureIds: (process.env['LVS_EXTRA_FIXTURES'] ?? '')
+        .split(',')
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => Number.isFinite(n)),
     },
     newsApi: {
       apiKey: process.env['NEWS_API_KEY'] ?? '',

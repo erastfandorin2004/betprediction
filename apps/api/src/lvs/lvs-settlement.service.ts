@@ -28,18 +28,34 @@ export class LvsSettlementService {
     const [fixture] = await this.db.db
       .select().from(schema.fixtures).where(eq(schema.fixtures.id, fixtureId)).limit(1);
     if (!fixture) return null;
-    if (fixture.status !== 'finished' || fixture.scoreHome == null || fixture.scoreAway == null) {
-      return rowToLvsDetail(pred);
-    }
 
     const [home] = await this.db.db.select().from(schema.teams).where(eq(schema.teams.id, fixture.homeTeamId)).limit(1);
     const [away] = await this.db.db.select().from(schema.teams).where(eq(schema.teams.id, fixture.awayTeamId)).limit(1);
+    const dateISO = fixture.startsAt.toISOString();
+
+    // Финальный счёт: сначала самодостаточно у провайдера (не зависим от обновления
+    // таблицы fixtures), затем фолбэк на таблицу (для матчей ЧМ её обновляет ingest).
+    let homeGoals: number | null = null;
+    let awayGoals: number | null = null;
+    try {
+      const res = await this.apiFootball.getMatchScore(home?.name ?? '', away?.name ?? '', dateISO);
+      if (res?.finished && res.homeGoals != null && res.awayGoals != null) {
+        homeGoals = res.homeGoals;
+        awayGoals = res.awayGoals;
+      }
+    } catch (err) {
+      this.logger.warn(`LVS score unavailable for ${fixtureId}: ${err instanceof Error ? err.message : err}`);
+    }
+    if (homeGoals == null && fixture.status === 'finished' && fixture.scoreHome != null && fixture.scoreAway != null) {
+      homeGoals = fixture.scoreHome;
+      awayGoals = fixture.scoreAway;
+    }
+    // Матч ещё не завершён / счёт недоступен — оставляем pending.
+    if (homeGoals == null || awayGoals == null) return rowToLvsDetail(pred);
 
     let scorerNames: string[] = [];
     try {
-      scorerNames = await this.apiFootball.getGoalscorers(
-        home?.name ?? '', away?.name ?? '', fixture.startsAt.toISOString(),
-      );
+      scorerNames = await this.apiFootball.getGoalscorers(home?.name ?? '', away?.name ?? '', dateISO);
     } catch (err) {
       this.logger.warn(`LVS goalscorers unavailable for ${fixtureId}: ${err instanceof Error ? err.message : err}`);
     }
@@ -51,7 +67,7 @@ export class LvsSettlementService {
         scoreAway: pred.scoreAway,
         scorers: (pred.scorers as LvsScorer[] | null) ?? [],
       },
-      { homeGoals: fixture.scoreHome, awayGoals: fixture.scoreAway, scorers: scorerNames },
+      { homeGoals, awayGoals, scorers: scorerNames },
     );
 
     const [updated] = await this.db.db

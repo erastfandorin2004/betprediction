@@ -1,12 +1,11 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, eq, gt, isNull, lte } from 'drizzle-orm';
+import { and, eq, gt, isNull, lt, lte, or } from 'drizzle-orm';
 import * as schema from '@ai-score/db';
 import { DatabaseService } from '../database/database.service';
 import { LvsService } from './lvs.service';
 import { LvsSettlementService } from './lvs-settlement.service';
 
-const WC_LEAGUE_ID = 2000;
 const ANALYSIS_LEAD_MS = 60 * 60 * 1000; // запускаем анализ за ≤1ч до матча
 
 // Планировщик ЛВС (interval, без @nestjs/schedule — как settlement.scheduler):
@@ -58,7 +57,7 @@ export class LvsScheduler implements OnModuleInit, OnModuleDestroy {
         .from(schema.fixtures)
         .leftJoin(schema.lvsPredictions, eq(schema.fixtures.id, schema.lvsPredictions.fixtureId))
         .where(and(
-          eq(schema.fixtures.leagueId, WC_LEAGUE_ID),
+          this.lvs.lvsScope(),
           eq(schema.fixtures.status, 'scheduled'),
           gt(schema.fixtures.startsAt, now),
           lte(schema.fixtures.startsAt, deadline),
@@ -85,11 +84,17 @@ export class LvsScheduler implements OnModuleInit, OnModuleDestroy {
 
   private async settleSweep(): Promise<void> {
     try {
+      // Кандидаты на сеттлмент: матч помечен finished ИЛИ с начала прошло >130мин
+      // (товарищеские не обновляются ingest'ом — счёт берём у провайдера в settle).
+      const cutoff = new Date(Date.now() - 130 * 60_000);
       const rows = await this.db.db
         .select({ fixtureId: schema.lvsPredictions.fixtureId })
         .from(schema.lvsPredictions)
         .innerJoin(schema.fixtures, eq(schema.fixtures.id, schema.lvsPredictions.fixtureId))
-        .where(and(eq(schema.lvsPredictions.status, 'pending'), eq(schema.fixtures.status, 'finished')));
+        .where(and(
+          eq(schema.lvsPredictions.status, 'pending'),
+          or(eq(schema.fixtures.status, 'finished'), lt(schema.fixtures.startsAt, cutoff)),
+        ));
       if (!rows.length) return;
       this.logger.log(`LVS: авто-сеттлмент ${rows.length} матч(ей)`);
       for (const r of rows) {

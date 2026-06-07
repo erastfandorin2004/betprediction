@@ -25,7 +25,9 @@ import type { MatchLineupsOut } from '../providers/api-football/api-football.ada
 import { DatabaseService } from '../database/database.service';
 import { FixturesService } from '../fixtures/fixtures.service';
 import { InjuriesAdapter } from '../providers/injuries/injuries.adapter';
+import { OddsAdapter } from '../providers/odds/odds.adapter';
 import { rowToLvsDetail, rowToLvsHistory } from './lvs.mapper';
+import { inArray, or } from 'drizzle-orm';
 
 const WC_LEAGUE_ID = 2000;
 
@@ -51,7 +53,20 @@ export class LvsService {
     private readonly config: ConfigService,
     private readonly fixtures: FixturesService,
     private readonly injuries: InjuriesAdapter,
+    private readonly odds: OddsAdapter,
   ) {}
+
+  // Матчи ЛВС = матчи ЧМ (лига 2000) + явный allowlist доп. fixture id из конфига.
+  extraFixtureIds(): number[] {
+    return this.config.get<number[]>('lvs.extraFixtureIds') ?? [];
+  }
+
+  // SQL-условие «матч относится к ЛВС»: лига ЧМ ИЛИ из allowlist.
+  lvsScope() {
+    const extra = this.extraFixtureIds();
+    const wc = eq(schema.fixtures.leagueId, WC_LEAGUE_ID);
+    return extra.length ? or(wc, inArray(schema.fixtures.id, extra)) : wc;
+  }
 
   // Полный анализ ЛВС одного матча. ТРЕБУЕТ доступных стартовых составов: без них
   // (автопуть за 1ч до матча) бросаем ConflictException — планировщик повторит.
@@ -61,7 +76,7 @@ export class LvsService {
 
     const built = await this.buildContext(fixtureId);
     if (!built) throw new NotFoundException(`Fixture ${fixtureId} not found`);
-    const { ctx, lineups } = built;
+    const { ctx, lineups, oddsBlock } = built;
     if (!lineups) {
       throw new ConflictException('Стартовые составы ещё не доступны — анализ ЛВС откладывается');
     }
@@ -108,6 +123,7 @@ export class LvsService {
         stars: agg.stars,
         rationale: agg.rationale,
         summary,
+        oddsBlock: oddsBlock ?? null,
         modelViews: modelViews as unknown[],
         status: 'pending',
       })
@@ -149,7 +165,7 @@ export class LvsService {
 
   private async buildContext(
     fixtureId: number,
-  ): Promise<{ ctx: MatchContext; lineups: LvsLineups | null } | null> {
+  ): Promise<{ ctx: MatchContext; lineups: LvsLineups | null; oddsBlock: string | null } | null> {
     const [fixture] = await this.db.db
       .select().from(schema.fixtures).where(eq(schema.fixtures.id, fixtureId)).limit(1);
     if (!fixture) return null;
@@ -216,7 +232,20 @@ export class LvsService {
       /* injuries optional */
     }
 
-    return { ctx, lineups };
+    // Букмекерская линия (manual → API-Football → the-odds-api). Для оценки
+    // вероятностей исхода; для товарищеских может отсутствовать (graceful).
+    let oddsBlock: string | null = null;
+    try {
+      const line = await this.odds.getOdds(home.name, away.name);
+      if (line.block && line.block.trim()) {
+        ctx.odds = line.block;
+        oddsBlock = line.block;
+      }
+    } catch (err) {
+      this.logger.warn(`LVS odds unavailable for ${fixtureId}: ${err instanceof Error ? err.message : err}`);
+    }
+
+    return { ctx, lineups, oddsBlock };
   }
 
   // ── чтение для контроллера ────────────────────────────────────────────────
@@ -232,7 +261,7 @@ export class LvsService {
       .leftJoin(away, eq(schema.fixtures.awayTeamId, away.id))
       .leftJoin(schema.lvsPredictions, eq(schema.fixtures.id, schema.lvsPredictions.fixtureId))
       .where(and(
-        eq(schema.fixtures.leagueId, WC_LEAGUE_ID),
+        this.lvsScope(),
         gte(schema.fixtures.startsAt, new Date('2026-06-01')),
       ))
       .orderBy(asc(schema.fixtures.startsAt));

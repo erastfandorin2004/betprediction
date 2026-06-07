@@ -133,6 +133,9 @@ export function buildLvsUserPrompt(ctx: MatchContext): string {
   if (ctx.lineups && ctx.lineups.trim()) {
     lines.push('Стартовые составы:', ctx.lineups.trim());
   }
+  if (ctx.odds && ctx.odds.trim()) {
+    lines.push('', 'Коэффициенты букмекера (для оценки вероятностей исхода):', ctx.odds.trim());
+  }
 
   return `${lines.join('\n')}
 

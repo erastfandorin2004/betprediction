@@ -52,6 +52,7 @@ export function rowToLvsDetail(row: LvsRow): LvsPredictionDetail {
     stars: row.stars,
     rationale: row.rationale,
     summary: row.summary,
+    odds: row.oddsBlock,
     modelViews: (row.modelViews as LvsModelForecast[] | null) ?? [],
     lineups,
     status: row.status as LvsStatus,

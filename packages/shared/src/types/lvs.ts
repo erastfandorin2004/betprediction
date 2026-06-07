@@ -69,6 +69,7 @@ export interface LvsPredictionDetail {
   stars: number;
   rationale: string | null;
   summary: string | null;
+  odds: string | null; // подтянутая букмекерская линия (читаемый блок)
   modelViews: LvsModelForecast[];
   lineups: LvsLineups | null;
   status: LvsStatus;

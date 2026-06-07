@@ -164,16 +164,39 @@ export class ApiFootballAdapter {
     try {
       const data = await this.fetch<{ response: AfH2HFixture[] }>(`/fixtures/headtohead?h2h=${id1}-${id2}&last=20`);
       const list = data.response ?? [];
-      if (!list.length) return null;
-      if (!dateISO) return list[list.length - 1]!.fixture.id;
-      const target = new Date(dateISO).getTime();
-      let best: { id: number; diff: number } | null = null;
-      for (const f of list) {
-        const diff = Math.abs(new Date(f.fixture.date).getTime() - target);
-        if (!best || diff < best.diff) best = { id: f.fixture.id, diff };
+      if (dateISO) {
+        const target = new Date(dateISO).getTime();
+        let best: { id: number; diff: number } | null = null;
+        for (const f of list) {
+          const diff = Math.abs(new Date(f.fixture.date).getTime() - target);
+          if (!best || diff < best.diff) best = { id: f.fixture.id, diff };
+        }
+        // принимаем только если матч в пределах ±2 дней от ожидаемого времени
+        if (best && best.diff < 2 * 86_400_000) return best.id;
+        // Предстоящий матч в headtohead?last=20 не попадает (там только сыгранные) —
+        // надёжный фолбэк по дню.
+        const byDate = await this.resolveByDate(id1, id2, dateISO);
+        if (byDate) return byDate;
+        return null;
       }
-      // принимаем только если матч в пределах ±2 дней от ожидаемого времени
-      return best && best.diff < 2 * 86_400_000 ? best.id : null;
+      return list.length ? list[list.length - 1]!.fixture.id : null;
+    } catch {
+      if (dateISO) return this.resolveByDate(id1, id2, dateISO);
+      return null;
+    }
+  }
+
+  // Находит матч двух команд по конкретному дню через /fixtures?date= (в отличие
+  // от headtohead?last= включает и предстоящие матчи).
+  private async resolveByDate(id1: number, id2: number, dateISO: string): Promise<number | null> {
+    const day = dateISO.slice(0, 10);
+    try {
+      const data = await this.fetch<{ response: AfH2HFixture[] }>(`/fixtures?date=${day}`);
+      const f = (data.response ?? []).find((x) => {
+        const h = x.teams.home.id, a = x.teams.away.id;
+        return (h === id1 && a === id2) || (h === id2 && a === id1);
+      });
+      return f ? f.fixture.id : null;
     } catch {
       return null;
     }
@@ -190,6 +213,26 @@ export class ApiFootballAdapter {
       return { home: toTeamLineup(teams[0]!), away: toTeamLineup(teams[1]!) };
     } catch (err) {
       this.logger.warn(`Lineups fetch failed: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    }
+  }
+
+  // Финальный счёт + статус матча (для самодостаточного сеттлмента ЛВС, не
+  // завязанного на обновление таблицы fixtures). null — если матч не найден.
+  async getMatchScore(
+    home: string, away: string, dateISO?: string,
+  ): Promise<{ finished: boolean; homeGoals: number | null; awayGoals: number | null } | null> {
+    if (!this.hasKey) return null;
+    const fixtureId = await this.resolveFixtureId(home, away, dateISO);
+    if (!fixtureId) return null;
+    try {
+      const data = await this.fetch<{ response: AfH2HFixture[] }>(`/fixtures?id=${fixtureId}`);
+      const f = (data.response ?? [])[0];
+      if (!f) return null;
+      const finished = ['FT', 'AET', 'PEN'].includes(f.fixture.status.short);
+      return { finished, homeGoals: f.goals.home, awayGoals: f.goals.away };
+    } catch (err) {
+      this.logger.warn(`Match score fetch failed: ${err instanceof Error ? err.message : String(err)}`);
       return null;
     }
   }
