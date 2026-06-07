@@ -8,7 +8,7 @@ import { ThemeToggle } from '@/components/theme/theme-toggle';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { cn } from '@/lib/utils';
 import { BrandLogo } from '@/components/brand/brand-logo';
-import { Goal, Trophy, Info, Gem, Zap, Target, History, type LucideIcon } from 'lucide-react';
+import { Zap } from 'lucide-react';
 
 const ACCENT = 'rgb(var(--accent))';
 
@@ -18,16 +18,16 @@ export function AuthHeader() {
   const router = useRouter();
   const pathname = usePathname();
 
-  type NavItem = { href: string; label: string; Icon: LucideIcon; exact?: boolean };
-  // Слева — основные разделы (сегментированный блок). Тарифы — справа.
+  // Каждый раздел — эмодзи + свой цвет чемпионата мира. Тарифы — справа.
+  type NavItem = { href: string; label: string; emoji: string; color: string; exact?: boolean };
   const LEFT_NAV: NavItem[] = [
-    { href: '/', label: t.nav.matches, Icon: Goal },
-    { href: '/track-record', label: t.nav.trackRecord, Icon: Trophy },
-    { href: '/lvs', label: t.nav.lvs, Icon: Target, exact: true },
-    { href: '/lvs/history', label: t.nav.lvsHistory, Icon: History },
-    { href: '/about', label: t.nav.about, Icon: Info },
+    { href: '/', label: t.nav.matches, emoji: '⚽', color: '#e4002b' },
+    { href: '/track-record', label: t.nav.trackRecord, emoji: '📊', color: '#2e5bff' },
+    { href: '/lvs', label: t.nav.lvs, emoji: '🧠', color: '#6a1fe0', exact: true },
+    { href: '/lvs/history', label: t.nav.lvsHistory, emoji: '🧾', color: '#00c2a3' },
+    { href: '/about', label: t.nav.about, emoji: 'ℹ️', color: '#0f9d58' },
   ];
-  const pricingItem: NavItem = { href: '/pricing', label: t.nav.pricing, Icon: Gem };
+  const pricingItem: NavItem = { href: '/pricing', label: t.nav.pricing, emoji: '💎', color: '#ff4e16' };
   const MOBILE_NAV: NavItem[] = [...LEFT_NAV, pricingItem];
 
   async function handleLogout() {
@@ -55,18 +55,18 @@ export function AuthHeader() {
         style={{ background: 'linear-gradient(90deg, transparent, rgb(var(--accent) / 0.6), rgba(59,130,246,0.6), transparent)' }}
       />
 
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4">
-        {/* Logo */}
+      <div className="flex h-16 w-full items-center gap-3 px-4">
+        {/* Logo — максимально слева */}
         <Link href="/" className="flex shrink-0 items-center transition-transform hover:scale-[1.03]">
           <BrandLogo size={36} wordClassName="text-2xl" />
         </Link>
 
-        {/* Left nav — сегментированный блок разделов с иконками */}
+        {/* Left nav — разделы в цветах ЧМ с эмодзи */}
         <nav
-          className="ml-2 hidden items-center gap-1 rounded-2xl p-1 md:flex"
+          className="ml-3 hidden items-center gap-1 rounded-2xl p-1 md:flex"
           style={{ background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}
         >
-          {LEFT_NAV.map(({ href, label, Icon, exact }) => {
+          {LEFT_NAV.map(({ href, label, emoji, color, exact }) => {
             const active = isActive(href, exact);
             return (
               <Link
@@ -76,8 +76,9 @@ export function AuthHeader() {
                   'nav-chip flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[13px]',
                   active && 'active',
                 )}
+                style={active ? { background: color, color: '#fff', boxShadow: `0 2px 10px ${color}59` } : { color }}
               >
-                <Icon className="h-4 w-4" />
+                <span className="text-[15px] leading-none">{emoji}</span>
                 <span>{label}</span>
               </Link>
             );
@@ -93,9 +94,13 @@ export function AuthHeader() {
               'nav-chip hidden items-center gap-1.5 rounded-xl px-3 py-1.5 text-[13px] sm:flex',
               isActive(pricingItem.href) && 'active',
             )}
-            style={{ border: '1px solid rgb(var(--pitch-700))' }}
+            style={
+              isActive(pricingItem.href)
+                ? { background: pricingItem.color, color: '#fff', boxShadow: `0 2px 10px ${pricingItem.color}59` }
+                : { color: pricingItem.color, border: '1px solid rgb(var(--pitch-700))' }
+            }
           >
-            <pricingItem.Icon className="h-4 w-4" />
+            <span className="text-[15px] leading-none">{pricingItem.emoji}</span>
             <span>{pricingItem.label}</span>
           </Link>
 
@@ -167,7 +172,7 @@ export function AuthHeader() {
         className="flex gap-1.5 overflow-x-auto px-3 pb-2 pt-2 md:hidden"
         style={{ borderTop: '1px solid rgb(var(--pitch-700))' }}
       >
-        {MOBILE_NAV.map(({ href, label, Icon, exact }) => {
+        {MOBILE_NAV.map(({ href, label, emoji, color, exact }) => {
           const active = isActive(href, exact);
           return (
             <Link
@@ -177,9 +182,9 @@ export function AuthHeader() {
                 'nav-chip flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px]',
                 active && 'active',
               )}
-              style={!active ? { border: '1px solid rgb(var(--pitch-700))' } : undefined}
+              style={active ? { background: color, color: '#fff' } : { color, border: '1px solid rgb(var(--pitch-700))' }}
             >
-              <Icon className="h-3.5 w-3.5" />
+              <span className="text-[13px] leading-none">{emoji}</span>
               {label}
             </Link>
           );
