@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useAuth } from './auth-provider';
 import { logout } from '@/lib/auth';
 import { useRouter, usePathname } from 'next/navigation';
-import { ThemeToggle } from '@/components/theme/theme-toggle';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { cn } from '@/lib/utils';
 import { BrandLogo } from '@/components/brand/brand-logo';
@@ -126,8 +125,6 @@ export function AuthHeader() {
             <span style={{ color: 'rgb(var(--pitch-600))' }}>/</span>
             <span style={{ color: locale === 'en' ? 'rgb(var(--fg-primary))' : 'rgb(var(--fg-muted))' }}>EN</span>
           </button>
-
-          <ThemeToggle />
 
           {user ? (
             <div

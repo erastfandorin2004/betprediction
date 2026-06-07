@@ -163,6 +163,8 @@ export const lvsPredictions = pgTable(
     scoreHit: boolean('score_hit'),
     // [{ name, team, scored: boolean }]
     scorersResult: jsonb('scorers_result').$type<unknown[]>(),
+    // Реальные авторы голов матча (имена, обе команды) — для Истории ЛВС.
+    actualScorers: jsonb('actual_scorers').$type<string[]>(),
     isCorrect: boolean('is_correct'),
     resolvedAt: timestamp('resolved_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

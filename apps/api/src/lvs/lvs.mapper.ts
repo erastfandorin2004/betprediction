@@ -10,6 +10,7 @@ import type {
   LvsOutcome,
   LvsResultStatus,
   LvsStatus,
+  TeamRef,
 } from '@ai-score/shared';
 
 type LvsRow = typeof schema.lvsPredictions.$inferSelect;
@@ -38,6 +39,7 @@ export function rowToLvsDetail(row: LvsRow): LvsPredictionDetail {
           actualOutcome: (row.actualOutcome ?? 'X') as LvsOutcome,
           actualScore: { home: row.actualScoreHome ?? 0, away: row.actualScoreAway ?? 0 },
           scorers: (row.scorersResult as LvsScorerResult[] | null) ?? [],
+          actualScorers: (row.actualScorers as string[] | null) ?? [],
         }
       : null;
 
@@ -62,12 +64,20 @@ export function rowToLvsDetail(row: LvsRow): LvsPredictionDetail {
   };
 }
 
-export function rowToLvsHistory(row: LvsRow, match: string, kickoff: string): LvsHistoryItem {
+export function rowToLvsHistory(
+  row: LvsRow,
+  match: string,
+  kickoff: string,
+  homeTeam: TeamRef,
+  awayTeam: TeamRef,
+): LvsHistoryItem {
   const predicted = row.outcome as LvsOutcome;
   const actual = (row.actualOutcome ?? 'X') as LvsOutcome;
   return {
     fixtureId: row.fixtureId,
     match,
+    homeTeam,
+    awayTeam,
     kickoff,
     resolvedAt: row.resolvedAt ? row.resolvedAt.toISOString() : null,
     predictedOutcome: predicted,
@@ -77,6 +87,7 @@ export function rowToLvsHistory(row: LvsRow, match: string, kickoff: string): Lv
     predictedScore: { home: row.scoreHome, away: row.scoreAway },
     actualScore: { home: row.actualScoreHome ?? 0, away: row.actualScoreAway ?? 0 },
     scorers: (row.scorersResult as LvsScorerResult[] | null) ?? [],
+    actualScorers: (row.actualScorers as string[] | null) ?? [],
     resultStatus: (row.resultStatus ?? 'lost') as LvsResultStatus,
   };
 }

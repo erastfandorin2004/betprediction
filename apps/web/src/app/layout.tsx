@@ -52,7 +52,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ru" suppressHydrationWarning className={`dark ${sans.variable} ${jetbrainsMono.variable} ${display.variable} ${body.variable}`}>
+    <html lang="ru" suppressHydrationWarning className={`light ${sans.variable} ${jetbrainsMono.variable} ${display.variable} ${body.variable}`}>
       <body className="min-h-screen bg-pitch-950">
         <ThemeProvider>
           <LocaleProvider>

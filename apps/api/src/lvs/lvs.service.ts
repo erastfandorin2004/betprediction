@@ -318,7 +318,9 @@ export class LvsService {
 
     return rows.map((r) => {
       const match = `${r.home?.name ?? '—'} — ${r.away?.name ?? '—'}`;
-      return rowToLvsHistory(r.pred, match, r.fixture.startsAt.toISOString());
+      return rowToLvsHistory(
+        r.pred, match, r.fixture.startsAt.toISOString(), toTeamRef(r.home), toTeamRef(r.away),
+      );
     });
   }
 }
@@ -407,21 +409,25 @@ function aggregate(responses: LvsPredictionResponse[]): Aggregated {
   const [sh, sa] = bestScore.split(':').map(Number) as [number, number];
 
   // Бомбардиры: топ-3 по сумме вероятностей среди всех ответов.
-  const scorerMap = new Map<string, { name: string; team: 'home' | 'away'; weight: number }>();
+  const scorerMap = new Map<string, { name: string; team: 'home' | 'away'; position: string | null; weight: number }>();
   for (const r of responses) {
     for (const s of r.scorers) {
       const key = normalizeName(s.name);
       if (!key) continue;
       const e = scorerMap.get(key);
-      if (e) e.weight += s.probability || 0.3;
-      else scorerMap.set(key, { name: s.name, team: s.team, weight: s.probability || 0.3 });
+      if (e) {
+        e.weight += s.probability || 0.3;
+        if (!e.position && s.position) e.position = s.position; // первая непустая позиция
+      } else {
+        scorerMap.set(key, { name: s.name, team: s.team, position: s.position || null, weight: s.probability || 0.3 });
+      }
     }
   }
   const totalWeight = [...scorerMap.values()].reduce((a, b) => a + b.weight, 0) || 1;
   const scorers: LvsScorer[] = [...scorerMap.values()]
     .sort((a, b) => b.weight - a.weight)
     .slice(0, 3)
-    .map((s) => ({ name: s.name, team: s.team, probability: round(Math.min(0.95, s.weight / totalWeight + 0.2)) }));
+    .map((s) => ({ name: s.name, team: s.team, position: s.position, probability: round(Math.min(0.95, s.weight / totalWeight + 0.2)) }));
 
   const confidence = clamp(responses.reduce((s, r) => s + r.confidence, 0) / n, 0.05, 0.97);
   const rationale = responses.map((r) => r.rationale ?? '').filter((s) => s.length > 20).sort((a, b) => b.length - a.length)[0] ?? '';
@@ -437,7 +443,7 @@ function toLvsLineup(team: MatchLineupsOut['home'], coach?: string): LvsTeamLine
   return {
     formation: team?.formation ?? '',
     coach: team?.coach ?? coach ?? null,
-    startingXI: (team?.startingXI ?? []).map((p) => ({ id: String(p.id), name: p.name, number: p.number })),
+    startingXI: (team?.startingXI ?? []).map((p) => ({ id: String(p.id), name: p.name, number: p.number, position: p.position ?? null })),
   };
 }
 
@@ -445,6 +451,17 @@ function toLvsLineup(team: MatchLineupsOut['home'], coach?: string): LvsTeamLine
 
 function normalizeName(name: string): string {
   return name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-zа-я0-9 ]/gi, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// Код позиции от провайдера (G/D/M/F) → краткое русское обозначение.
+function posCodeRu(code: string): string {
+  switch (code.trim().toUpperCase()[0]) {
+    case 'G': return 'вр';
+    case 'D': return 'защ';
+    case 'M': return 'пз';
+    case 'F': return 'нап';
+    default: return code;
+  }
 }
 
 function round(n: number): number { return Math.round(n * 1000) / 1000; }
@@ -506,10 +523,13 @@ function h2hSummary(fixtures: ProviderFixture[], homeName: string): string {
 
 function lineupsSummary(lineups: MatchLineupsOut, homeShort: string, awayShort: string): string {
   const side = (team: MatchLineupsOut['home'], name: string): string | null => {
-    const names = (team?.startingXI ?? []).map((p) => p.name).filter(Boolean);
-    if (!names.length && !team?.formation) return null;
+    // Имя с позицией: «Игрок (нап.)» — чтобы модель выбирала бомбардиров по позиции.
+    const players = (team?.startingXI ?? [])
+      .filter((p) => p.name)
+      .map((p) => (p.position ? `${p.name} (${posCodeRu(p.position)})` : p.name));
+    if (!players.length && !team?.formation) return null;
     const formation = team?.formation ? ` (${team.formation})` : '';
-    return `${name}${formation}: ${names.slice(0, 11).join(', ') || '—'}`;
+    return `${name}${formation}: ${players.slice(0, 11).join(', ') || '—'}`;
   };
   const home = side(lineups.home, homeShort);
   const away = side(lineups.away, awayShort);

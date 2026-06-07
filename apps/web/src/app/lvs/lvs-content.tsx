@@ -38,6 +38,7 @@ export function LvsContent({ days }: { days: LvsDay[] }) {
             <i className="flex-1" style={{ background: '#c7f000' }} />
           </div>
           {/* контент сверху-слева */}
+          {/* контент сверху-слева */}
           <div className="absolute inset-x-0 top-0 flex flex-col gap-2 px-6 pt-4 sm:px-8 sm:pt-5">
             <span
               className="inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white shadow-md"
@@ -46,7 +47,6 @@ export function LvsContent({ days }: { days: LvsDay[] }) {
               🏆 ЧМ-2026 · LVS
             </span>
             <h1 className="text-2xl font-extrabold leading-tight tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)] sm:text-[2rem]">{L.title}</h1>
-            <p className="max-w-md text-sm leading-relaxed text-white/85 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]">{L.subtitle}</p>
           </div>
         </div>
       </header>

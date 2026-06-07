@@ -9,6 +9,7 @@ export type LvsStatus = 'pending' | 'resolved';
 export interface LvsScorer {
   name: string;
   team: 'home' | 'away';
+  position: string | null; // позиция игрока (нападающий/полузащитник/…)
   probability: number;
 }
 
@@ -34,6 +35,7 @@ export interface LvsLineupPlayer {
   id: string;
   name: string;
   number: number | null;
+  position: string | null; // код позиции от провайдера (G/D/M/F)
 }
 
 export interface LvsTeamLineup {
@@ -54,7 +56,8 @@ export interface LvsSettlementView {
   scoreHit: boolean;
   actualOutcome: LvsOutcome;
   actualScore: { home: number; away: number };
-  scorers: LvsScorerResult[];
+  scorers: LvsScorerResult[]; // предсказанные игроки + флаг scored
+  actualScorers: string[]; // реальные авторы голов матча (обе команды)
 }
 
 // Полный прогноз ЛВС (ответ analyze + вложение в карточку матча).
@@ -101,7 +104,9 @@ export interface LvsDay {
 // Строка отдельной Истории ЛВС (только разрешённые прогнозы).
 export interface LvsHistoryItem {
   fixtureId: number;
-  match: string; // «Бразилия — Аргентина»
+  match: string; // «Бразилия — Аргентина» (фолбэк; фронт локализует через homeTeam/awayTeam)
+  homeTeam: TeamRef;
+  awayTeam: TeamRef;
   kickoff: string;
   resolvedAt: string | null;
   predictedOutcome: LvsOutcome;
@@ -110,6 +115,7 @@ export interface LvsHistoryItem {
   actualOutcomeLabel: string;
   predictedScore: { home: number; away: number };
   actualScore: { home: number; away: number };
-  scorers: LvsScorerResult[];
+  scorers: LvsScorerResult[]; // предсказанные игроки + флаг scored
+  actualScorers: string[]; // реальные авторы голов матча
   resultStatus: LvsResultStatus;
 }

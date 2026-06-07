@@ -2,16 +2,20 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import type { LvsFixtureItem, LvsPredictionDetail, LvsModelForecast, LvsOutcome } from '@ai-score/shared';
+import type { LvsFixtureItem, LvsPredictionDetail, LvsModelForecast, LvsOutcome, LvsScorer } from '@ai-score/shared';
 import { formatTime } from '@/lib/format';
 import { getTeamName } from '@/lib/team-names-ru';
+import { flagEmoji } from '@/lib/country-flags';
 import { useLocale } from '@/components/i18n/locale-provider';
-import { Target, Trophy, Goal, RefreshCw, AlertTriangle, Sparkles } from 'lucide-react';
+import { RefreshCw, AlertTriangle, Sparkles, Target, ChevronDown } from 'lucide-react';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
 
 const CARD = { background: 'rgb(var(--pitch-900))', border: '1px solid rgb(var(--pitch-700))' } as const;
 const ACCENT = 'rgb(var(--accent))';
+
+// Цвет статуса завершённого прогноза (как в Истории ЛВС).
+const RESULT_COLOR: Record<string, string> = { won: '#22c55e', partial: '#f59e0b', lost: '#ef4444' };
 
 // Человекочитаемые названия моделей ансамбля (id laozhang → бренд).
 const MODEL_LABELS: Record<string, string> = {
@@ -22,6 +26,23 @@ const MODEL_LABELS: Record<string, string> = {
 };
 const modelLabel = (id: string) => MODEL_LABELS[id] ?? id;
 
+// Нормализация позиции игрока к читаемому русскому слову (модель может вернуть
+// код G/D/M/F, англ. слово или уже русское — отдаём как есть в последнем случае).
+function formatPosition(pos: string | null | undefined): string | null {
+  if (!pos) return null;
+  const p = pos.trim();
+  if (!p) return null;
+  const key = p.toLowerCase();
+  const map: Record<string, string> = {
+    g: 'вратарь', gk: 'вратарь', goalkeeper: 'вратарь', вратарь: 'вратарь',
+    d: 'защитник', def: 'защитник', defender: 'защитник', защитник: 'защитник',
+    m: 'полузащитник', mid: 'полузащитник', midfielder: 'полузащитник', полузащитник: 'полузащитник',
+    f: 'нападающий', fw: 'нападающий', forward: 'нападающий', striker: 'нападающий',
+    attacker: 'нападающий', нападающий: 'нападающий',
+  };
+  return map[key] ?? p;
+}
+
 export function LvsFixtureCard({ fixture }: { fixture: LvsFixtureItem }) {
   const { t, locale } = useLocale();
   const L = t.lvs;
@@ -29,9 +50,17 @@ export function LvsFixtureCard({ fixture }: { fixture: LvsFixtureItem }) {
   const [status, setStatus] = useState<'idle' | 'running' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Свёрнут по умолчанию: анализ раскрывается по клику на матч / стрелку.
+  const [expanded, setExpanded] = useState(false);
+
   const isFinished = fixture.status === 'finished';
   const homeName = getTeamName(fixture.homeTeam.name, fixture.homeTeam.shortName, locale, true);
   const awayName = getTeamName(fixture.awayTeam.name, fixture.awayTeam.shortName, locale, true);
+  const homeFlag = flagEmoji(fixture.homeTeam.name);
+  const awayFlag = flagEmoji(fixture.awayTeam.name);
+  // Итоговый счёт: из fixtures (если ingest обновил) либо из сведённого прогноза
+  // (товарищеские в БД остаются 'scheduled', но фактический счёт есть в result).
+  const finalScore = fixture.score ?? prediction?.result?.actualScore ?? null;
 
   async function run() {
     setStatus('running');
@@ -52,146 +81,271 @@ export function LvsFixtureCard({ fixture }: { fixture: LvsFixtureItem }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl" style={CARD}>
-      {/* Header: teams + time/score */}
-      <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid rgb(var(--pitch-700))' }}>
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          <TeamLogo src={fixture.homeTeam.logo} name={fixture.homeTeam.name} />
-          <span className="truncate text-sm font-semibold" style={{ color: 'rgb(var(--fg-card))' }}>{homeName}</span>
+    <div className="overflow-hidden rounded-3xl" style={CARD}>
+      {/* Шапка-кнопка: клик по матчу разворачивает/сворачивает анализ */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        className="block w-full text-left transition-colors"
+        style={{ background: 'linear-gradient(180deg, rgb(var(--pitch-800)), rgb(var(--pitch-900)))' }}
+      >
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-5 pt-5 pb-3">
+          <TeamHead flag={homeFlag} name={homeName} logo={fixture.homeTeam.logo} align="start" />
+          <div className="flex flex-col items-center gap-1">
+            {finalScore ? (
+              <>
+                <span className="tabular rounded-xl px-3 py-1 text-xl font-extrabold" style={{ background: 'rgb(var(--pitch-800))', color: 'rgb(var(--fg-primary))' }}>
+                  {finalScore.home}:{finalScore.away}
+                </span>
+                <span className="text-center text-[10px] font-bold uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted))' }}>{L.finished}</span>
+              </>
+            ) : (
+              <>
+                <span className="tabular text-base font-bold" style={{ color: 'rgb(var(--fg-primary))' }}>{formatTime(fixture.startsAt)}</span>
+                {fixture.round && (
+                  <span className="text-center text-[10px] font-medium uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted))' }}>{fixture.round}</span>
+                )}
+              </>
+            )}
+          </div>
+          <TeamHead flag={awayFlag} name={awayName} logo={fixture.awayTeam.logo} align="end" />
         </div>
-        <div className="shrink-0 min-w-[56px] text-center">
-          {isFinished && fixture.score ? (
-            <span className="tabular text-base font-bold" style={{ color: 'rgb(var(--fg-primary))' }}>
-              {fixture.score.home}:{fixture.score.away}
-            </span>
+
+        {/* Сводка + стрелка: что внутри карточки, не раскрывая её */}
+        <div
+          className="flex items-center justify-between gap-2 px-5 pb-3.5 pt-1"
+          style={{ borderTop: '1px dashed rgb(var(--pitch-700))', marginTop: 2 }}
+        >
+          <CollapsedSummary prediction={prediction} running={status === 'running'} isFinished={isFinished} L={L} />
+          <span className="flex shrink-0 items-center gap-1 text-[11px] font-semibold" style={{ color: expanded ? ACCENT : 'rgb(var(--fg-muted))' }}>
+            {expanded ? L.collapse : L.details}
+            <ChevronDown className="h-4 w-4 transition-transform" style={{ transform: expanded ? 'rotate(180deg)' : 'none' }} />
+          </span>
+        </div>
+      </button>
+
+      {/* Тело: раскрывается по клику */}
+      {expanded && (
+        <div className="px-5 py-5" style={{ borderTop: '1px solid rgb(var(--pitch-700))' }}>
+          {status === 'running' ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>
+              <Sparkles className="h-5 w-5 animate-pulse" style={{ color: ACCENT }} />
+              {L.running}
+            </div>
+          ) : prediction ? (
+            <LvsPredictionView
+              prediction={prediction}
+              homeName={homeName}
+              awayName={awayName}
+              homeFlag={homeFlag}
+              awayFlag={awayFlag}
+              canRerun={!isFinished}
+              onRerun={run}
+              L={L}
+            />
           ) : (
-            <span className="tabular text-sm font-bold" style={{ color: 'rgb(var(--fg-primary))' }}>{formatTime(fixture.startsAt)}</span>
+            <div className="py-6 text-center">
+              <p className="mx-auto mb-4 max-w-sm text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>{L.waiting}</p>
+              {errorMsg && (
+                <p className="mb-4 flex items-center justify-center gap-1.5 text-sm" style={{ color: '#ef4444' }}>
+                  <AlertTriangle className="h-4 w-4" /> {errorMsg}
+                </p>
+              )}
+              {!isFinished && (
+                <button
+                  type="button"
+                  onClick={run}
+                  className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-transform hover:scale-[1.03]"
+                  style={{ background: `linear-gradient(90deg, ${ACCENT}, rgb(var(--accent-2)))`, color: 'rgb(var(--on-accent))' }}
+                >
+                  <Target className="h-4 w-4" /> {L.analyze}
+                </button>
+              )}
+            </div>
           )}
         </div>
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-2.5">
-          <span className="truncate text-right text-sm font-semibold" style={{ color: 'rgb(var(--fg-card))' }}>{awayName}</span>
-          <TeamLogo src={fixture.awayTeam.logo} name={fixture.awayTeam.name} />
-        </div>
-      </div>
+      )}
+    </div>
+  );
+}
 
-      {/* Body */}
-      <div className="px-4 py-3">
-        {status === 'running' ? (
-          <div className="flex items-center justify-center gap-2 py-6 text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>
-            <Sparkles className="h-4 w-4 animate-pulse" style={{ color: ACCENT }} />
-            {L.running}
-          </div>
-        ) : prediction ? (
-          <LvsPredictionView prediction={prediction} homeName={homeName} awayName={awayName} canRerun={!isFinished} onRerun={run} L={L} />
-        ) : (
-          <div className="py-4 text-center">
-            <p className="mx-auto mb-3 max-w-sm text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>{L.waiting}</p>
-            {errorMsg && (
-              <p className="mb-3 flex items-center justify-center gap-1.5 text-xs" style={{ color: '#ef4444' }}>
-                <AlertTriangle className="h-3.5 w-3.5" /> {errorMsg}
-              </p>
-            )}
-            {!isFinished && (
-              <button
-                type="button"
-                onClick={run}
-                className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-transform hover:scale-[1.03]"
-                style={{ background: `linear-gradient(90deg, ${ACCENT}, rgb(var(--accent-2)))`, color: 'rgb(var(--on-accent))' }}
-              >
-                <Target className="h-4 w-4" /> {L.analyze}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+// Компактная сводка в свёрнутой шапке: что есть внутри карточки.
+function CollapsedSummary({
+  prediction, running, isFinished, L,
+}: {
+  prediction: LvsPredictionDetail | null;
+  running: boolean;
+  isFinished: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  L: any;
+}) {
+  if (running) {
+    return (
+      <span className="flex items-center gap-1.5 text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
+        <Sparkles className="h-3.5 w-3.5 animate-pulse" style={{ color: ACCENT }} /> {L.running}
+      </span>
+    );
+  }
+  if (!prediction) {
+    return (
+      <span className="text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
+        {isFinished ? '—' : L.waiting}
+      </span>
+    );
+  }
+  const result = prediction.result;
+  const statusLabel = result
+    ? result.resultStatus === 'won' ? L.statusWon : result.resultStatus === 'partial' ? L.statusPartial : L.statusLost
+    : null;
+  return (
+    <span className="flex flex-wrap items-center gap-1.5">
+      <span className="rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: 'rgb(var(--accent) / 0.14)', color: ACCENT }}>
+        🏆 {prediction.outcomeLabel}
+      </span>
+      <span className="tabular rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: 'rgb(var(--pitch-800))', color: 'rgb(var(--fg-card))' }}>
+        🎯 {prediction.score.home}:{prediction.score.away}
+      </span>
+      {result && statusLabel && (
+        <span className="rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: `${RESULT_COLOR[result.resultStatus]}1f`, color: RESULT_COLOR[result.resultStatus] }}>
+          {statusLabel}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function TeamHead({ flag, name, logo, align }: { flag: string; name: string; logo: string | null; align: 'start' | 'end' }) {
+  return (
+    <div className={`flex min-w-0 flex-col items-center gap-1.5 ${align === 'end' ? 'sm:items-end' : 'sm:items-start'} items-center`}>
+      {flag ? (
+        <span className="text-4xl leading-none" aria-hidden>{flag}</span>
+      ) : logo ? (
+        <Image src={logo} alt={name} width={40} height={40} className="h-10 w-10 rounded object-contain" unoptimized />
+      ) : (
+        <span className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold" style={{ background: 'rgb(var(--pitch-800))', color: 'rgb(var(--fg-muted))' }}>
+          {name.slice(0, 2).toUpperCase()}
+        </span>
+      )}
+      <span className="max-w-full truncate text-center text-sm font-bold sm:text-base" style={{ color: 'rgb(var(--fg-card))' }}>{name}</span>
     </div>
   );
 }
 
 function LvsPredictionView({
-  prediction, homeName, awayName, canRerun, onRerun, L,
+  prediction, homeName, awayName, homeFlag, awayFlag, canRerun, onRerun, L,
 }: {
   prediction: LvsPredictionDetail;
   homeName: string;
   awayName: string;
+  homeFlag: string;
+  awayFlag: string;
   canRerun: boolean;
   onRerun: () => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   L: any;
 }) {
-  const outcomeText = prediction.outcome === '1' ? homeName : prediction.outcome === '2' ? awayName : L.draw;
-  const teamLabel = (team: 'home' | 'away') => (team === 'home' ? homeName : awayName);
+  const teamName = (team: 'home' | 'away') => (team === 'home' ? homeName : awayName);
+  const teamFlag = (team: 'home' | 'away') => (team === 'home' ? homeFlag : awayFlag);
+
+  // Текст исхода: победа конкретной команды с флагом или ничья.
+  const outcome = prediction.outcome;
+  const outcomeFlag = outcome === '1' ? homeFlag : outcome === '2' ? awayFlag : '';
+  const outcomeWinner = outcome === '1' ? homeName : outcome === '2' ? awayName : null;
 
   return (
-    <div className="space-y-3">
-      {/* Outcome + exact score */}
-      <div className="grid grid-cols-2 gap-2">
-        <Stat icon={<Trophy className="h-3.5 w-3.5" />} label={L.outcome} value={outcomeText} />
-        <Stat icon={<Goal className="h-3.5 w-3.5" />} label={L.exactScore} value={`${prediction.score.home} : ${prediction.score.away}`} />
-      </div>
+    <div className="space-y-5">
+      {/* Исход + точный счёт — главные прогнозы */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {/* Исход */}
+        <div
+          className="rounded-2xl px-4 py-4"
+          style={{ background: 'rgb(var(--accent) / 0.10)', border: `1px solid rgb(var(--accent) / 0.35)` }}
+        >
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide" style={{ color: ACCENT }}>
+            <span className="text-base" aria-hidden>🏆</span> {L.outcome}
+          </p>
+          <p className="flex items-center gap-2 text-lg font-extrabold" style={{ color: 'rgb(var(--fg-card))' }}>
+            {outcomeWinner ? (
+              <>
+                {outcomeFlag && <span className="text-2xl leading-none" aria-hidden>{outcomeFlag}</span>}
+                <span className="truncate">{outcomeWinner}</span>
+              </>
+            ) : (
+              <>
+                <span className="text-2xl leading-none" aria-hidden>🤝</span>
+                <span>{L.draw}</span>
+              </>
+            )}
+          </p>
+        </div>
 
-      {/* Probabilities */}
-      <div className="flex gap-1.5 text-[11px]">
-        <ProbPill label={L.win1} v={prediction.probs.win1} active={prediction.outcome === '1'} />
-        <ProbPill label={L.draw} v={prediction.probs.draw} active={prediction.outcome === 'X'} />
-        <ProbPill label={L.win2} v={prediction.probs.win2} active={prediction.outcome === '2'} />
-      </div>
-
-      {/* Scorers */}
-      <div>
-        <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted))' }}>{L.scorers}</p>
-        <div className="space-y-1">
-          {prediction.scorers.map((s, i) => {
-            const resolved = prediction.result?.scorers.find((r) => r.name === s.name);
-            return (
-              <div key={i} className="flex items-center justify-between rounded-lg px-2.5 py-1.5" style={{ background: 'rgb(var(--pitch-800))' }}>
-                <span className="flex items-center gap-2 text-xs font-medium" style={{ color: 'rgb(var(--fg-card))' }}>
-                  <Goal className="h-3 w-3" style={{ color: ACCENT }} />
-                  {s.name}
-                  <span style={{ color: 'rgb(var(--fg-muted))' }}>· {teamLabel(s.team)}</span>
-                </span>
-                {resolved ? (
-                  <span className="text-[11px] font-bold" style={{ color: resolved.scored ? '#22c55e' : 'rgb(var(--fg-muted))' }}>
-                    {resolved.scored ? `✓ ${L.scored}` : `✗ ${L.notScored}`}
-                  </span>
-                ) : (
-                  <span className="tabular text-[11px]" style={{ color: 'rgb(var(--fg-muted))' }}>{Math.round(s.probability * 100)}%</span>
-                )}
-              </div>
-            );
-          })}
+        {/* Точный счёт */}
+        <div
+          className="rounded-2xl px-4 py-4"
+          style={{ background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}
+        >
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted))' }}>
+            <span className="text-base" aria-hidden>🎯</span> {L.exactScore}
+          </p>
+          <p className="tabular text-3xl font-extrabold leading-none" style={{ color: 'rgb(var(--fg-primary))' }}>
+            {prediction.score.home} : {prediction.score.away}
+          </p>
         </div>
       </div>
 
-      {/* Общий вывод — объединённый итог по всем моделям */}
-      {(prediction.summary || prediction.rationale) && (
-        <div className="rounded-lg px-3 py-2" style={{ background: 'rgb(var(--accent) / 0.08)' }}>
-          <p className="mb-0.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: ACCENT }}>
-            {prediction.summary ? L.overall : L.rationale}
+      {/* Вероятности: Победа 1 / Ничья / Победа 2 */}
+      <div className="grid grid-cols-3 gap-2.5">
+        <ProbCard emoji={homeFlag || '🏠'} label={L.win1Short} v={prediction.probs.win1} active={outcome === '1'} />
+        <ProbCard emoji="🤝" label={L.draw} v={prediction.probs.draw} active={outcome === 'X'} />
+        <ProbCard emoji={awayFlag || '🚌'} label={L.win2Short} v={prediction.probs.win2} active={outcome === '2'} />
+      </div>
+
+      {/* Кто забьёт */}
+      {prediction.scorers.length > 0 && (
+        <div>
+          <p className="mb-2.5 flex items-center gap-1.5 text-sm font-bold" style={{ color: 'rgb(var(--fg-card))' }}>
+            <span className="text-base" aria-hidden>⚽</span> {L.scorers}
           </p>
-          <p className="text-xs leading-relaxed" style={{ color: 'rgb(var(--fg-secondary))' }}>{prediction.summary ?? prediction.rationale}</p>
+          <div className="space-y-2">
+            {prediction.scorers.map((s, i) => (
+              <ScorerCard key={i} s={s} teamName={teamName(s.team)} teamFlag={teamFlag(s.team)} resolved={prediction.result?.scorers.find((r) => r.name === s.name) ?? null} L={L} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Общий вывод LVS */}
+      {(prediction.summary || prediction.rationale) && (
+        <div className="rounded-2xl px-5 py-4" style={{ background: 'rgb(var(--accent) / 0.07)', border: `1px solid rgb(var(--accent) / 0.25)` }}>
+          <p className="mb-2 flex items-center gap-1.5 text-sm font-bold" style={{ color: ACCENT }}>
+            <span className="text-base" aria-hidden>🧠</span> {prediction.summary ? `${L.overall} LVS` : L.rationale}
+          </p>
+          <p className="text-[15px] leading-relaxed" style={{ color: 'rgb(var(--fg-secondary))' }}>{prediction.summary ?? prediction.rationale}</p>
         </div>
       )}
 
       {/* Мнение каждой модели отдельно */}
       {prediction.modelViews.length > 0 && (
         <div>
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted))' }}>{L.modelsOpinion}</p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <p className="mb-2.5 flex items-center gap-1.5 text-sm font-bold" style={{ color: 'rgb(var(--fg-card))' }}>
+            <span className="text-base" aria-hidden>🤖</span> {L.modelsOpinion}
+          </p>
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             {prediction.modelViews.map((m, i) => (
-              <ModelCard key={i} m={m} homeName={homeName} awayName={awayName} L={L} />
+              <ModelCard key={i} m={m} homeName={homeName} awayName={awayName} homeFlag={homeFlag} awayFlag={awayFlag} L={L} />
             ))}
           </div>
         </div>
       )}
 
-      {/* Lineups */}
+      {/* Стартовые составы */}
       {prediction.lineups && (
-        <details className="rounded-lg px-3 py-2" style={{ background: 'rgb(var(--pitch-800))' }}>
-          <summary className="cursor-pointer text-[11px] font-bold uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted))' }}>{L.lineups}</summary>
-          <div className="mt-2 grid grid-cols-2 gap-3 text-[11px]" style={{ color: 'rgb(var(--fg-secondary))' }}>
-            <LineupCol title={homeName} players={prediction.lineups.home.startingXI.map((p) => p.name)} formation={prediction.lineups.home.formation} />
-            <LineupCol title={awayName} players={prediction.lineups.away.startingXI.map((p) => p.name)} formation={prediction.lineups.away.formation} />
+        <details className="rounded-2xl px-4 py-3" style={{ background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}>
+          <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted))' }}>{L.lineups}</summary>
+          <div className="mt-3 grid grid-cols-2 gap-4 text-xs" style={{ color: 'rgb(var(--fg-secondary))' }}>
+            <LineupCol title={`${homeFlag} ${homeName}`.trim()} players={prediction.lineups.home.startingXI.map((p) => p.name)} formation={prediction.lineups.home.formation} />
+            <LineupCol title={`${awayFlag} ${awayName}`.trim()} players={prediction.lineups.away.startingXI.map((p) => p.name)} formation={prediction.lineups.away.formation} />
           </div>
         </details>
       )}
@@ -200,77 +354,125 @@ function LvsPredictionView({
         <button
           type="button"
           onClick={onRerun}
-          className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium transition-colors"
+          className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-colors"
           style={{ background: 'rgb(var(--pitch-800))', color: 'rgb(var(--fg-muted))' }}
         >
-          <RefreshCw className="h-3.5 w-3.5" /> {L.rerun}
+          <RefreshCw className="h-4 w-4" /> {L.rerun}
         </button>
       )}
     </div>
   );
 }
 
-function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function ProbCard({ emoji, label, v, active }: { emoji: string; label: string; v: number; active: boolean }) {
   return (
-    <div className="rounded-lg px-3 py-2" style={{ background: 'rgb(var(--pitch-800))' }}>
-      <p className="mb-0.5 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted))' }}>
-        {icon} {label}
-      </p>
-      <p className="truncate text-sm font-bold" style={{ color: 'rgb(var(--fg-card))' }}>{value}</p>
+    <div
+      className="flex flex-col items-center gap-1 rounded-2xl px-2 py-3 transition-transform"
+      style={{
+        background: active ? `linear-gradient(180deg, rgb(var(--accent) / 0.22), rgb(var(--accent) / 0.10))` : 'rgb(var(--pitch-800))',
+        border: active ? `1.5px solid ${ACCENT}` : '1px solid rgb(var(--pitch-700))',
+        transform: active ? 'scale(1.04)' : 'none',
+      }}
+    >
+      <span className="text-xl leading-none" aria-hidden>{emoji}</span>
+      <span className="tabular text-xl font-extrabold leading-none" style={{ color: active ? ACCENT : 'rgb(var(--fg-card))' }}>{Math.round(v * 100)}%</span>
+      <span className="text-center text-[11px] font-medium leading-tight" style={{ color: active ? ACCENT : 'rgb(var(--fg-muted))' }}>{label}</span>
     </div>
   );
 }
 
-function ProbPill({ label, v, active }: { label: string; v: number; active: boolean }) {
+function ScorerCard({
+  s, teamName, teamFlag, resolved, L,
+}: {
+  s: LvsScorer;
+  teamName: string;
+  teamFlag: string;
+  resolved: { scored: boolean } | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  L: any;
+}) {
+  const position = formatPosition(s.position);
+  const hit = resolved?.scored ?? false;
   return (
     <div
-      className="flex-1 rounded-lg px-2 py-1 text-center"
-      style={{
-        background: active ? 'rgb(var(--accent) / 0.16)' : 'rgb(var(--pitch-800))',
-        border: active ? `1px solid ${ACCENT}` : '1px solid transparent',
-      }}
+      className="rounded-2xl px-4 py-3"
+      style={hit
+        ? { background: '#22c55e14', border: '1px solid #22c55e66' }
+        : { background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}
     >
-      <div className="font-semibold" style={{ color: active ? ACCENT : 'rgb(var(--fg-muted))' }}>{Math.round(v * 100)}%</div>
-      <div className="truncate" style={{ color: 'rgb(var(--fg-muted))' }}>{label}</div>
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex items-center gap-2 text-[15px] font-bold" style={{ color: 'rgb(var(--fg-card))' }}>
+          <span className="text-base" aria-hidden>⚽</span>
+          <span className="truncate">{s.name}</span>
+        </span>
+        {resolved ? (
+          resolved.scored ? (
+            <span className="shrink-0 rounded-full px-2.5 py-1 text-xs font-bold" style={{ background: '#22c55e26', color: '#22c55e' }}>
+              🎉 {L.scored}
+            </span>
+          ) : (
+            <span className="shrink-0 text-xs font-bold" style={{ color: 'rgb(var(--fg-muted))' }}>
+              ✗ {L.notScored}
+            </span>
+          )
+        ) : (
+          <span className="tabular shrink-0 rounded-full px-2.5 py-1 text-xs font-bold" style={{ background: 'rgb(var(--accent) / 0.14)', color: ACCENT }}>
+            {Math.round(s.probability * 100)}%
+          </span>
+        )}
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]" style={{ color: 'rgb(var(--fg-secondary))' }}>
+        <span className="flex items-center gap-1.5">
+          {teamFlag && <span aria-hidden>{teamFlag}</span>}
+          {teamName}
+        </span>
+        {position && (
+          <span className="flex items-center gap-1">
+            <span aria-hidden>📍</span> {position}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
 
 function ModelCard({
-  m, homeName, awayName, L,
+  m, homeName, awayName, homeFlag, awayFlag, L,
 }: {
   m: LvsModelForecast;
   homeName: string;
   awayName: string;
+  homeFlag: string;
+  awayFlag: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   L: any;
 }) {
   const outcomeText = (o: LvsOutcome | null) =>
-    o === '1' ? homeName : o === '2' ? awayName : o === 'X' ? L.draw : '—';
-  const score = m.scoreHome != null && m.scoreAway != null ? `${m.scoreHome} : ${m.scoreAway}` : '—';
+    o === '1' ? `${homeFlag} ${homeName}`.trim() : o === '2' ? `${awayFlag} ${awayName}`.trim() : o === 'X' ? `🤝 ${L.draw}` : '—';
+  const score = m.scoreHome != null && m.scoreAway != null ? `${m.scoreHome}:${m.scoreAway}` : '—';
 
   return (
-    <div className="rounded-lg p-2.5" style={{ background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}>
-      <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="truncate text-xs font-bold" style={{ color: 'rgb(var(--fg-card))' }}>{modelLabel(m.modelId)}</span>
+    <div className="rounded-2xl p-3.5" style={{ background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="truncate text-sm font-bold" style={{ color: 'rgb(var(--fg-card))' }}>{modelLabel(m.modelId)}</span>
         {!m.error && (
-          <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: 'rgb(var(--accent) / 0.14)', color: ACCENT }}>
+          <span className="tabular shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ background: 'rgb(var(--accent) / 0.14)', color: ACCENT }}>
             {outcomeText(m.outcome)} · {score}
           </span>
         )}
       </div>
       {m.error ? (
-        <p className="text-[11px]" style={{ color: 'rgb(var(--fg-muted))' }}>{L.noAnswer}</p>
+        <p className="text-[13px]" style={{ color: 'rgb(var(--fg-muted))' }}>{L.noAnswer}</p>
       ) : (
-        <div className="space-y-1 text-[11px]" style={{ color: 'rgb(var(--fg-secondary))' }}>
+        <div className="space-y-1.5 text-[13px] leading-relaxed" style={{ color: 'rgb(var(--fg-secondary))' }}>
           {m.scorers.length > 0 && (
             <p>
-              <span style={{ color: 'rgb(var(--fg-muted))' }}>{L.goalsBy}: </span>
+              <span style={{ color: 'rgb(var(--fg-muted))' }}>⚽ {L.goalsBy}: </span>
               {m.scorers.join(', ')}
             </p>
           )}
           {m.rationale && (
-            <p className="leading-relaxed">
+            <p>
               <span style={{ color: 'rgb(var(--fg-muted))' }}>{L.comment}: </span>
               {m.rationale}
             </p>
@@ -284,21 +486,10 @@ function ModelCard({
 function LineupCol({ title, players, formation }: { title: string; players: string[]; formation: string }) {
   return (
     <div>
-      <p className="mb-1 font-semibold" style={{ color: 'rgb(var(--fg-card))' }}>{title}{formation ? ` · ${formation}` : ''}</p>
-      <ul className="space-y-0.5">
+      <p className="mb-1.5 font-bold" style={{ color: 'rgb(var(--fg-card))' }}>{title}{formation ? ` · ${formation}` : ''}</p>
+      <ul className="space-y-1">
         {players.slice(0, 11).map((p, i) => <li key={i}>{p}</li>)}
       </ul>
     </div>
   );
-}
-
-function TeamLogo({ src, name }: { src: string | null; name: string }) {
-  if (!src) {
-    return (
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold" style={{ background: 'rgb(var(--pitch-800))', color: 'rgb(var(--fg-muted))' }}>
-        {name.slice(0, 2).toUpperCase()}
-      </div>
-    );
-  }
-  return <Image src={src} alt={name} width={28} height={28} className="h-7 w-7 shrink-0 rounded object-contain" unoptimized />;
 }

@@ -20,6 +20,7 @@ const scoreSchema = z.object({
 const scorerSchema = z.object({
   name: cappedString(80),
   team: z.enum(['home', 'away']).catch('home'),
+  position: z.string().catch('').transform((s) => s.trim().slice(0, 40)),
   probability: z.number().min(0).max(1).catch(0.3),
 });
 

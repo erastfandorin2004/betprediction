@@ -81,6 +81,7 @@ export class LvsSettlementService {
         outcomeHit: settlement.outcomeHit,
         scoreHit: settlement.scoreHit,
         scorersResult: settlement.scorers as unknown[],
+        actualScorers: settlement.actualScorers,
         isCorrect: settlement.resultStatus === 'won',
         resolvedAt: new Date(),
       })

@@ -72,5 +72,6 @@ export function settleLvs(pred: LvsPredictionInput, actual: LvsActual): LvsSettl
     actualOutcome,
     actualScore: { home: actual.homeGoals, away: actual.awayGoals },
     scorers,
+    actualScorers: actual.scorers,
   };
 }

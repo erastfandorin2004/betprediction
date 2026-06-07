@@ -31,7 +31,7 @@ export interface AfH2HFixture {
 export interface MatchStat { name: string; home: string; away: string }
 
 // Состав в формате страницы матча (api-client TeamLineup/MatchLineups).
-export interface LineupPlayerOut { id: string; name: string; number: number | null }
+export interface LineupPlayerOut { id: string; name: string; number: number | null; position: string | null }
 export interface TeamLineupOut {
   formation: string;
   lines: number[]; // ряды на поле, включая вратаря, напр. [1,4,3,3]
@@ -413,6 +413,7 @@ function toTeamLineup(lt: AfLineupTeam): TeamLineupOut {
     id: String(p.player.id),
     name: p.player.name,
     number: p.player.number,
+    position: p.player.pos,
   });
   return {
     formation,
