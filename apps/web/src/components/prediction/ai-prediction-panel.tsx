@@ -81,7 +81,7 @@ export function AiPredictionPanel({
           type="button"
           onClick={run}
           className="mt-4 inline-flex items-center gap-2 rounded-full px-7 py-2.5 text-sm font-semibold transition-transform hover:scale-[1.03]"
-          style={{ background: 'linear-gradient(90deg, rgb(var(--accent)), #c46a2c)', color: '#04140a' }}
+          style={{ background: 'linear-gradient(90deg, rgb(var(--accent)), rgb(var(--accent-2)))', color: 'rgb(var(--on-accent))' }}
         >
           <Sparkles className="h-4 w-4" />
           {p.aiRun}

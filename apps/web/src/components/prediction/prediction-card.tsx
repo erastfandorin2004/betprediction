@@ -233,7 +233,7 @@ function OddsPill({ value, large }: { value: number; large?: boolean }) {
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-lg font-bold"
-      style={{ background: 'rgb(var(--accent))', color: '#04140a', padding: large ? '4px 12px' : '2px 9px' }}
+      style={{ background: 'rgb(var(--accent))', color: 'rgb(var(--on-accent))', padding: large ? '4px 12px' : '2px 9px' }}
     >
       <span className={`uppercase tracking-wide ${large ? 'text-[11px]' : 'text-[10px]'}`} style={{ opacity: 0.7 }}>
         {t.prediction.oddsLabel}
@@ -538,7 +538,7 @@ function LockedCard({ confidence, stars }: { confidence: number; stars: number }
         <Link
           href="/register"
           className="mt-5 inline-flex items-center gap-1.5 rounded-full px-7 py-2.5 text-sm font-semibold transition-transform hover:scale-[1.03]"
-          style={{ background: 'linear-gradient(90deg, rgb(var(--accent)), #c46a2c)', color: '#04140a' }}
+          style={{ background: 'linear-gradient(90deg, rgb(var(--accent)), rgb(var(--accent-2)))', color: 'rgb(var(--on-accent))' }}
         >
           <Sparkles className="h-4 w-4" />
           {t.prediction.tryFree}

@@ -27,4 +27,4 @@ export const authInputCls =
   'w-full rounded-xl px-3.5 py-2.5 text-sm outline-none transition-all bg-[rgb(var(--pitch-800))] border border-[rgb(var(--pitch-700))] text-[rgb(var(--fg-primary))] placeholder:text-[rgb(var(--fg-muted))] focus:border-[rgb(var(--accent))] focus:ring-2 focus:ring-[rgb(var(--accent)/0.25)]';
 
 export const authButtonCls =
-  'w-full rounded-xl py-2.5 text-sm font-semibold transition-all bg-[rgb(var(--accent))] text-[#0a0f1e] hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--accent)/0.45)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--pitch-900))]';
+  'w-full rounded-xl py-2.5 text-sm font-semibold transition-all bg-[rgb(var(--accent))] text-[rgb(var(--on-accent))] hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--accent)/0.45)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--pitch-900))]';

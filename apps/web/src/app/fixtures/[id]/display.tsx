@@ -223,7 +223,7 @@ export function H2HStats({ matches, homeLabel, awayLabel, ofLabel, homeFlag, awa
       </div>
       <div className="mt-2.5 flex items-center gap-1 overflow-hidden rounded-lg">
         <div className="flex h-8 items-center justify-center text-xs font-bold"
-          style={{ width: `${total ? (homeWins / total) * 100 : 33}%`, minWidth: '2.25rem', background: ACCENT, color: '#1a0c02' }}>
+          style={{ width: `${total ? (homeWins / total) * 100 : 33}%`, minWidth: '2.25rem', background: ACCENT, color: 'rgb(var(--on-accent))' }}>
           {homeWins}
         </div>
         <div className="flex h-8 flex-1 items-center justify-center text-xs font-bold"

@@ -42,9 +42,16 @@ export function AuthHeader() {
       className="sticky top-0 z-50 backdrop-blur-xl"
       style={{ background: 'rgb(var(--pitch-950) / 0.78)', borderBottom: '1px solid rgb(var(--pitch-700))' }}
     >
-      {/* gradient hairline */}
+      {/* Light (WC-2026): signature multicolor brandstrip. Dark: subtle hairline. */}
+      <div className="flex h-[3px] w-full dark:hidden">
+        <i className="flex-1" style={{ background: '#e4002b' }} />
+        <i className="flex-1" style={{ background: '#6a1fe0' }} />
+        <i className="flex-1" style={{ background: '#2e5bff' }} />
+        <i className="flex-1" style={{ background: '#00c2a3' }} />
+        <i className="flex-1" style={{ background: '#c7f000' }} />
+      </div>
       <div
-        className="h-px w-full"
+        className="hidden h-px w-full dark:block"
         style={{ background: 'linear-gradient(90deg, transparent, rgb(var(--accent) / 0.6), rgba(59,130,246,0.6), transparent)' }}
       />
 
@@ -135,7 +142,7 @@ export function AuthHeader() {
               <Link
                 href="/register"
                 className="rounded-full px-4 py-1.5 text-sm font-semibold transition-transform hover:scale-[1.03]"
-                style={{ background: `linear-gradient(90deg, rgb(var(--accent)), #c46a2c)`, color: '#04140a' }}
+                style={{ background: `linear-gradient(90deg, rgb(var(--accent)), rgb(var(--accent-2)))`, color: 'rgb(var(--on-accent))' }}
               >
                 {t.auth.register}
               </Link>

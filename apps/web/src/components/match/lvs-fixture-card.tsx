@@ -87,7 +87,7 @@ export function LvsFixtureCard({ fixture }: { fixture: LvsFixtureItem }) {
                 type="button"
                 onClick={run}
                 className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-transform hover:scale-[1.03]"
-                style={{ background: `linear-gradient(90deg, ${ACCENT}, #c46a2c)`, color: '#04140a' }}
+                style={{ background: `linear-gradient(90deg, ${ACCENT}, rgb(var(--accent-2)))`, color: 'rgb(var(--on-accent))' }}
               >
                 <Target className="h-4 w-4" /> {L.analyze}
               </button>

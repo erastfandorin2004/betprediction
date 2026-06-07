@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Manrope, JetBrains_Mono } from 'next/font/google';
+import { Manrope, JetBrains_Mono, Montserrat, Noto_Sans } from 'next/font/google';
 import { AuthProvider } from '@/components/auth/auth-provider';
 import { AuthHeader } from '@/components/auth/auth-header';
 import { ThemeProvider } from '@/components/theme/theme-provider';
@@ -16,6 +16,22 @@ const sans = Manrope({
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
+  display: 'swap',
+});
+
+// World Cup 2026 light theme typography: Montserrat (display) + Noto Sans (body).
+// Applied only under .light (see globals.css) — dark theme keeps Manrope.
+const display = Montserrat({
+  subsets: ['latin', 'cyrillic'],
+  weight: ['600', '700', '800', '900'],
+  variable: '--font-display',
+  display: 'swap',
+});
+
+const body = Noto_Sans({
+  subsets: ['latin', 'cyrillic'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-body',
   display: 'swap',
 });
 
@@ -36,7 +52,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ru" suppressHydrationWarning className={`dark ${sans.variable} ${jetbrainsMono.variable}`}>
+    <html lang="ru" suppressHydrationWarning className={`dark ${sans.variable} ${jetbrainsMono.variable} ${display.variable} ${body.variable}`}>
       <body className="min-h-screen bg-pitch-950">
         <ThemeProvider>
           <LocaleProvider>

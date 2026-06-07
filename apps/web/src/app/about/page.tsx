@@ -44,7 +44,7 @@ export default function AboutPage() {
         <Link
           href="/"
           className="mt-8 inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-base font-semibold transition-transform hover:scale-[1.03]"
-          style={{ background: 'linear-gradient(90deg, rgb(var(--accent)), #c46a2c)', color: '#04140a' }}
+          style={{ background: 'linear-gradient(90deg, rgb(var(--accent)), rgb(var(--accent-2)))', color: 'rgb(var(--on-accent))' }}
         >
           {L.heroCta} <ArrowRight className="h-5 w-5" />
         </Link>

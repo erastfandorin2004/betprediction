@@ -91,7 +91,7 @@ export default function PricingPage() {
             type="button"
             disabled
             className="mt-6 cursor-not-allowed rounded-full py-2.5 text-center text-sm font-bold"
-            style={{ background: `linear-gradient(90deg, rgb(var(--accent)), #c46a2c)`, color: '#04140a', opacity: 0.85 }}
+            style={{ background: `linear-gradient(90deg, rgb(var(--accent)), rgb(var(--accent-2)))`, color: 'rgb(var(--on-accent))', opacity: 0.85 }}
           >
             {P.pro.cta}
           </button>

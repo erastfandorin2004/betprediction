@@ -214,7 +214,7 @@ function StatsSection({ stats, range, setRange }: { stats: Stats; range: Range; 
               onClick={() => setRange(r)}
               className="rounded-lg px-3 py-1 text-xs font-semibold transition-colors"
               style={range === r
-                ? { background: 'rgb(var(--accent))', color: '#04140a' }
+                ? { background: 'rgb(var(--accent))', color: 'rgb(var(--on-accent))' }
                 : { color: 'rgb(var(--fg-muted))' }}
             >
               {label}
@@ -422,7 +422,7 @@ function HistoryList({ items, locale }: { items: PredictionHistoryItem[]; locale
                 {h.pick}: <b style={{ color: 'rgb(var(--fg-card))' }}>{MARKET_LABEL[item.market] ?? item.market} — {item.pick}</b>
               </span>
               {item.odds != null && (
-                <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold tabular" style={{ background: 'rgb(var(--accent))', color: '#04140a' }}>
+                <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold tabular" style={{ background: 'rgb(var(--accent))', color: 'rgb(var(--on-accent))' }}>
                   {h.odds} {item.odds.toFixed(2)}
                 </span>
               )}

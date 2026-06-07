@@ -17,21 +17,43 @@
     --fg-muted: 104 116 148;
     --fg-card: 224 230 244;
     --accent: 226 130 60;     /* warm orange — readable on navy */
+    --accent-2: 196 106 44;   /* secondary orange — CTA gradient end (= #c46a2c) */
+    --on-accent: 4 20 10;     /* text on accent fills (= #04140a) */
   }
 
-  /* ── Light theme ── soft off-white (+ deeper orange so it reads on white) */
+  /* ── Light theme ── World Cup 2026: warm cream canvas, white cards, near-black
+     ink text, vivid FIFA-red accent (red→pink CTAs). A distinct, sporty, premium
+     light version; mirrors the WC26 brandbook reference palette. */
   .light {
     color-scheme: light;
-    --pitch-950: 244 245 248;  /* soft off-white page (not harsh pure white) */
-    --pitch-900: 255 255 255;  /* white cards */
-    --pitch-800: 240 242 246;  /* subtle fills */
-    --pitch-700: 223 226 232;  /* soft borders */
-    --pitch-600: 196 200 209;  /* muted fills */
-    --fg-primary: 28 32 40;    /* dark slate (softer than pure black) */
-    --fg-secondary: 92 99 110;
-    --fg-muted: 142 148 160;
-    --fg-card: 40 45 54;
-    --accent: 194 96 26;       /* deeper orange — readable on white */
+    --pitch-950: 243 241 234;  /* warm cream page bg (#f3f1ea) */
+    --pitch-900: 255 255 255;  /* white cards (#ffffff) */
+    --pitch-800: 244 242 235;  /* subtle warm fills inside cards */
+    --pitch-700: 231 228 221;  /* warm hairline borders (#e7e4dd) */
+    --pitch-600: 211 206 195;  /* stronger lines / muted fills */
+    --fg-primary: 11 11 12;    /* ink (#0b0b0c) */
+    --fg-secondary: 60 60 68;  /* secondary ink */
+    --fg-muted: 111 111 120;   /* muted (#6f6f78) */
+    --fg-card: 22 22 26;       /* near-ink card text */
+    --accent: 228 0 43;        /* FIFA red (#e4002b) */
+    --accent-2: 236 15 121;    /* WC pink (#ec0f79) — CTA gradient end */
+    --on-accent: 255 255 255;  /* white text on red/pink fills */
+  }
+
+  /* WC2026 light typography: Montserrat display + Noto Sans body. Dark keeps Manrope. */
+  .light body {
+    font-family: var(--font-body), 'Noto Sans', system-ui, sans-serif;
+  }
+  .light h1,
+  .light h2,
+  .light h3 {
+    font-family: var(--font-display), 'Montserrat', system-ui, sans-serif;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+  }
+  .light ::selection {
+    background: rgb(var(--accent));
+    color: #fff;
   }
 
   * { box-sizing: border-box; }
