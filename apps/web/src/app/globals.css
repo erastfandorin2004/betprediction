@@ -65,9 +65,11 @@
     border-bottom: 1px solid rgb(var(--pitch-700));
   }
   .light .app-header {
-    background: rgb(255 255 255 / 0.85);
-    border-bottom: 1px solid rgb(var(--pitch-700));
-    box-shadow: 0 6px 24px rgba(20, 20, 45, 0.07);
+    /* Чистая «премиальная» поверхность: почти непрозрачный белый с лёгким
+       холодным оттенком, чёткая тень и тонкая нижняя грань. */
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.96), rgb(249 249 252 / 0.94));
+    border-bottom: 1px solid rgb(228 228 236);
+    box-shadow: 0 8px 28px rgba(17, 17, 40, 0.08);
   }
   /* Навигация в стиле референса: пункты — заглавными (Montserrat) с иконкой,
      активный пункт залит сплошным акцентом (красный/оранжевый). Обе темы. */

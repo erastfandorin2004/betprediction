@@ -18,16 +18,16 @@ export function AuthHeader() {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Каждый раздел — эмодзи + свой цвет чемпионата мира. Тарифы — справа.
-  type NavItem = { href: string; label: string; emoji: string; color: string; exact?: boolean };
+  // Разделы: эмодзи + единый цвет текста (.nav-chip). Тарифы — справа.
+  type NavItem = { href: string; label: string; emoji: string; exact?: boolean };
   const LEFT_NAV: NavItem[] = [
-    { href: '/', label: t.nav.matches, emoji: '⚽', color: '#e4002b' },
-    { href: '/track-record', label: t.nav.trackRecord, emoji: '📊', color: '#2e5bff' },
-    { href: '/lvs', label: t.nav.lvs, emoji: '🧠', color: '#6a1fe0', exact: true },
-    { href: '/lvs/history', label: t.nav.lvsHistory, emoji: '🧾', color: '#00c2a3' },
-    { href: '/about', label: t.nav.about, emoji: 'ℹ️', color: '#0f9d58' },
+    { href: '/', label: t.nav.matches, emoji: '⚽' },
+    { href: '/track-record', label: t.nav.trackRecord, emoji: '📊' },
+    { href: '/lvs', label: t.nav.lvs, emoji: '🧠', exact: true },
+    { href: '/lvs/history', label: t.nav.lvsHistory, emoji: '🧾' },
+    { href: '/about', label: t.nav.about, emoji: 'ℹ️' },
   ];
-  const pricingItem: NavItem = { href: '/pricing', label: t.nav.pricing, emoji: '💎', color: '#ff4e16' };
+  const pricingItem: NavItem = { href: '/pricing', label: t.nav.pricing, emoji: '💎' };
   const MOBILE_NAV: NavItem[] = [...LEFT_NAV, pricingItem];
 
   async function handleLogout() {
@@ -66,7 +66,7 @@ export function AuthHeader() {
           className="ml-3 hidden items-center gap-1 rounded-2xl p-1 md:flex"
           style={{ background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}
         >
-          {LEFT_NAV.map(({ href, label, emoji, color, exact }) => {
+          {LEFT_NAV.map(({ href, label, emoji, exact }) => {
             const active = isActive(href, exact);
             return (
               <Link
@@ -76,7 +76,6 @@ export function AuthHeader() {
                   'nav-chip flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[13px]',
                   active && 'active',
                 )}
-                style={active ? { background: color, color: '#fff', boxShadow: `0 2px 10px ${color}59` } : { color }}
               >
                 <span className="text-[15px] leading-none">{emoji}</span>
                 <span>{label}</span>
@@ -94,11 +93,7 @@ export function AuthHeader() {
               'nav-chip hidden items-center gap-1.5 rounded-xl px-3 py-1.5 text-[13px] sm:flex',
               isActive(pricingItem.href) && 'active',
             )}
-            style={
-              isActive(pricingItem.href)
-                ? { background: pricingItem.color, color: '#fff', boxShadow: `0 2px 10px ${pricingItem.color}59` }
-                : { color: pricingItem.color, border: '1px solid rgb(var(--pitch-700))' }
-            }
+            style={!isActive(pricingItem.href) ? { border: '1px solid rgb(var(--pitch-700))' } : undefined}
           >
             <span className="text-[15px] leading-none">{pricingItem.emoji}</span>
             <span>{pricingItem.label}</span>
@@ -172,7 +167,7 @@ export function AuthHeader() {
         className="flex gap-1.5 overflow-x-auto px-3 pb-2 pt-2 md:hidden"
         style={{ borderTop: '1px solid rgb(var(--pitch-700))' }}
       >
-        {MOBILE_NAV.map(({ href, label, emoji, color, exact }) => {
+        {MOBILE_NAV.map(({ href, label, emoji, exact }) => {
           const active = isActive(href, exact);
           return (
             <Link
@@ -182,7 +177,7 @@ export function AuthHeader() {
                 'nav-chip flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px]',
                 active && 'active',
               )}
-              style={active ? { background: color, color: '#fff' } : { color, border: '1px solid rgb(var(--pitch-700))' }}
+              style={!active ? { border: '1px solid rgb(var(--pitch-700))' } : undefined}
             >
               <span className="text-[13px] leading-none">{emoji}</span>
               {label}
