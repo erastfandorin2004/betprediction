@@ -70,14 +70,16 @@ export class LvsService {
 
   // Полный анализ ЛВС одного матча. ТРЕБУЕТ доступных стартовых составов: без них
   // (автопуть за 1ч до матча) бросаем ConflictException — планировщик повторит.
-  async analyze(fixtureId: number): Promise<LvsPredictionDetail> {
+  // force=true — ручной запуск без ожидания составов (если провайдер их не
+  // публикует). Авто-планировщик вызывает без force и продолжает ждать составы.
+  async analyze(fixtureId: number, force = false): Promise<LvsPredictionDetail> {
     const apiKey = this.config.get<string>('laozhang.apiKey') ?? '';
     if (!apiKey) throw new NotFoundException('LAOZHANG_API_KEY is not configured');
 
     const built = await this.buildContext(fixtureId);
     if (!built) throw new NotFoundException(`Fixture ${fixtureId} not found`);
     const { ctx, lineups, oddsBlock } = built;
-    if (!lineups) {
+    if (!lineups && !force) {
       throw new ConflictException('Стартовые составы ещё не доступны — анализ ЛВС откладывается');
     }
 
@@ -117,8 +119,8 @@ export class LvsService {
         scoreHome: agg.score.home,
         scoreAway: agg.score.away,
         scorers: agg.scorers as unknown[],
-        lineupsHome: lineups.home as unknown,
-        lineupsAway: lineups.away as unknown,
+        lineupsHome: (lineups?.home ?? null) as unknown,
+        lineupsAway: (lineups?.away ?? null) as unknown,
         confidence: agg.confidence,
         stars: agg.stars,
         rationale: agg.rationale,
@@ -236,7 +238,7 @@ export class LvsService {
     // вероятностей исхода; для товарищеских может отсутствовать (graceful).
     let oddsBlock: string | null = null;
     try {
-      const line = await this.odds.getOdds(home.name, away.name);
+      const line = await this.odds.getOdds(home.name, away.name, fixture.startsAt.toISOString());
       if (line.block && line.block.trim()) {
         ctx.odds = line.block;
         oddsBlock = line.block;

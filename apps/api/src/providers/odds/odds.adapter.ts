@@ -54,7 +54,9 @@ export class OddsAdapter {
   }
 
   // Real line for a match: user-provided manual line first, then The Odds API.
-  async getOdds(homeName: string, awayName: string): Promise<OddsLine> {
+  // dateISO нужен для надёжного резолва ПРЕДСТОЯЩЕГО матча у API-Football (без
+  // даты headtohead?last= не находит ещё не сыгранный матч → линии нет).
+  async getOdds(homeName: string, awayName: string, dateISO?: string): Promise<OddsLine> {
     const manual = manualOddsFor(homeName, awayName);
     if (manual) {
       this.logger.log(`Manual odds line used for ${homeName} vs ${awayName}`);
@@ -63,7 +65,7 @@ export class OddsAdapter {
 
     // Основной источник линии — API-Football. The Odds API остаётся фолбэком.
     try {
-      const live = await this.apiFootball.getOddsMap(homeName, awayName);
+      const live = await this.apiFootball.getOddsMap(homeName, awayName, dateISO);
       if (live && Object.keys(live.map).length) {
         this.logger.log(`API-Football odds used for ${homeName} vs ${awayName}`);
         return live;

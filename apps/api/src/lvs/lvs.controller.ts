@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { LvsService } from './lvs.service';
 
@@ -21,9 +21,9 @@ export class LvsController {
   }
 
   @Post(':fixtureId/analyze')
-  @ApiOperation({ summary: 'Ручной запуск/перезапуск анализа ЛВС по матчу (нужны составы)' })
+  @ApiOperation({ summary: 'Ручной запуск/перезапуск анализа ЛВС (force=true — без ожидания составов)' })
   @ApiParam({ name: 'fixtureId', type: Number })
-  analyze(@Param('fixtureId', ParseIntPipe) fixtureId: number) {
-    return this.lvs.analyze(fixtureId);
+  analyze(@Param('fixtureId', ParseIntPipe) fixtureId: number, @Query('force') force?: string) {
+    return this.lvs.analyze(fixtureId, force === 'true' || force === '1');
   }
 }

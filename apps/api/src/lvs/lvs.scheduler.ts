@@ -7,6 +7,7 @@ import { LvsService } from './lvs.service';
 import { LvsSettlementService } from './lvs-settlement.service';
 
 const ANALYSIS_LEAD_MS = 60 * 60 * 1000; // запускаем анализ за ≤1ч до матча
+const FORCE_FALLBACK_MS = 45 * 60 * 1000; // доп.матчи: если составов нет — форс за ≤45мин
 
 // Планировщик ЛВС (interval, без @nestjs/schedule — как settlement.scheduler):
 //  • свип №1 — анализирует матчи ЧМ за ~1ч до старта, когда есть составы;
@@ -53,7 +54,7 @@ export class LvsScheduler implements OnModuleInit, OnModuleDestroy {
       const now = new Date();
       const deadline = new Date(now.getTime() + ANALYSIS_LEAD_MS);
       const rows = await this.db.db
-        .select({ id: schema.fixtures.id })
+        .select({ id: schema.fixtures.id, startsAt: schema.fixtures.startsAt })
         .from(schema.fixtures)
         .leftJoin(schema.lvsPredictions, eq(schema.fixtures.id, schema.lvsPredictions.fixtureId))
         .where(and(
@@ -65,13 +66,19 @@ export class LvsScheduler implements OnModuleInit, OnModuleDestroy {
         ));
       if (!rows.length) return;
       this.logger.log(`LVS: ${rows.length} матч(ей) в окне T-60мин — пробуем анализ`);
+      const extra = new Set(this.lvs.extraFixtureIds());
       for (const r of rows) {
+        // Предпочитаем составы; но если провайдер их не даёт (бывает у мелких
+        // товарищеских), для доп.матчей форсируем анализ за ~45 мин до старта,
+        // чтобы прогноз точно вышел «за час до игры». Матчи ЧМ ждут составы строго.
+        const msToKo = r.startsAt.getTime() - Date.now();
+        const force = extra.has(r.id) && msToKo <= FORCE_FALLBACK_MS;
         try {
-          await this.lvs.analyze(r.id);
+          await this.lvs.analyze(r.id, force);
         } catch (err) {
           // 409 = составов ещё нет → молча повторим на следующем тике
           const msg = err instanceof Error ? err.message : String(err);
-          if (/составы/i.test(msg)) this.logger.debug(`LVS ${r.id}: составов ещё нет`);
+          if (/составы/i.test(msg)) this.logger.debug(`LVS ${r.id}: составов ещё нет (ждём)`);
           else this.logger.warn(`LVS analyze failed for ${r.id}: ${msg}`);
         }
       }
