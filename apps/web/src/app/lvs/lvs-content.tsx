@@ -14,7 +14,7 @@ export function LvsContent({ days }: { days: LvsDay[] }) {
     <div className="mx-auto max-w-2xl px-4 py-8">
       {/* Hero ЛВС — AI-прогноз ЧМ-2026 */}
       <header className="relative mb-6 overflow-hidden rounded-3xl border shadow-lg" style={{ borderColor: 'rgb(var(--pitch-700))' }}>
-        <div className="relative aspect-[16/9] w-full">
+        <div className="relative h-40 w-full sm:h-48">
           <Image
             src="/lvs-hero.png"
             alt="World Cup 2026"
