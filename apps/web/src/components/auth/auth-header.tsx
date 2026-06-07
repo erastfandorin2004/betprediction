@@ -8,7 +8,7 @@ import { ThemeToggle } from '@/components/theme/theme-toggle';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { cn } from '@/lib/utils';
 import { BrandLogo } from '@/components/brand/brand-logo';
-import { Goal, Trophy, Info, Gem, Zap, type LucideIcon } from 'lucide-react';
+import { Goal, Trophy, Info, Gem, Zap, Target, History, type LucideIcon } from 'lucide-react';
 
 const ACCENT = 'rgb(var(--accent))';
 
@@ -18,9 +18,11 @@ export function AuthHeader() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const NAV: { href: string; label: string; Icon: LucideIcon }[] = [
+  const NAV: { href: string; label: string; Icon: LucideIcon; exact?: boolean }[] = [
     { href: '/', label: t.nav.matches, Icon: Goal },
     { href: '/track-record', label: t.nav.trackRecord, Icon: Trophy },
+    { href: '/lvs', label: t.nav.lvs, Icon: Target, exact: true },
+    { href: '/lvs/history', label: t.nav.lvsHistory, Icon: History },
     { href: '/about', label: t.nav.about, Icon: Info },
     { href: '/pricing', label: t.nav.pricing, Icon: Gem },
   ];
@@ -32,7 +34,8 @@ export function AuthHeader() {
     router.push('/');
   }
 
-  const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
+  const isActive = (href: string, exact?: boolean) =>
+    href === '/' || exact ? pathname === href : pathname.startsWith(href);
 
   return (
     <header
@@ -53,8 +56,8 @@ export function AuthHeader() {
 
         {/* Nav — icons + gradient underline indicator */}
         <nav className="ml-2 hidden items-center gap-0.5 md:flex">
-          {NAV.map(({ href, label, Icon }) => {
-            const active = isActive(href);
+          {NAV.map(({ href, label, Icon, exact }) => {
+            const active = isActive(href, exact);
             return (
               <Link
                 key={href}

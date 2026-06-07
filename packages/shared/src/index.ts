@@ -77,6 +77,26 @@ export type { FixtureListQueryInput, FixtureListQueryParsed } from './schemas/fi
 export { llmPredictionResponseSchema } from './schemas/prediction.schema';
 export type { LlmPredictionResponse } from './schemas/prediction.schema';
 
+export { lvsPredictionResponseSchema } from './schemas/lvs-prediction.schema';
+export type { LvsPredictionResponse } from './schemas/lvs-prediction.schema';
+
+export type {
+  LvsOutcome,
+  LvsResultStatus,
+  LvsStatus,
+  LvsScorer,
+  LvsScorerResult,
+  LvsModelForecast,
+  LvsLineupPlayer,
+  LvsTeamLineup,
+  LvsLineups,
+  LvsSettlementView,
+  LvsPredictionDetail,
+  LvsFixtureItem,
+  LvsDay,
+  LvsHistoryItem,
+} from './types/lvs';
+
 export {
   MARKET_TYPES,
   MARKET_LABELS,
@@ -92,8 +112,12 @@ export {
   buildSystemPrompt,
   buildUserPrompt,
   formatOddsBlock,
+  buildLvsSystemPrompt,
+  buildLvsUserPrompt,
 } from './llm/prompts';
 export type { MatchContext } from './llm/prompts';
 
 export { settlePrediction } from './settlement/settle';
 export type { ActualResult } from './settlement/settle';
+export { settleLvs, outcomeFromScore } from './settlement/settle-lvs';
+export type { LvsActual, LvsPredictionInput } from './settlement/settle-lvs';

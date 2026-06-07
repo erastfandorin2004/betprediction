@@ -94,6 +94,58 @@ export function buildUserPrompt(ctx: MatchContext): string {
 ВЫБОР СТАВКИ (recommendedMarket/recommendedOutcome): пройди по ВСЕЙ линии и выбери рынок с ЛУЧШИМ сочетанием вероятности прохода и перевеса (value) к коэффициенту. Это НЕ обязательно 1X2 — часто сильнее угловые, карточки, тотал, инд. тотал, двойной шанс или «обе забьют». НЕ выбирай исход матча по умолчанию: если у фаворита низкий коэф. без перевеса — предложи альтернативный рынок. В rationale (2-4 предложения) обязательно объясни, ПОЧЕМУ выбран этот рынок и почему он сильнее ставки на исход. keyFactors — 3-5 КОРОТКИХ пунктов (до 140 символов). Всё на русском.`;
 }
 
+// ─── ЛВС (LVS) ──────────────────────────────────────────────────────────────
+// Отдельный режим анализа для раздела ЛВС: ТОЛЬКО исход (1X2), точный счёт и
+// 3 вероятных бомбардира. Та же глубина анализа (форма, H2H, мотивация, травмы,
+// СОСТАВЫ), но без угловых/карточек/тоталов и value-bet логики.
+export function buildLvsSystemPrompt(): string {
+  return (
+    'Ты — экспертная система футбольного анализа. По предматчевым данным и СТАРТОВЫМ СОСТАВАМ дай ' +
+    'максимально обоснованный прогноз ровно по трём пунктам: (1) исход матча — вероятности П1/ничья/П2 ' +
+    '(сумма = 1.0); (2) наиболее вероятный ТОЧНЫЙ СЧЁТ; (3) ТРИ футболиста, которые вероятнее всего ' +
+    'забьют в этом матче. Игроков выбирай ТОЛЬКО из предоставленных стартовых составов. Учитывай форму ' +
+    'команд, личные встречи, мотивацию, турнирное положение, травмы и роли игроков в составе. ' +
+    'Ответь ТОЛЬКО валидным JSON, без markdown и текста вне JSON.'
+  );
+}
+
+export function buildLvsUserPrompt(ctx: MatchContext): string {
+  const lines: string[] = [
+    `Матч: ${ctx.homeTeam} (дома) vs ${ctx.awayTeam} (в гостях)`,
+    `Турнир: ${ctx.league} (${ctx.country})${ctx.round ? ', ' + ctx.round : ''}`,
+    `Дата: ${ctx.date}`,
+  ];
+  const push = (label: string, v?: string) => {
+    if (v && v.trim()) lines.push(`${label}: ${v}`);
+  };
+  push('Форма хозяев (5 матчей)', ctx.homeForm);
+  push('Форма гостей (5 матчей)', ctx.awayForm);
+  push('Хозяева в таблице', ctx.homeTablePos);
+  push('Гости в таблице', ctx.awayTablePos);
+  push('Важность матча', ctx.importance);
+  push('Мотивация', ctx.motivation);
+  push('Личные встречи', ctx.h2hSummary);
+  push('Травмы/дисквалификации', ctx.injuries);
+  push('Атака/оборона', ctx.attackDefence);
+  push('xG / xGA', ctx.xgSummary);
+  push('Стиль игры', ctx.style);
+  push('Тренеры', ctx.coaches);
+  if (ctx.lineups && ctx.lineups.trim()) {
+    lines.push('Стартовые составы:', ctx.lineups.trim());
+  }
+
+  return `${lines.join('\n')}
+
+Верни ТОЛЬКО JSON в формате:
+{"outcome":"1","probs":{"win1":0.0,"draw":0.0,"win2":0.0},"score":{"home":0,"away":0},"scorers":[{"name":"Имя Фамилия","team":"home","probability":0.0},{"name":"...","team":"away","probability":0.0},{"name":"...","team":"home","probability":0.0}],"rationale":"3-5 предложений на русском","keyFactors":["...","...","..."],"confidence":0.0}
+
+Требования:
+- "outcome" — '1' (победа ${ctx.homeTeam}), 'X' (ничья) или '2' (победа ${ctx.awayTeam}); совпадает с самым вероятным исходом в "probs" (сумма win1+draw+win2 = 1.0).
+- "score" — наиболее вероятный точный счёт (целые числа), согласованный с исходом.
+- "scorers" — РОВНО 3 игрока, ТОЛЬКО из стартовых составов выше, "team": "home" или "away", "probability" — шанс гола (0..1).
+- "rationale" (3-5 предложений) — почему такой исход, счёт и игроки: форма, составы, H2H, мотивация. "keyFactors" — 3-5 коротких пунктов. Всё на русском.`;
+}
+
 // Renders a bookmaker odds map into a readable block for the prompt.
 export function formatOddsBlock(odds: Record<string, number>): string {
   const labels: Record<string, string> = {

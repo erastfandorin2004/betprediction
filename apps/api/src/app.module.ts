@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { FixturesModule } from './fixtures/fixtures.module';
 import { LeaguesModule } from './leagues/leagues.module';
 import { PredictionsModule } from './predictions/predictions.module';
+import { LvsModule } from './lvs/lvs.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { PredictionsModule } from './predictions/predictions.module';
     FixturesModule,
     LeaguesModule,
     PredictionsModule,
+    LvsModule,
   ],
 })
 export class AppModule {}

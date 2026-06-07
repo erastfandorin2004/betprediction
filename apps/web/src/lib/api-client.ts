@@ -6,6 +6,8 @@ import type {
   TrackRecordStats,
   BacktestSummary,
   PredictionHistoryItem,
+  LvsDay,
+  LvsHistoryItem,
 } from '@ai-score/shared';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
@@ -231,6 +233,12 @@ export const api = {
   history: {
     get: () =>
       apiFetch<PredictionHistoryItem[]>('/v1/predictions/history', { revalidate: 30 }),
+  },
+  lvs: {
+    fixtures: () =>
+      apiFetch<LvsDay[]>('/v1/lvs/fixtures', { revalidate: 60, tags: ['lvs'] }),
+    history: () =>
+      apiFetch<LvsHistoryItem[]>('/v1/lvs/history', { revalidate: 30 }),
   },
 } as const;
 

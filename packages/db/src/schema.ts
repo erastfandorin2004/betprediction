@@ -123,6 +123,54 @@ export const predictions = pgTable(
   ],
 );
 
+// ЛВС (LVS) — отдельный раздел матчей чемпионата мира с собственным анализом и
+// собственной историей, полностью изолированный от `predictions`. Анализируются
+// только 4 рынка: исход (1X2), точный счёт и 3 вероятных бомбардира. Анализ
+// запускается за ~1ч до матча, когда уже доступны стартовые составы.
+export const lvsPredictions = pgTable(
+  'lvs_predictions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    fixtureId: integer('fixture_id')
+      .notNull()
+      .references(() => fixtures.id),
+    // Прогноз
+    outcome: varchar('outcome', { length: 1 }).notNull(), // '1' | 'X' | '2'
+    probWin1: real('prob_win1').notNull(),
+    probDraw: real('prob_draw').notNull(),
+    probWin2: real('prob_win2').notNull(),
+    scoreHome: integer('score_home').notNull(),
+    scoreAway: integer('score_away').notNull(),
+    // [{ name, team: 'home'|'away', probability }] — 3 игрока
+    scorers: jsonb('scorers').notNull().$type<unknown[]>(),
+    // Снапшот составов, использованных в анализе (TeamLineupOut).
+    lineupsHome: jsonb('lineups_home').$type<unknown>(),
+    lineupsAway: jsonb('lineups_away').$type<unknown>(),
+    confidence: real('confidence').notNull(),
+    stars: integer('stars').notNull(),
+    rationale: text('rationale'),
+    summary: text('summary'),
+    modelViews: jsonb('model_views').$type<unknown[]>(),
+    // Результат (заполняется при сеттлменте после матча)
+    status: varchar('status', { length: 20 }).notNull().default('pending'), // pending | resolved
+    resultStatus: varchar('result_status', { length: 20 }), // won | partial | lost
+    actualOutcome: varchar('actual_outcome', { length: 1 }),
+    actualScoreHome: integer('actual_score_home'),
+    actualScoreAway: integer('actual_score_away'),
+    outcomeHit: boolean('outcome_hit'),
+    scoreHit: boolean('score_hit'),
+    // [{ name, team, scored: boolean }]
+    scorersResult: jsonb('scorers_result').$type<unknown[]>(),
+    isCorrect: boolean('is_correct'),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('lvs_predictions_fixture_idx').on(t.fixtureId),
+    index('lvs_predictions_status_idx').on(t.status),
+  ],
+);
+
 // Backtest runs: replaying the value-bet logic over a fixed sample of finished
 // matches to measure ROI / hit-rate before trusting it live (spec §9). Each row
 // is one full run; `picks` holds the per-match detail, `summary` the aggregates.
@@ -241,6 +289,10 @@ export const fixturesRelations = relations(fixtures, ({ one, many }) => ({
 
 export const predictionsRelations = relations(predictions, ({ one }) => ({
   fixture: one(fixtures, { fields: [predictions.fixtureId], references: [fixtures.id] }),
+}));
+
+export const lvsPredictionsRelations = relations(lvsPredictions, ({ one }) => ({
+  fixture: one(fixtures, { fields: [lvsPredictions.fixtureId], references: [fixtures.id] }),
 }));
 
 export const usersRelations = relations(users, ({ one, many }) => ({

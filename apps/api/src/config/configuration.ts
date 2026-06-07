@@ -38,6 +38,12 @@ export default () => {
       tokensEnabled: process.env['TOKENS_ENABLED'] === 'true',
       aiCostTokens: parseInt(process.env['AI_PREDICTION_COST'] ?? '5', 10),
     },
+    // ЛВС (LVS) — отдельный раздел матчей ЧМ. Анализ запускается автоматически за
+    // ~1ч до матча (когда доступны составы) — намеренное исключение из «анализ
+    // только по кнопке», действует только для ЛВС. Отключается LVS_AUTO=false.
+    lvs: {
+      auto: process.env['LVS_AUTO'] !== 'false',
+    },
     newsApi: {
       apiKey: process.env['NEWS_API_KEY'] ?? '',
     },

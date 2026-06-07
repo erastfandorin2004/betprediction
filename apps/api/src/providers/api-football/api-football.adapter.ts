@@ -50,6 +50,12 @@ interface AfLineupTeam {
   coach: { id: number; name: string | null } | null;
 }
 interface AfStatTeam { team: { id: number }; statistics: { type: string; value: number | string | null }[] }
+interface AfMatchEvent {
+  type: string; // 'Goal' | 'Card' | 'subst' | 'Var'
+  detail: string; // 'Normal Goal' | 'Penalty' | 'Own Goal' | 'Missed Penalty' | ...
+  team: { id: number; name: string };
+  player: { id: number | null; name: string | null };
+}
 interface AfOddValue { value: string; odd: string }
 interface AfOddBet { id: number; name: string; values: AfOddValue[] }
 interface AfOddBookmaker { id: number; name: string; bets: AfOddBet[] }
@@ -185,6 +191,24 @@ export class ApiFootballAdapter {
     } catch (err) {
       this.logger.warn(`Lineups fetch failed: ${err instanceof Error ? err.message : String(err)}`);
       return null;
+    }
+  }
+
+  // Имена игроков, забивших в матче (для сеттлмента ЛВС). Исключаем незабитые
+  // пенальти и автоголы (автогол не засчитывается как «забил предсказанный игрок»).
+  async getGoalscorers(home: string, away: string, dateISO?: string): Promise<string[]> {
+    if (!this.hasKey) return [];
+    const fixtureId = await this.resolveFixtureId(home, away, dateISO);
+    if (!fixtureId) return [];
+    try {
+      const data = await this.fetch<{ response: AfMatchEvent[] }>(`/fixtures/events?fixture=${fixtureId}`);
+      return (data.response ?? [])
+        .filter((e) => e.type === 'Goal' && e.detail !== 'Missed Penalty' && e.detail !== 'Own Goal')
+        .map((e) => e.player?.name ?? '')
+        .filter(Boolean);
+    } catch (err) {
+      this.logger.warn(`Goalscorers fetch failed: ${err instanceof Error ? err.message : String(err)}`);
+      return [];
     }
   }
 
