@@ -12,22 +12,22 @@ export function LvsContent({ days }: { days: LvsDay[] }) {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      {/* Hero ЛВС — кубок мира ФИФА + заголовок */}
+      {/* Hero ЛВС — кубок мира + заголовок поверх стадиона */}
       <header className="relative mb-6 overflow-hidden rounded-3xl border shadow-lg" style={{ borderColor: 'rgb(var(--pitch-700))' }}>
-        <div className="relative aspect-[16/10] w-full sm:aspect-[16/9]">
+        <div className="relative h-52 w-full sm:h-64">
           <Image
-            src="/lvs-hero.jpg"
-            alt="Кубок мира ФИФА"
+            src="/lvs-hero.png"
+            alt="World Cup 2026"
             fill
             priority
             unoptimized
             sizes="(max-width: 768px) 100vw, 680px"
-            className="object-cover object-[center_42%]"
+            className="object-cover object-center"
           />
-          {/* затемнение снизу под текст */}
+          {/* затемнение слева под текст */}
           <div
             className="absolute inset-0"
-            style={{ background: 'linear-gradient(0deg, rgba(6,8,22,0.96) 2%, rgba(6,8,22,0.6) 30%, rgba(6,8,22,0.12) 55%, rgba(6,8,22,0.25) 100%)' }}
+            style={{ background: 'linear-gradient(90deg, rgba(8,10,26,0.85) 0%, rgba(8,10,26,0.55) 42%, rgba(8,10,26,0.08) 72%, rgba(8,10,26,0) 100%)' }}
           />
           {/* мультиколор-полоса ЧМ сверху */}
           <div className="absolute inset-x-0 top-0 flex h-1.5">
@@ -37,17 +37,16 @@ export function LvsContent({ days }: { days: LvsDay[] }) {
             <i className="flex-1" style={{ background: '#00c2a3' }} />
             <i className="flex-1" style={{ background: '#c7f000' }} />
           </div>
-          {/* бейдж сверху-слева */}
-          <span
-            className="absolute left-5 top-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white backdrop-blur-sm sm:left-7"
-            style={{ background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.28)' }}
-          >
-            🏆 ЧМ-2026 · LVS
-          </span>
-          {/* контент снизу */}
-          <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1.5 px-6 pb-5 sm:px-8 sm:pb-7">
-            <h1 className="text-2xl font-extrabold leading-tight tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] sm:text-[2rem]">{L.title}</h1>
-            <p className="max-w-md text-sm leading-relaxed text-white/85 drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]">{L.subtitle}</p>
+          {/* контент */}
+          <div className="absolute inset-0 flex flex-col justify-center gap-2.5 px-6 sm:px-8">
+            <span
+              className="inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white backdrop-blur-sm"
+              style={{ background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.28)' }}
+            >
+              🏆 ЧМ-2026 · LVS
+            </span>
+            <h1 className="text-2xl font-extrabold leading-tight tracking-tight text-white sm:text-[2rem]">{L.title}</h1>
+            <p className="max-w-md text-sm leading-relaxed text-white/85">{L.subtitle}</p>
           </div>
         </div>
       </header>
