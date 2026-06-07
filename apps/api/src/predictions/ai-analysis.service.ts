@@ -84,8 +84,10 @@ export class AiAnalysisService {
     const modelViews = buildModelViews(parsed, agg.recommendedMarket, agg.recommendedOutcome);
 
     // Select the 1–3 strongest bets for THIS match (prob + real odds + value).
-    // Не показываем проценты по всем рынкам — только лучшие исходы на событие.
-    const selectedBets = selectBets(agg.markets, oddsMap);
+    // Учитываем КОНКРЕТНЫЕ рекомендации моделей (с линией), а не только усреднённый
+    // консенсус — чтобы лучший предложенный вариант выносился наверх, без расхождения
+    // «сверху риск, снизу ставка».
+    const selectedBets = selectBets(agg.markets, oddsMap, valid);
     const primary = selectedBets[0] ?? null;
     const riskNote = selectedBets.length ? null : buildRiskNote(agg);
 
@@ -308,64 +310,101 @@ const NO_ODDS_MIN_PROB = 0.65;
 // не предлагаем их «вслепую».
 const NO_ODDS_INELIGIBLE = new Set(['DC', 'O_U_1_5']);
 
-function selectBets(markets: AggMarket[], oddsMap: Record<string, number>): BetPick[] {
-  const candidates: BetPick[] = [];
+// Кандидат ставки, сгруппированный по (рынок + исход + линия). Источник — сначала
+// собственные рекомендации моделей (с конкретной линией), затем агрегат-консенсус
+// как добор. support = сколько моделей реально это предложили (для приоритета
+// согласованных ставок и устранения расхождения «сверху риск — снизу ставка»).
+interface BetCand {
+  market: string;
+  marketLabel: string;
+  outcome: string;
+  label: string;
+  probs: number[];
+  support: number;
+}
 
+function selectBets(
+  markets: AggMarket[],
+  oddsMap: Record<string, number>,
+  modelResponses: LlmResponse[],
+): BetPick[] {
+  const byKey = new Map<string, BetCand>();
+  const add = (market: string, outcome: string, label: string, prob: number, isModelPick: boolean) => {
+    const line = parseLine(label) ?? '';
+    const key = `${market}|${outcome}|${line}`;
+    let e = byKey.get(key);
+    if (!e) {
+      e = { market, outcome, label, marketLabel: (MARKET_LABELS as Record<string, string>)[market] ?? market, probs: [], support: 0 };
+      byKey.set(key, e);
+    }
+    e.probs.push(prob);
+    if (isModelPick) e.support += 1;
+  };
+
+  // 1) Конкретный выбор каждой модели (с её линией и вероятностью).
+  for (const r of modelResponses) {
+    const mk = r.markets.find((m) => m.market === r.recommendedMarket);
+    const oc = mk?.outcomes.find((o) => o.outcome === r.recommendedOutcome);
+    if (mk && oc) add(mk.market, oc.outcome, oc.label, oc.probability, true);
+  }
+  // 2) Консенсус-топ по каждому рынку — добор (заполняет ключи, которых ещё нет).
   for (const m of markets) {
     if (!m.outcomes.length) continue;
     const top = m.outcomes.reduce((b, o) => (o.probability > b.probability ? o : b));
-    const marketLabel = (MARKET_LABELS as Record<string, string>)[m.market] ?? m.market;
-    const realOdds = oddsMap[oddsKeyFor(m.market, top.outcome, top.label)];
+    add(m.market, top.outcome, top.label, top.probability, false);
+  }
 
+  const candidates: (BetPick & { _support: number })[] = [];
+  for (const e of byKey.values()) {
+    const prob = e.probs.reduce((a, b) => a + b, 0) / e.probs.length;
+    const realOdds = oddsMap[oddsKeyFor(e.market, e.outcome, e.label)];
     if (realOdds != null) {
       if (realOdds < MIN_ODDS || realOdds > MAX_ODDS) continue;
       const implied = round(1 / realOdds);
-      const edge = round(top.probability - implied);
-      const isValue = edge >= MIN_EDGE && top.probability >= VALUE_MIN_PROB;
-      const isFavourite = top.probability >= FAV_MIN_PROB && realOdds >= FAV_MIN_ODDS;
+      const edge = round(prob - implied);
+      const isValue = edge >= MIN_EDGE && prob >= VALUE_MIN_PROB;
+      const isFavourite = prob >= FAV_MIN_PROB && realOdds >= FAV_MIN_ODDS;
       if (!isValue && !isFavourite) continue;
       candidates.push({
-        market: m.market as MarketType,
-        marketLabel,
-        outcome: top.outcome,
-        label: top.label,
-        probability: round(top.probability),
-        odds: realOdds,
-        impliedProbability: implied,
-        valueEdge: edge,
-        isPrimary: false,
+        market: e.market as MarketType, marketLabel: e.marketLabel, outcome: e.outcome, label: e.label,
+        probability: round(prob), odds: realOdds, impliedProbability: implied, valueEdge: edge,
+        isPrimary: false, _support: e.support,
       });
     } else {
-      // Нет живого коэффициента: берём только уверенные исходы по вероятности.
-      if (NO_ODDS_INELIGIBLE.has(m.market) || top.probability < NO_ODDS_MIN_PROB) continue;
+      if (NO_ODDS_INELIGIBLE.has(e.market) || prob < NO_ODDS_MIN_PROB) continue;
       candidates.push({
-        market: m.market as MarketType,
-        marketLabel,
-        outcome: top.outcome,
-        label: top.label,
-        probability: round(top.probability),
-        odds: null,
-        impliedProbability: null,
-        valueEdge: null,
-        isPrimary: false,
+        market: e.market as MarketType, marketLabel: e.marketLabel, outcome: e.outcome, label: e.label,
+        probability: round(prob), odds: null, impliedProbability: null, valueEdge: null,
+        isPrimary: false, _support: e.support,
       });
     }
   }
 
-  // Сила ставки = перевес + небольшой бонус за вероятность прохода. Так value на
-  // угловых/карточках/тоталах обгоняет скучного низкого фаворита, но при равном
-  // перевесе предпочтём более вероятный исход. Ставки без коэф. — в конце.
-  const strength = (b: BetPick) => (b.valueEdge ?? 0) + 0.1 * (b.probability - 0.5);
+  // Сила = перевес (value) + бонус за поддержку моделей + бонус за вероятность.
+  // Так согласованная value-ставка (на угловые/карточки/тотал) выходит наверх,
+  // а низкий фаворит без перевеса — нет. Ставки без коэф. — в конце.
+  const strength = (b: BetPick & { _support: number }) =>
+    (b.valueEdge ?? 0) + 0.05 * b._support + 0.06 * (b.probability - 0.5);
   candidates.sort((a, b) => {
     const av = a.valueEdge != null;
     const bv = b.valueEdge != null;
     if (av && bv) return strength(b) - strength(a);
     if (av) return -1;
     if (bv) return 1;
-    return b.probability - a.probability;
+    return strength(b) - strength(a);
   });
 
-  const top3 = candidates.slice(0, 3);
+  // Не больше одной ставки на рынок: берём сильнейшее направление/линию, иначе
+  // в блоке появлялись бы противоположные исходы одного рынка (Меньше и Больше).
+  const top3: BetPick[] = [];
+  const usedMarkets = new Set<string>();
+  for (const c of candidates) {
+    if (usedMarkets.has(c.market)) continue;
+    usedMarkets.add(c.market);
+    const { _support, ...b } = c;
+    top3.push(b as BetPick);
+    if (top3.length === 3) break;
+  }
   if (top3[0]) top3[0].isPrimary = true;
   return top3;
 }
