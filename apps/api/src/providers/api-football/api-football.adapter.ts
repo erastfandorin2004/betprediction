@@ -26,29 +26,53 @@ export interface AfH2HFixture {
   };
 }
 
+// Стат-строка матча в формате, который ждут settlement и страница матча.
+export interface MatchStat { name: string; home: string; away: string }
+
+// Состав в формате страницы матча (api-client TeamLineup/MatchLineups).
+export interface LineupPlayerOut { id: string; name: string; number: number | null }
+export interface TeamLineupOut {
+  formation: string;
+  lines: number[]; // ряды на поле, включая вратаря, напр. [1,4,3,3]
+  coach: string | null;
+  startingXI: LineupPlayerOut[];
+  substitutes: LineupPlayerOut[];
+}
+export interface MatchLineupsOut { home: TeamLineupOut; away: TeamLineupOut }
+
+interface AfLineupPlayer { player: { id: number; name: string; number: number | null; pos: string | null } }
+interface AfLineupTeam {
+  team: { id: number; name: string };
+  formation: string | null;
+  startXI: AfLineupPlayer[];
+  substitutes: AfLineupPlayer[];
+  coach: { id: number; name: string | null } | null;
+}
+interface AfStatTeam { team: { id: number }; statistics: { type: string; value: number | string | null }[] }
+
+// Единый провайдер футбольных данных — API-Football (api-sports.io DIRECT,
+// ключ API_FOOTBALL_KEY, заголовок x-apisports-key). Заменяет FlashLive и
+// RapidAPI для формы/H2H/составов/статистики матча. Возвращает пустые значения
+// при отсутствии ключа или данных (graceful degradation).
 @Injectable()
 export class ApiFootballAdapter {
   private readonly logger = new Logger(ApiFootballAdapter.name);
-  private readonly base = 'https://api-football-v1.p.rapidapi.com/v3';
+  private readonly base = 'https://v3.football.api-sports.io';
   private readonly teamIdCache = new Map<string, number | null>();
 
   constructor(private readonly config: ConfigService) {}
 
   private get apiKey(): string {
-    return this.config.get<string>('rapidApi.footballApiKey') ?? '';
+    return this.config.get<string>('apiFootball.apiKey') ?? '';
   }
-
-  private get hasKey(): boolean {
+  get hasKey(): boolean {
     return !!this.apiKey;
   }
 
   private async fetch<T>(path: string): Promise<T> {
-    if (!this.hasKey) throw new Error('RAPIDAPI_FOOTBALL_KEY not configured');
+    if (!this.hasKey) throw new Error('API_FOOTBALL_KEY not configured');
     const res = await fetch(`${this.base}${path}`, {
-      headers: {
-        'X-RapidAPI-Key': this.apiKey,
-        'X-RapidAPI-Host': 'api-football-v1.p.rapidapi.com',
-      },
+      headers: { 'x-apisports-key': this.apiKey },
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) throw new Error(`API-Football ${res.status} on ${path}`);
@@ -58,12 +82,11 @@ export class ApiFootballAdapter {
   async getTeamId(teamName: string): Promise<number | null> {
     const cached = this.teamIdCache.get(teamName);
     if (cached !== undefined) return cached;
-
     try {
-      const data = await this.fetch<{ response: { team: AfTeam }[] }>(
+      const data = await this.fetch<{ response: { team: AfTeam & { national?: boolean } }[] }>(
         `/teams?search=${encodeURIComponent(teamName)}`,
       );
-      const id = data.response?.[0]?.team?.id ?? null;
+      const id = pickTeamId(data.response ?? [], teamName);
       this.teamIdCache.set(teamName, id);
       return id;
     } catch (err) {
@@ -72,27 +95,125 @@ export class ApiFootballAdapter {
     }
   }
 
-  async getH2H(team1Name: string, team2Name: string, last = 20): Promise<AfH2HFixture[]> {
+  // Последние сыгранные матчи команды (форма) в формате AfH2HFixture.
+  async getTeamForm(teamName: string, last = 6): Promise<AfH2HFixture[]> {
     if (!this.hasKey) return [];
-
-    const [id1, id2] = await Promise.all([
-      this.getTeamId(team1Name),
-      this.getTeamId(team2Name),
-    ]);
-
-    if (!id1 || !id2) {
-      this.logger.warn(`Could not resolve team IDs: ${team1Name}=${id1}, ${team2Name}=${id2}`);
+    const id = await this.getTeamId(teamName);
+    if (!id) return [];
+    try {
+      const data = await this.fetch<{ response: AfH2HFixture[] }>(`/fixtures?team=${id}&last=${last}`);
+      return (data.response ?? []).filter((f) => f.goals.home != null && f.goals.away != null);
+    } catch (err) {
+      this.logger.warn(`Form fetch failed for "${teamName}": ${err instanceof Error ? err.message : String(err)}`);
       return [];
     }
+  }
 
+  async getH2H(team1Name: string, team2Name: string, last = 10): Promise<AfH2HFixture[]> {
+    if (!this.hasKey) return [];
+    const [id1, id2] = await Promise.all([this.getTeamId(team1Name), this.getTeamId(team2Name)]);
+    if (!id1 || !id2) return [];
     try {
       const data = await this.fetch<{ response: AfH2HFixture[] }>(
-        `/fixtures/headtohead?h2h=${id1}-${id2}&last=${last}&status=FT-AET-PEN`,
+        `/fixtures/headtohead?h2h=${id1}-${id2}&last=${last}`,
       );
-      return data.response ?? [];
+      return (data.response ?? []).filter((f) => f.goals.home != null && f.goals.away != null);
     } catch (err) {
       this.logger.warn(`H2H fetch failed: ${err instanceof Error ? err.message : String(err)}`);
       return [];
     }
   }
+
+  // ID конкретного матча двух команд рядом с датой (для составов/статистики).
+  private async resolveFixtureId(home: string, away: string, dateISO?: string): Promise<number | null> {
+    const [id1, id2] = await Promise.all([this.getTeamId(home), this.getTeamId(away)]);
+    if (!id1 || !id2) return null;
+    try {
+      const data = await this.fetch<{ response: AfH2HFixture[] }>(`/fixtures/headtohead?h2h=${id1}-${id2}&last=20`);
+      const list = data.response ?? [];
+      if (!list.length) return null;
+      if (!dateISO) return list[list.length - 1]!.fixture.id;
+      const target = new Date(dateISO).getTime();
+      let best: { id: number; diff: number } | null = null;
+      for (const f of list) {
+        const diff = Math.abs(new Date(f.fixture.date).getTime() - target);
+        if (!best || diff < best.diff) best = { id: f.fixture.id, diff };
+      }
+      // принимаем только если матч в пределах ±2 дней от ожидаемого времени
+      return best && best.diff < 2 * 86_400_000 ? best.id : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async getLineups(home: string, away: string, dateISO?: string): Promise<MatchLineupsOut | null> {
+    if (!this.hasKey) return null;
+    const fixtureId = await this.resolveFixtureId(home, away, dateISO);
+    if (!fixtureId) return null;
+    try {
+      const data = await this.fetch<{ response: AfLineupTeam[] }>(`/fixtures/lineups?fixture=${fixtureId}`);
+      const teams = data.response ?? [];
+      if (teams.length < 2) return null;
+      return { home: toTeamLineup(teams[0]!), away: toTeamLineup(teams[1]!) };
+    } catch (err) {
+      this.logger.warn(`Lineups fetch failed: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    }
+  }
+
+  async getStats(home: string, away: string, dateISO?: string): Promise<MatchStat[] | null> {
+    if (!this.hasKey) return null;
+    const fixtureId = await this.resolveFixtureId(home, away, dateISO);
+    if (!fixtureId) return null;
+    try {
+      const data = await this.fetch<{ response: AfStatTeam[] }>(`/fixtures/statistics?fixture=${fixtureId}`);
+      const teams = data.response ?? [];
+      if (teams.length < 2) return null;
+      const homeStats = new Map(teams[0]!.statistics.map((s) => [s.type, s.value]));
+      const awayStats = new Map(teams[1]!.statistics.map((s) => [s.type, s.value]));
+      const types = [...new Set([...homeStats.keys(), ...awayStats.keys()])];
+      return types.map((name) => ({
+        name,
+        home: String(homeStats.get(name) ?? ''),
+        away: String(awayStats.get(name) ?? ''),
+      }));
+    } catch (err) {
+      this.logger.warn(`Stats fetch failed: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    }
+  }
+}
+
+// Поиск в API-Football по имени возвращает клубы/женские/молодёжные команды
+// раньше нужной (напр. «Chile» → «Chile W»). Выбираем точное совпадение имени,
+// предпочитая основную сборную/клуб; иначе — первый результат.
+export function pickTeamId(
+  response: { team: { id: number; name: string; national?: boolean } }[],
+  query: string,
+): number | null {
+  if (!response.length) return null;
+  const q = query.trim().toLowerCase();
+  const exact = response.filter((r) => r.team.name.trim().toLowerCase() === q);
+  if (exact.length) return (exact.find((r) => r.team.national) ?? exact[0]!).team.id;
+  return response[0]!.team.id;
+}
+
+function toTeamLineup(lt: AfLineupTeam): TeamLineupOut {
+  const formation = lt.formation ?? '';
+  // «4-3-3» → ряды [1,4,3,3] (вратарь + линии). Пусто, если формация неизвестна.
+  const lines = formation
+    ? [1, ...formation.split('-').map((n) => parseInt(n, 10)).filter((n) => !isNaN(n))]
+    : [];
+  const map = (p: AfLineupPlayer): LineupPlayerOut => ({
+    id: String(p.player.id),
+    name: p.player.name,
+    number: p.player.number,
+  });
+  return {
+    formation,
+    lines,
+    coach: lt.coach?.name ?? null,
+    startingXI: lt.startXI.map(map),
+    substitutes: lt.substitutes.map(map),
+  };
 }

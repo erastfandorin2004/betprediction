@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { pickTeamId } from '../api-football/api-football.adapter';
 
 // Injuries/suspensions from API-Football (api-sports.io DIRECT endpoint, key
 // `API_FOOTBALL_KEY`). FlashLive has no injuries feed and the RapidAPI key is
@@ -40,10 +41,10 @@ export class InjuriesAdapter {
     const cached = this.teamIdCache.get(name);
     if (cached !== undefined) return cached;
     try {
-      const data = await this.fetch<{ response: { team: { id: number } }[] }>(
+      const data = await this.fetch<{ response: { team: { id: number; name: string; national?: boolean } }[] }>(
         `/teams?search=${encodeURIComponent(name)}`,
       );
-      const id = data.response?.[0]?.team?.id ?? null;
+      const id = pickTeamId(data.response ?? [], name);
       this.teamIdCache.set(name, id);
       return id;
     } catch (err) {

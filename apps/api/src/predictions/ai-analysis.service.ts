@@ -11,7 +11,8 @@ import {
   type MatchContext,
   type ModelCallResult,
 } from '@ai-score/shared';
-import type { PredictionDetail, ModelConsensus, ModelForecast, Lineups, BetPick, MarketType } from '@ai-score/shared';
+import type { PredictionDetail, ModelConsensus, ModelForecast, BetPick, MarketType } from '@ai-score/shared';
+import type { MatchLineupsOut } from '../providers/api-football/api-football.adapter';
 import { DatabaseService } from '../database/database.service';
 import { PredictionsService } from './predictions.service';
 import { FixturesService } from '../fixtures/fixtures.service';
@@ -211,7 +212,7 @@ export class AiAnalysisService {
       const homeFlash = (c['homeFormFlash'] as ProviderFixture[] | undefined) ?? [];
       const awayFlash = (c['awayFormFlash'] as ProviderFixture[] | undefined) ?? [];
       const h2hAll = (c['h2hAll'] as ProviderFixture[] | undefined) ?? [];
-      const lineups = (c['lineups'] as Lineups | null) ?? null;
+      const lineups = (c['lineups'] as MatchLineupsOut | null) ?? null;
       const homeCoach = (c['homeCoach'] as { name?: string } | null)?.name;
       const awayCoach = (c['awayCoach'] as { name?: string } | null)?.name;
 
@@ -232,8 +233,6 @@ export class AiAnalysisService {
       if (lineups) {
         const lineupText = lineupsSummary(lineups, home.shortName || home.name, away.shortName || away.name);
         if (lineupText) ctx.lineups = lineupText;
-        const inj = injuriesSummary(lineups, home.shortName || home.name, away.shortName || away.name);
-        if (inj) ctx.injuries = inj;
       }
     } catch (err) {
       this.logger.warn(`Provider context unavailable for ${fixtureId}: ${err instanceof Error ? err.message : err}`);
@@ -651,26 +650,16 @@ function h2hSummary(fixtures: ProviderFixture[], homeName: string): string {
   return `Последние ${played.length} очных: ${w}П ${d}Н ${l}П (с точки зрения ${homeName}), в среднем ${avg} гола за матч`;
 }
 
-function lineupsSummary(lineups: Lineups, homeShort: string, awayShort: string): string {
-  const side = (team: Lineups['home'], name: string): string | null => {
-    const names = team.starters.map((p) => p.name).filter(Boolean);
-    if (!names.length && !team.formation) return null;
-    const formation = team.formation ? ` (${team.formation})` : '';
+function lineupsSummary(lineups: MatchLineupsOut, homeShort: string, awayShort: string): string {
+  const side = (team: MatchLineupsOut['home'], name: string): string | null => {
+    const names = (team?.startingXI ?? []).map((p) => p.name).filter(Boolean);
+    if (!names.length && !team?.formation) return null;
+    const formation = team?.formation ? ` (${team.formation})` : '';
     return `${name}${formation}: ${names.slice(0, 11).join(', ') || '—'}`;
   };
   const home = side(lineups.home, homeShort);
   const away = side(lineups.away, awayShort);
   const parts = [home, away].filter(Boolean) as string[];
   if (!parts.length) return '';
-  const prefix = lineups.confirmed ? 'Официальные составы' : 'Ожидаемые составы';
-  return `${prefix}. ${parts.join('. ')}`;
-}
-
-function injuriesSummary(lineups: Lineups, homeShort: string, awayShort: string): string {
-  const fmt = (team: Lineups['home'], name: string): string | null => {
-    if (!team.injuries.length) return null;
-    return `${name}: ${team.injuries.map((i) => i.player.name + (i.reason ? ` (${i.reason})` : '')).join(', ')}`;
-  };
-  const parts = [fmt(lineups.home, homeShort), fmt(lineups.away, awayShort)].filter(Boolean) as string[];
-  return parts.join('; ');
+  return `Составы. ${parts.join('. ')}`;
 }

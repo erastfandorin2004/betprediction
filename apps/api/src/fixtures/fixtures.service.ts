@@ -5,8 +5,7 @@ import * as schema from '@ai-score/db';
 import { DatabaseService } from '../database/database.service';
 import { RedisService } from '../redis/redis.service';
 import { FootballDataAdapter } from '../providers/football-data/football-data.adapter';
-import { FlashLiveAdapter } from '../providers/flashlive/flashlive.adapter';
-import type { AfH2HFixture } from '../providers/api-football/api-football.adapter';
+import { ApiFootballAdapter, type AfH2HFixture } from '../providers/api-football/api-football.adapter';
 import { NewsService } from '../news/news.service';
 import type { FixtureListQueryDto } from './dto/fixture-list-query.dto';
 import type {
@@ -42,7 +41,7 @@ export class FixturesService {
     private readonly db: DatabaseService,
     private readonly redis: RedisService,
     private readonly fdAdapter: FootballDataAdapter,
-    private readonly flashLiveAdapter: FlashLiveAdapter,
+    private readonly apiFootballAdapter: ApiFootballAdapter,
     private readonly newsService: NewsService,
   ) {}
 
@@ -303,22 +302,21 @@ export class FixturesService {
     const wantLive = row.fixture.status === 'live' || row.fixture.status === 'finished'
       || msToKickoff < 3 * 60 * 60 * 1000;
 
+    // Источник формы/H2H/составов/статистики — единый API-Football. Составы/
+    // squads и таблица WC остаются из football-data (расписание ЧМ-2026).
     const [
-      homeSquadData, awaySquadData, standingsData, h2hBundleData,
-      homeFormData, awayFormData, homeSquadFlashData, awaySquadFlashData,
-      lineupsData, statsData, summaryData, newsData,
+      homeSquadData, awaySquadData, standingsData, h2hData,
+      homeFormData, awayFormData,
+      lineupsData, statsData, newsData,
     ] = await Promise.allSettled([
         this.fdAdapter.getTeamWithSquad(homeId),
         this.fdAdapter.getTeamWithSquad(awayId),
         this.fdAdapter.getWcStandings(),
-        this.flashLiveAdapter.getBundle(homeName, awayName, startsAtISO),
-        this.flashLiveAdapter.getTeamForm(homeName),
-        this.flashLiveAdapter.getTeamForm(awayName),
-        this.flashLiveAdapter.getSquad(homeName),
-        this.flashLiveAdapter.getSquad(awayName),
-        wantLive ? this.flashLiveAdapter.getLineups(homeName, awayName, startsAtISO) : Promise.resolve(null),
-        wantLive ? this.flashLiveAdapter.getStats(homeName, awayName, startsAtISO) : Promise.resolve(null),
-        wantLive ? this.flashLiveAdapter.getSummary(homeName, awayName, startsAtISO) : Promise.resolve(null),
+        this.apiFootballAdapter.getH2H(homeName, awayName),
+        this.apiFootballAdapter.getTeamForm(homeName),
+        this.apiFootballAdapter.getTeamForm(awayName),
+        wantLive ? this.apiFootballAdapter.getLineups(homeName, awayName, startsAtISO) : Promise.resolve(null),
+        wantLive ? this.apiFootballAdapter.getStats(homeName, awayName, startsAtISO) : Promise.resolve(null),
         this.newsService.getTeamNews([homeName, awayName], locale),
       ]);
 
@@ -334,17 +332,10 @@ export class FixturesService {
       return null;
     };
 
-    // H2H from FlashScore; per-team form from /teams/results (reliable for all
-    // teams), falling back to the h2h "Last matches" groups when results are empty.
-    const bundle = h2hBundleData.status === 'fulfilled'
-      ? h2hBundleData.value
-      : { h2h: [], homeForm: [], awayForm: [] };
-    const homeFormFlash = homeFormData.status === 'fulfilled' && homeFormData.value.length
-      ? homeFormData.value
-      : bundle.homeForm;
-    const awayFormFlash = awayFormData.status === 'fulfilled' && awayFormData.value.length
-      ? awayFormData.value
-      : bundle.awayForm;
+    // H2H и форма команд — из API-Football (формат AfH2HFixture).
+    const h2hAllRaw = h2hData.status === 'fulfilled' ? h2hData.value : [];
+    const homeFormFlash = homeFormData.status === 'fulfilled' ? homeFormData.value : [];
+    const awayFormFlash = awayFormData.status === 'fulfilled' ? awayFormData.value : [];
 
     const result = {
       homeForm: homeMatches.map(toMatchSummary),
@@ -352,7 +343,7 @@ export class FixturesService {
       homeFormFlash: homeFormFlash.map(this.mapH2HFixture),
       awayFormFlash: awayFormFlash.map(this.mapH2HFixture),
       h2hWc: h2hRows.map(toMatchSummary),
-      h2hAll: bundle.h2h.map(this.mapH2HFixture),
+      h2hAll: h2hAllRaw.map(this.mapH2HFixture),
       homeSquad: homeSquadData.status === 'fulfilled' ? homeSquadData.value.squad : [],
       awaySquad: awaySquadData.status === 'fulfilled' ? awaySquadData.value.squad : [],
       homeCoach: homeSquadData.status === 'fulfilled'
@@ -363,11 +354,11 @@ export class FixturesService {
         : null,
       homeGroup: findTeamGroup(homeId),
       awayGroup: findTeamGroup(awayId),
-      homeSquadFlash: homeSquadFlashData.status === 'fulfilled' ? homeSquadFlashData.value : [],
-      awaySquadFlash: awaySquadFlashData.status === 'fulfilled' ? awaySquadFlashData.value : [],
+      homeSquadFlash: [],
+      awaySquadFlash: [],
       lineups: lineupsData.status === 'fulfilled' ? lineupsData.value : null,
       stats: statsData.status === 'fulfilled' ? statsData.value : null,
-      summary: summaryData.status === 'fulfilled' ? summaryData.value : null,
+      summary: null,
       news: newsData.status === 'fulfilled' ? newsData.value : [],
     };
 
