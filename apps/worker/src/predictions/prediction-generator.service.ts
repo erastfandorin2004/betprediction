@@ -7,8 +7,9 @@ import { DatabaseService } from '../database/database.service';
 import { LaozhangClient, buildSystemPrompt, buildUserPrompt, type MatchContext } from '@ai-score/shared';
 import { parseAndValidate, aggregate } from './prediction.aggregator';
 
+// grok-4 — laozhang-алиас Grok 4.3 (литералы grok-4.3/grok-4-3 не резолвятся).
 const DEFAULT_MODELS = [
-  'gpt-5.5', 'claude-opus-4-8', 'deepseek-chat',
+  'gpt-5.1', 'grok-4', 'claude-opus-4-8', 'deepseek-chat',
 ];
 
 @Injectable()

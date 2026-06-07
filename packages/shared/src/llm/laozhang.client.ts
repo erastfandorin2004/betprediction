@@ -111,8 +111,8 @@ export class LaozhangClient {
     const call = (model: string) => {
       // gpt-5.x — reasoning-модели: без reasoning_effort:'low' «размышления»
       // съедают весь бюджет токенов и JSON обрывается (даже при 8000 ток).
-      // С 'low' gpt-5.5 отдаёт полный JSON (~1300 ток вывода). Параметр шлём
-      // ТОЛЬКО этим моделям — claude/deepseek отвечают на него HTTP 400.
+      // С 'low' gpt-5.x отдаёт полный JSON (~1300 ток вывода). Параметр шлём
+      // ТОЛЬКО этим моделям — claude/deepseek/grok отвечают на него HTTP 400.
       const isGpt5 = /^gpt-5/i.test(model);
       return this.complete({
         model,

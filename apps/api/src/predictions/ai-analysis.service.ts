@@ -35,7 +35,8 @@ type AggMarket = {
   isLocked: boolean;
 };
 
-const DEFAULT_MODELS = ['gpt-5.5', 'claude-opus-4-8', 'deepseek-chat'];
+// grok-4 — laozhang-алиас Grok 4.3 (литералы grok-4.3/grok-4-3 не резолвятся).
+const DEFAULT_MODELS = ['gpt-5.1', 'grok-4', 'claude-opus-4-8', 'deepseek-chat'];
 // Дешёвая быстрая модель для синтеза общего вывода (экономия токенов).
 const SYNTH_MODEL = 'gemini-2.5-flash-nothinking';
 
