@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from 'next';
 import { Manrope, JetBrains_Mono, Montserrat, Noto_Sans } from 'next/font/google';
 import { AuthProvider } from '@/components/auth/auth-provider';
-import { AuthHeader } from '@/components/auth/auth-header';
 import { ThemeProvider } from '@/components/theme/theme-provider';
 import { LocaleProvider } from '@/components/i18n/locale-provider';
 import { Footer } from '@/components/layout/footer';
+import { NavProvider } from '@/components/layout/nav-context';
+import { Sidebar } from '@/components/layout/sidebar';
+import { Topbar } from '@/components/layout/topbar';
 import './globals.css';
 
 const sans = Manrope({
@@ -57,11 +59,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <LocaleProvider>
             <AuthProvider>
-              <div className="flex min-h-screen flex-col">
-                <AuthHeader />
-                <main className="flex-1">{children}</main>
-                <Footer />
-              </div>
+              <NavProvider>
+                <Sidebar />
+                <div className="flex min-h-screen flex-col md:pl-[260px]">
+                  <Topbar />
+                  <main className="flex-1">{children}</main>
+                  <Footer />
+                </div>
+              </NavProvider>
             </AuthProvider>
           </LocaleProvider>
         </ThemeProvider>
