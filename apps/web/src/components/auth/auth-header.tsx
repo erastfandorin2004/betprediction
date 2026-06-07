@@ -38,10 +38,7 @@ export function AuthHeader() {
     href === '/' || exact ? pathname === href : pathname.startsWith(href);
 
   return (
-    <header
-      className="sticky top-0 z-50 backdrop-blur-xl"
-      style={{ background: 'rgb(var(--pitch-950) / 0.78)', borderBottom: '1px solid rgb(var(--pitch-700))' }}
-    >
+    <header className="app-header sticky top-0 z-50 backdrop-blur-xl">
       {/* Light (WC-2026): signature multicolor brandstrip. Dark: subtle hairline. */}
       <div className="flex h-[3px] w-full dark:hidden">
         <i className="flex-1" style={{ background: '#e4002b' }} />
@@ -69,14 +66,17 @@ export function AuthHeader() {
               <Link
                 key={href}
                 href={href}
-                className="group relative flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors"
+                className={cn(
+                  'nav-link group relative flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
+                  active && 'nav-active',
+                )}
                 style={{ color: active ? 'rgb(var(--fg-primary))' : 'rgb(var(--fg-muted))' }}
               >
                 <Icon className="h-4 w-4 transition-colors" style={active ? { color: ACCENT } : undefined} />
                 <span>{label}</span>
                 <span
                   className={cn(
-                    'absolute inset-x-2.5 bottom-0 h-0.5 origin-center rounded-full transition-transform duration-200',
+                    'nav-underline absolute inset-x-2.5 bottom-0 h-0.5 origin-center rounded-full transition-transform duration-200',
                     active ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-50',
                   )}
                   style={{ background: `linear-gradient(90deg, ${ACCENT}, #3b82f6)` }}
@@ -150,6 +150,31 @@ export function AuthHeader() {
           )}
         </div>
       </div>
+
+      {/* Mobile nav — горизонтальный ряд разделов (на десктопе скрыт) */}
+      <nav
+        className="flex gap-1.5 overflow-x-auto px-3 pb-2 pt-2 md:hidden"
+        style={{ borderTop: '1px solid rgb(var(--pitch-700))' }}
+      >
+        {NAV.map(({ href, label, Icon, exact }) => {
+          const active = isActive(href, exact);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
+              style={{
+                color: active ? 'rgb(var(--fg-primary))' : 'rgb(var(--fg-muted))',
+                background: active ? 'rgb(var(--accent) / 0.12)' : 'rgb(var(--pitch-800))',
+                boxShadow: active ? 'inset 0 0 0 1px rgb(var(--accent) / 0.28)' : undefined,
+              }}
+            >
+              <Icon className="h-3.5 w-3.5" style={active ? { color: ACCENT } : undefined} />
+              {label}
+            </Link>
+          );
+        })}
+      </nav>
     </header>
   );
 }

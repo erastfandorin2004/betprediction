@@ -56,6 +56,32 @@
     color: #fff;
   }
 
+  /* ── Header (top nav) ──────────────────────────────────────────────────────
+     Dark: прежний полупрозрачный навигационный бар (без изменений).
+     Light: отдельный «фростед-вайт» блок с мягкой тенью — заметно отделён от
+     кремового контента; активный пункт — аккуратная акцентная плашка. */
+  .app-header {
+    background: rgb(var(--pitch-950) / 0.78);
+    border-bottom: 1px solid rgb(var(--pitch-700));
+  }
+  .light .app-header {
+    background: rgb(255 255 255 / 0.85);
+    border-bottom: 1px solid rgb(var(--pitch-700));
+    box-shadow: 0 6px 24px rgba(20, 20, 45, 0.07);
+  }
+  /* Light: ховер-заливка пунктов + активная акцентная плашка; подчёркивание
+     остаётся только в тёмной теме. */
+  .light .nav-link:hover {
+    background: rgb(var(--pitch-800));
+  }
+  .light .nav-active {
+    background: rgb(var(--accent) / 0.1);
+    box-shadow: inset 0 0 0 1px rgb(var(--accent) / 0.24);
+  }
+  .light .nav-underline {
+    display: none;
+  }
+
   * { box-sizing: border-box; }
 
   body {
