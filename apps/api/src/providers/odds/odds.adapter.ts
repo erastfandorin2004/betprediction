@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { formatOddsBlock } from '@ai-score/shared';
 import { manualOddsFor } from './manual-odds';
+import { ApiFootballAdapter } from '../api-football/api-football.adapter';
 
 export interface OddsLine {
   map: Record<string, number>; // for value calc
@@ -26,7 +27,10 @@ export class OddsAdapter {
   private readonly base = 'https://api.the-odds-api.com/v4';
   private soccerKeys: string[] | null = null;
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly apiFootball: ApiFootballAdapter,
+  ) {}
 
   private get apiKey(): string {
     return this.config.get<string>('theOddsApi.apiKey') ?? '';
@@ -56,6 +60,18 @@ export class OddsAdapter {
       this.logger.log(`Manual odds line used for ${homeName} vs ${awayName}`);
       return { map: manual.map, block: manual.block };
     }
+
+    // Основной источник линии — API-Football. The Odds API остаётся фолбэком.
+    try {
+      const live = await this.apiFootball.getOddsMap(homeName, awayName);
+      if (live && Object.keys(live.map).length) {
+        this.logger.log(`API-Football odds used for ${homeName} vs ${awayName}`);
+        return live;
+      }
+    } catch (err) {
+      this.logger.warn(`API-Football odds failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
     if (!this.hasKey) return { map: {}, block: '' };
     const home = OddsAdapter.norm(homeName);
     const away = OddsAdapter.norm(awayName);

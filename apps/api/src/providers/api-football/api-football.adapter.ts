@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { formatOddsBlock } from '@ai-score/shared';
 
 export interface AfTeam {
   id: number;
@@ -49,6 +50,11 @@ interface AfLineupTeam {
   coach: { id: number; name: string | null } | null;
 }
 interface AfStatTeam { team: { id: number }; statistics: { type: string; value: number | string | null }[] }
+interface AfOddValue { value: string; odd: string }
+interface AfOddBet { id: number; name: string; values: AfOddValue[] }
+interface AfOddBookmaker { id: number; name: string; bets: AfOddBet[] }
+
+export interface OddsLine { map: Record<string, number>; block: string }
 
 // Единый провайдер футбольных данных — API-Football (api-sports.io DIRECT,
 // ключ API_FOOTBALL_KEY, заголовок x-apisports-key). Заменяет FlashLive и
@@ -182,6 +188,74 @@ export class ApiFootballAdapter {
       return null;
     }
   }
+
+  // Линия букмекеров: усредняем коэффициенты по всем БК → карта в формате,
+  // который ждёт value-анализ (1/X/2, over_/under_ тоталы, btts_, двойной шанс).
+  async getOddsMap(home: string, away: string, dateISO?: string): Promise<OddsLine | null> {
+    if (!this.hasKey) return null;
+    const fixtureId = await this.resolveFixtureId(home, away, dateISO);
+    if (!fixtureId) return null;
+    try {
+      const data = await this.fetch<{ response: { bookmakers: AfOddBookmaker[] }[] }>(`/odds?fixture=${fixtureId}`);
+      const bookmakers = data.response?.[0]?.bookmakers ?? [];
+      if (!bookmakers.length) return null;
+      const acc: Record<string, number[]> = {};
+      for (const bk of bookmakers) {
+        for (const bet of bk.bets) {
+          for (const v of bet.values) {
+            const key = oddKey(bet.name, v.value);
+            const num = parseFloat(v.odd);
+            if (key && !isNaN(num)) (acc[key] ??= []).push(num);
+          }
+        }
+      }
+      const map: Record<string, number> = {};
+      for (const [k, arr] of Object.entries(acc)) {
+        map[k] = Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 100) / 100;
+      }
+      if (!Object.keys(map).length) return null;
+      return { map, block: formatOddsBlock(map) };
+    } catch (err) {
+      this.logger.warn(`Odds fetch failed: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    }
+  }
+}
+
+// API-Football bet name + value → ключ нашей odds-карты. Поддерживаем рынки,
+// которые реально используются в анализе/расчёте.
+function oddKey(betName: string, value: string): string | null {
+  const v = String(value).trim().toLowerCase();
+  switch (betName) {
+    case 'Match Winner':
+      return v === 'home' ? '1' : v === 'draw' ? 'X' : v === 'away' ? '2' : null;
+    case 'Both Teams Score':
+      return v === 'yes' ? 'btts_yes' : v === 'no' ? 'btts_no' : null;
+    case 'Double Chance':
+      return v === 'home/draw' ? '1X' : v === 'home/away' ? '12' : v === 'draw/away' ? 'X2' : null;
+    case 'Goals Over/Under': {
+      const m = v.match(/^(over|under)\s+(\d+(?:\.\d+)?)$/);
+      if (!m) return null;
+      const line = m[2]!.replace('.', '_');
+      return `${m[1]}_${line}`; // over_2_5 / under_1_5 ...
+    }
+    // Рынки с линией → ключ MARKET:side:line (как в oddsKeyFor анализа).
+    case 'Total - Home':
+      return lineKey('HOME_TOTAL', v);
+    case 'Total - Away':
+      return lineKey('AWAY_TOTAL', v);
+    case 'Corners Over Under':
+      return lineKey('CORNERS_OU', v);
+    case 'Cards Over/Under':
+      return lineKey('CARDS_OU', v);
+    default:
+      return null;
+  }
+}
+
+function lineKey(market: string, value: string): string | null {
+  const m = value.match(/^(over|under)\s+(\d+(?:\.\d+)?)$/);
+  return m ? `${market}:${m[1]}:${m[2]}` : null;
 }
 
 // Поиск в API-Football по имени возвращает клубы/женские/молодёжные команды
