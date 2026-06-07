@@ -93,30 +93,6 @@
     background: rgb(var(--accent));
   }
 
-  /* ── Боковое меню (sidebar) ── всегда тёмное (как референс), в обеих темах.
-     Пункты заглавными (Montserrat) с иконкой; активный — сплошной WC-red. */
-  .app-sidebar {
-    background: #0c0f1f;
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
-  }
-  .side-link {
-    color: rgba(255, 255, 255, 0.72);
-    font-family: var(--font-display), 'Montserrat', system-ui, sans-serif;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    font-weight: 700;
-    transition: background 0.15s, color 0.15s;
-  }
-  .side-link:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.08);
-  }
-  .side-link.active {
-    color: #fff;
-    background: #e4002b;
-    box-shadow: 0 4px 14px rgba(228, 0, 43, 0.35);
-  }
-
   * { box-sizing: border-box; }
 
   body {
