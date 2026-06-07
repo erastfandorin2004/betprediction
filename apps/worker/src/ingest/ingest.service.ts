@@ -1,14 +1,15 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
-import { sql } from 'drizzle-orm';
+import { sql, and, eq, notInArray } from 'drizzle-orm';
 import * as schema from '@ai-score/db';
 import { DatabaseService } from '../database/database.service';
-import { FootballDataAdapter } from '../providers/football-data.adapter';
+import { ApiFootballAdapter } from '../providers/api-football.adapter';
 import type { SportsDataLeague, SportsDataFixture } from '../providers/sports-data.provider';
 
 const FOOTBALL_SPORT_ID = 1;
 const FOOTBALL_SPORT = { id: FOOTBALL_SPORT_ID, name: 'Football', slug: 'football' };
+const WC_INTERNAL_LEAGUE = 2000;
 
 @Injectable()
 export class IngestService implements OnModuleInit {
@@ -16,7 +17,7 @@ export class IngestService implements OnModuleInit {
 
   constructor(
     private readonly db: DatabaseService,
-    private readonly provider: FootballDataAdapter,
+    private readonly provider: ApiFootballAdapter,
     private readonly config: ConfigService,
   ) {}
 
@@ -42,8 +43,8 @@ export class IngestService implements OnModuleInit {
 
   @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async ingestLeagues(): Promise<void> {
-    if (!this.config.get<string>('footballData.apiKey')) {
-      this.logger.warn('FOOTBALL_DATA_API_KEY not set — skipping league ingest');
+    if (!this.config.get<string>('apiFootball.apiKey')) {
+      this.logger.warn('API_FOOTBALL_KEY not set — skipping league ingest');
       return;
     }
     this.logger.log('Ingesting leagues...');
@@ -58,11 +59,23 @@ export class IngestService implements OnModuleInit {
 
   @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async ingestWorldCupFixtures(): Promise<void> {
-    if (!this.config.get<string>('footballData.apiKey')) return;
+    if (!this.config.get<string>('apiFootball.apiKey')) return;
     this.logger.log('Ingesting World Cup fixtures...');
     try {
-      const fixtures = await this.provider.getFixturesByCompetition('WC');
+      const fixtures = await this.provider.getWorldCupFixtures();
+      if (!fixtures.length) {
+        this.logger.warn('No WC fixtures returned — keeping existing schedule');
+        return;
+      }
       await this.upsertFixtures(fixtures);
+      // Чистим устаревшие матчи ЧМ из прежнего источника (другие id), кроме тех,
+      // по которым уже есть прогноз (их не трогаем — трек-рекорд неизменяем).
+      const keepIds = fixtures.map((f) => f.providerId);
+      await this.db.db.delete(schema.fixtures).where(and(
+        eq(schema.fixtures.leagueId, WC_INTERNAL_LEAGUE),
+        notInArray(schema.fixtures.id, keepIds),
+        notInArray(schema.fixtures.id, this.db.db.select({ id: schema.predictions.fixtureId }).from(schema.predictions)),
+      ));
       this.logger.log(`Ingested ${fixtures.length} World Cup fixtures`);
     } catch (err) {
       this.logger.error('WC fixture ingest failed', err instanceof Error ? err.message : String(err));
@@ -71,7 +84,7 @@ export class IngestService implements OnModuleInit {
 
   @Cron('*/5 * * * *')
   async ingestFixtures(): Promise<void> {
-    if (!this.config.get<string>('footballData.apiKey')) return;
+    if (!this.config.get<string>('apiFootball.apiKey')) return;
     const today = new Date().toISOString().slice(0, 10);
     const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
     this.logger.log(`Ingesting fixtures ${today} → ${tomorrow}`);

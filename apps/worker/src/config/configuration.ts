@@ -13,6 +13,10 @@ export default () => ({
   footballData: {
     apiKey: process.env['FOOTBALL_DATA_API_KEY'] ?? '',
   },
+  // API-Football (api-sports.io DIRECT) — основной источник расписания/линии.
+  apiFootball: {
+    apiKey: process.env['API_FOOTBALL_KEY'] ?? '',
+  },
   // laozhang (老张) — OpenAI-compatible aggregator, single LLM provider for the
   // multi-model prediction ensemble. https://docs.laozhang.ai
   laozhang: {
