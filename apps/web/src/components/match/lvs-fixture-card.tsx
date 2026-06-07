@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import type { LvsFixtureItem, LvsPredictionDetail } from '@ai-score/shared';
+import type { LvsFixtureItem, LvsPredictionDetail, LvsModelForecast, LvsOutcome } from '@ai-score/shared';
 import { formatTime } from '@/lib/format';
 import { getTeamName } from '@/lib/team-names-ru';
 import { useLocale } from '@/components/i18n/locale-provider';
@@ -12,6 +12,15 @@ const API_BASE = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
 
 const CARD = { background: 'rgb(var(--pitch-900))', border: '1px solid rgb(var(--pitch-700))' } as const;
 const ACCENT = 'rgb(var(--accent))';
+
+// Человекочитаемые названия моделей ансамбля (id laozhang → бренд).
+const MODEL_LABELS: Record<string, string> = {
+  'gpt-5.1': 'GPT 5.1',
+  'grok-4': 'Grok 4.3',
+  'claude-opus-4-8': 'Claude Opus 4.8',
+  'deepseek-chat': 'DeepSeek 4',
+};
+const modelLabel = (id: string) => MODEL_LABELS[id] ?? id;
 
 export function LvsFixtureCard({ fixture }: { fixture: LvsFixtureItem }) {
   const { t, locale } = useLocale();
@@ -154,11 +163,25 @@ function LvsPredictionView({
         </div>
       </div>
 
-      {/* Rationale / summary */}
+      {/* Общий вывод — объединённый итог по всем моделям */}
       {(prediction.summary || prediction.rationale) && (
         <div className="rounded-lg px-3 py-2" style={{ background: 'rgb(var(--accent) / 0.08)' }}>
-          <p className="mb-0.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: ACCENT }}>{L.rationale}</p>
+          <p className="mb-0.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: ACCENT }}>
+            {prediction.summary ? L.overall : L.rationale}
+          </p>
           <p className="text-xs leading-relaxed" style={{ color: 'rgb(var(--fg-secondary))' }}>{prediction.summary ?? prediction.rationale}</p>
+        </div>
+      )}
+
+      {/* Мнение каждой модели отдельно */}
+      {prediction.modelViews.length > 0 && (
+        <div>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted))' }}>{L.modelsOpinion}</p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {prediction.modelViews.map((m, i) => (
+              <ModelCard key={i} m={m} homeName={homeName} awayName={awayName} L={L} />
+            ))}
+          </div>
         </div>
       )}
 
@@ -209,6 +232,51 @@ function ProbPill({ label, v, active }: { label: string; v: number; active: bool
     >
       <div className="font-semibold" style={{ color: active ? ACCENT : 'rgb(var(--fg-muted))' }}>{Math.round(v * 100)}%</div>
       <div className="truncate" style={{ color: 'rgb(var(--fg-muted))' }}>{label}</div>
+    </div>
+  );
+}
+
+function ModelCard({
+  m, homeName, awayName, L,
+}: {
+  m: LvsModelForecast;
+  homeName: string;
+  awayName: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  L: any;
+}) {
+  const outcomeText = (o: LvsOutcome | null) =>
+    o === '1' ? homeName : o === '2' ? awayName : o === 'X' ? L.draw : '—';
+  const score = m.scoreHome != null && m.scoreAway != null ? `${m.scoreHome} : ${m.scoreAway}` : '—';
+
+  return (
+    <div className="rounded-lg p-2.5" style={{ background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="truncate text-xs font-bold" style={{ color: 'rgb(var(--fg-card))' }}>{modelLabel(m.modelId)}</span>
+        {!m.error && (
+          <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: 'rgb(var(--accent) / 0.14)', color: ACCENT }}>
+            {outcomeText(m.outcome)} · {score}
+          </span>
+        )}
+      </div>
+      {m.error ? (
+        <p className="text-[11px]" style={{ color: 'rgb(var(--fg-muted))' }}>{L.noAnswer}</p>
+      ) : (
+        <div className="space-y-1 text-[11px]" style={{ color: 'rgb(var(--fg-secondary))' }}>
+          {m.scorers.length > 0 && (
+            <p>
+              <span style={{ color: 'rgb(var(--fg-muted))' }}>{L.goalsBy}: </span>
+              {m.scorers.join(', ')}
+            </p>
+          )}
+          {m.rationale && (
+            <p className="leading-relaxed">
+              <span style={{ color: 'rgb(var(--fg-muted))' }}>{L.comment}: </span>
+              {m.rationale}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
