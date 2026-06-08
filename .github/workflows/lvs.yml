@@ -31,9 +31,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Версию pnpm берём из package.json (packageManager: pnpm@9.15.4),
+      # явный version здесь приводит к конфликту в pnpm/action-setup@v4.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
