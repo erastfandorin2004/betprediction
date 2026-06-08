@@ -162,12 +162,9 @@ function lineupsSummary(lineups, homeShort, awayShort) {
 }
 
 // ── анализ одного матча ──────────────────────────────────────────────────────
-async function analyze(client, fixture) {
+// lineups: объект составов или null; phase: 'preliminary' | 'final'.
+async function runAnalysis(client, fixture, lineups, phase) {
   const home = fixture.homeTeam, away = fixture.awayTeam;
-  const msToKo = new Date(fixture.startsAt).getTime() - Date.now();
-  const lineups = await afLineups(fixture.id);
-  if (!lineups && msToKo > FORCE_FALLBACK_MS) { console.log(`  ${fixture.id}: составов нет, ждём (T-${Math.round(msToKo / 60000)}мин)`); return null; }
-
   const ctx = {
     homeTeam: home.name, awayTeam: away.name,
     homeTeamShort: home.shortName || home.name, awayTeamShort: away.shortName || away.name,
@@ -190,6 +187,7 @@ async function analyze(client, fixture) {
 
   return {
     fixtureId: fixture.id,
+    phase,
     outcome: agg.outcome, outcomeLabel: outcomeLabel(agg.outcome),
     probs: agg.probs, score: agg.score, scorers: agg.scorers,
     confidence: agg.confidence, stars: agg.stars,
@@ -302,23 +300,53 @@ async function main() {
   const client = new LaozhangClient(LZ_KEY, LZ_BASE, 120000);
   const now = Date.now();
   let changed = 0;
+  let prelimDone = 0; // лимит предварительных анализов за один прогон (LLM-нагрузка)
+  const PRELIM_CAP = 6;
 
   for (const day of days) for (const f of day.fixtures) {
     const ko = new Date(f.startsAt).getTime();
     const msToKo = ko - now;
+    const p = f.prediction;
+    const inFinalWindow = msToKo > 0 && msToKo <= ANALYSIS_LEAD_MS; // ≤60 мин до старта
+    const name = `${f.homeTeam.name} — ${f.awayTeam.name}`;
 
-    // Анализ: нет прогноза и матч в окне (now, now+60мин]
-    if (!f.prediction && LZ_KEY && msToKo > 0 && msToKo <= ANALYSIS_LEAD_MS) {
-      console.log(`Анализ: ${f.homeTeam.name} — ${f.awayTeam.name} (T-${Math.round(msToKo / 60000)}мин)`);
-      try {
-        const pred = await analyze(client, f);
-        if (pred) { f.prediction = pred; changed++; console.log(`  ✓ прогноз: ${pred.outcomeLabel} ${pred.score.home}:${pred.score.away}`); }
-      } catch (e) { console.warn(`  анализ упал: ${e?.message ?? e}`); }
+    if (LZ_KEY && msToKo > 0) {
+      // ── ФИНАЛЬНЫЙ анализ за час до матча: по составам, заменяет предварительный ──
+      // Также покрывает случай «прогноза ещё нет, а матч уже в окне T-60».
+      if (inFinalWindow && (!p || p.phase !== 'final')) {
+        const lineups = await afLineups(f.id);
+        const force = msToKo <= FORCE_FALLBACK_MS; // нет составов к T-45 → форсируем
+        if (lineups || force) {
+          console.log(`Финальный анализ: ${name} (T-${Math.round(msToKo / 60000)}мин, составы: ${lineups ? 'да' : 'нет'})`);
+          try {
+            const pred = await runAnalysis(client, f, lineups, 'final');
+            if (pred) { f.prediction = pred; changed++; console.log(`  ✓ финал: ${pred.outcomeLabel} ${pred.score.home}:${pred.score.away}`); }
+          } catch (e) { console.warn(`  финальный анализ упал: ${e?.message ?? e}`); }
+        } else if (!p) {
+          // составов ещё нет и не форсим — пусть будет хотя бы предварительный
+          if (prelimDone < PRELIM_CAP) {
+            try {
+              const pred = await runAnalysis(client, f, null, 'preliminary');
+              if (pred) { f.prediction = pred; changed++; prelimDone++; console.log(`Предварительный: ${name}`); }
+            } catch (e) { console.warn(`  предв. анализ упал: ${e?.message ?? e}`); }
+          }
+        } else {
+          console.log(`Ожидаются составы: ${name} (T-${Math.round(msToKo / 60000)}мин) — повтор позже`);
+        }
+      }
+      // ── ПРЕДВАРИТЕЛЬНЫЙ анализ заранее (матч дальше окна T-60, прогноза нет) ──
+      else if (!p && !inFinalWindow && prelimDone < PRELIM_CAP) {
+        try {
+          const pred = await runAnalysis(client, f, null, 'preliminary');
+          if (pred) { f.prediction = pred; changed++; prelimDone++; console.log(`Предварительный: ${name}`); }
+        } catch (e) { console.warn(`  предв. анализ упал: ${e?.message ?? e}`); }
+      }
     }
 
-    // Сеттлмент: есть pending-прогноз и матч начался ≥130 мин назад (или finished)
+    // Сеттлмент: есть pending-прогноз и матч начался ≥130 мин назад (или finished).
+    // В историю попадает текущий прогноз — к этому моменту он уже финальный.
     if (f.prediction && f.prediction.status === 'pending' && AF_KEY && (f.status === 'finished' || ko < now - 130 * 60000)) {
-      console.log(`Сеттлмент: ${f.homeTeam.name} — ${f.awayTeam.name}`);
+      console.log(`Сеттлмент: ${name}`);
       try {
         if (await settle(f, f.prediction)) { changed++; console.log(`  ✓ ${f.prediction.result.resultStatus} ${f.prediction.result.actualScore.home}:${f.prediction.result.actualScore.away}`); }
       } catch (e) { console.warn(`  сеттлмент упал: ${e?.message ?? e}`); }

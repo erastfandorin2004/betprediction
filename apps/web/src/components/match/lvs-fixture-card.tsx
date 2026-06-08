@@ -118,7 +118,7 @@ export function LvsFixtureCard({ fixture }: { fixture: LvsFixtureItem }) {
           className="flex items-center justify-between gap-2 px-5 pb-3.5 pt-1"
           style={{ borderTop: '1px dashed rgb(var(--pitch-700))', marginTop: 2 }}
         >
-          <CollapsedSummary prediction={prediction} running={status === 'running'} isFinished={isFinished} L={L} />
+          <CollapsedSummary prediction={prediction} running={status === 'running'} isFinished={isFinished} startsAt={fixture.startsAt} L={L} />
           <span className="flex shrink-0 items-center gap-1 text-[11px] font-semibold" style={{ color: expanded ? ACCENT : 'rgb(var(--fg-muted))' }}>
             {expanded ? L.collapse : L.details}
             <ChevronDown className="h-4 w-4 transition-transform" style={{ transform: expanded ? 'rotate(180deg)' : 'none' }} />
@@ -141,6 +141,8 @@ export function LvsFixtureCard({ fixture }: { fixture: LvsFixtureItem }) {
               awayName={awayName}
               homeFlag={homeFlag}
               awayFlag={awayFlag}
+              startsAt={fixture.startsAt}
+              isFinished={isFinished}
               canRerun={!isFinished && !STATIC_MODE}
               onRerun={run}
               L={L}
@@ -171,13 +173,41 @@ export function LvsFixtureCard({ fixture }: { fixture: LvsFixtureItem }) {
   );
 }
 
+// Бейдж фазы анализа: предварительный / ожидание составов / по составам.
+function PhaseChip({
+  phase, startsAt, isFinished, L,
+}: {
+  phase: LvsPredictionDetail['phase'];
+  startsAt: string;
+  isFinished: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  L: any;
+}) {
+  if (!phase || isFinished) return null; // после матча фаза не важна
+  const ko = new Date(startsAt).getTime();
+  const within60 = ko > Date.now() && ko - Date.now() <= 60 * 60_000;
+
+  let icon = '📝', text = L.phasePreliminary, color = 'rgb(var(--fg-muted))', bg = 'rgb(var(--pitch-800))';
+  if (phase === 'final') {
+    icon = '✅'; text = L.phaseFinal; color = '#22c55e'; bg = '#22c55e1f';
+  } else if (within60) {
+    icon = '⏳'; text = L.awaitingLineupsShort; color = '#f59e0b'; bg = '#f59e0b1f';
+  }
+  return (
+    <span className="inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: bg, color }}>
+      {icon} {text}
+    </span>
+  );
+}
+
 // Компактная сводка в свёрнутой шапке: что есть внутри карточки.
 function CollapsedSummary({
-  prediction, running, isFinished, L,
+  prediction, running, isFinished, startsAt, L,
 }: {
   prediction: LvsPredictionDetail | null;
   running: boolean;
   isFinished: boolean;
+  startsAt: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   L: any;
 }) {
@@ -212,6 +242,7 @@ function CollapsedSummary({
           {statusLabel}
         </span>
       )}
+      <PhaseChip phase={prediction.phase} startsAt={startsAt} isFinished={isFinished} L={L} />
     </span>
   );
 }
@@ -234,13 +265,15 @@ function TeamHead({ flag, name, logo, align }: { flag: string; name: string; log
 }
 
 function LvsPredictionView({
-  prediction, homeName, awayName, homeFlag, awayFlag, canRerun, onRerun, L,
+  prediction, homeName, awayName, homeFlag, awayFlag, startsAt, isFinished, canRerun, onRerun, L,
 }: {
   prediction: LvsPredictionDetail;
   homeName: string;
   awayName: string;
   homeFlag: string;
   awayFlag: string;
+  startsAt: string;
+  isFinished: boolean;
   canRerun: boolean;
   onRerun: () => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -256,6 +289,9 @@ function LvsPredictionView({
 
   return (
     <div className="space-y-3.5">
+      {/* Фаза анализа: предварительный / ожидание составов / по составам */}
+      <PhaseChip phase={prediction.phase} startsAt={startsAt} isFinished={isFinished} L={L} />
+
       {/* Исход + точный счёт — главные прогнозы */}
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         {/* Исход */}

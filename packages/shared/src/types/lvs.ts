@@ -61,8 +61,13 @@ export interface LvsSettlementView {
 }
 
 // Полный прогноз ЛВС (ответ analyze + вложение в карточку матча).
+// Фаза анализа: предварительный (заранее, без составов) либо финальный
+// (за ~1ч до матча, по стартовым составам) — финальный фиксируется в истории.
+export type LvsPhase = 'preliminary' | 'final';
+
 export interface LvsPredictionDetail {
   fixtureId: number;
+  phase?: LvsPhase;
   outcome: LvsOutcome;
   outcomeLabel: string; // «П1» | «Ничья» | «П2»
   probs: { win1: number; draw: number; win2: number };
