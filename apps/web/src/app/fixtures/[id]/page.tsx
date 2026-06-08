@@ -31,6 +31,9 @@ export default async function FixturePage({ params }: Props) {
   const { id } = await params;
   const fixtureId = parseInt(id, 10);
   if (isNaN(fixtureId)) notFound();
+  // Статический экспорт (GitHub Pages): детальных страниц матчей нет — бэкенда
+  // для них нет. Заглушечный /fixtures/0 уходит в 404 без сетевого запроса.
+  if (STATIC_MODE) notFound();
 
   let fixture: FixtureDetail;
   try {
