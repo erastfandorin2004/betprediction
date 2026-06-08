@@ -3,15 +3,18 @@
 import { useLocale } from '@/components/i18n/locale-provider';
 import { MatchCard } from './match-card';
 import type { WorldCupDay } from '@/lib/api-client';
+import type { PredictionDetail } from '@ai-score/shared';
 
 export function DayGroup({
   date,
   fixtures,
   isToday,
+  predictions,
 }: {
   date: string;
   fixtures: WorldCupDay['fixtures'];
   isToday: boolean;
+  predictions?: Record<number, PredictionDetail>;
 }) {
   const { t, locale } = useLocale();
 
@@ -41,7 +44,7 @@ export function DayGroup({
 
       <div className="space-y-1.5">
         {fixtures.map((f) => (
-          <MatchCard key={f.id} fixture={f} />
+          <MatchCard key={f.id} fixture={f} analysis={predictions?.[f.id]} />
         ))}
       </div>
     </section>

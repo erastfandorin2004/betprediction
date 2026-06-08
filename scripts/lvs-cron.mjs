@@ -17,6 +17,11 @@ const {
   buildLvsUserPrompt,
   lvsPredictionResponseSchema,
   settleLvs,
+  // Полный прогноз для вкладки «Матчи» (рынки: 1X2/тоталы/угловые/карточки/…).
+  buildSystemPrompt,
+  buildUserPrompt,
+  llmPredictionResponseSchema,
+  MARKET_LABELS,
 } = shared;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -24,6 +29,7 @@ const ROOT = resolve(__dirname, '..');
 const FIXTURES_PATH = resolve(ROOT, 'apps/web/public/data/lvs-fixtures.json');
 const HISTORY_PATH = resolve(ROOT, 'apps/web/public/data/lvs-history.json');
 const WC_PATH = resolve(ROOT, 'apps/web/public/data/wc-schedule.json');
+const PRED_PATH = resolve(ROOT, 'apps/web/public/data/predictions.json');
 
 const AF_BASE = 'https://v3.football.api-sports.io';
 const LZ_BASE = process.env.LAOZHANG_BASE_URL ?? 'https://api.laozhang.ai/v1';
@@ -255,6 +261,108 @@ function buildHistory(days) {
   return items.sort((a, b) => (b.resolvedAt ?? '').localeCompare(a.resolvedAt ?? ''));
 }
 
+// ── ПОЛНЫЙ прогноз для вкладки «Матчи» (рынки) ───────────────────────────────
+// Зеркало apps/api/src/predictions/ai-analysis.service.ts, без коэффициентов и
+// value-ставок (на статике нет букмекерской линии): отдаём рынки + рекомендацию.
+const OUTCOME_NAMES = { '1': 'П1', X: 'Ничья', '2': 'П2', '1X': '1X', '12': '12', X2: 'X2', yes: 'Да', no: 'Нет', over: 'Больше', under: 'Меньше' };
+function labelFor(market, outcome) {
+  const o = OUTCOME_NAMES[outcome] ?? outcome;
+  if (market === '1X2') return o;
+  return `${MARKET_LABELS[market] ?? market} — ${o}`;
+}
+
+function parsePred(results) {
+  return results.map((r) => {
+    if (r.error) return { modelId: r.modelId, parsed: null, error: r.error };
+    try {
+      return { modelId: r.modelId, parsed: llmPredictionResponseSchema.parse(JSON.parse(extractJson(r.content))), error: null };
+    } catch (e) { return { modelId: r.modelId, parsed: null, error: (e?.message ?? 'parse error').slice(0, 200) }; }
+  });
+}
+
+function aggregateMarketFull(responses, marketType) {
+  const matching = responses.map((r) => r.markets.find((m) => m.market === marketType)).filter(Boolean);
+  if (!matching.length) return null;
+  const labels = new Map();
+  for (const m of matching) for (const o of m.outcomes) if (!labels.has(o.outcome)) labels.set(o.outcome, o.label);
+  const outcomes = [...labels.entries()].map(([outcome, label]) => {
+    const probs = matching.map((m) => m.outcomes.find((o) => o.outcome === outcome)?.probability ?? 0);
+    return { label, outcome, probability: probs.reduce((a, b) => a + b, 0) / probs.length, isRecommended: false };
+  });
+  const sum = outcomes.reduce((a, o) => a + o.probability, 0);
+  if (sum <= 0) return null;
+  return { market: marketType, outcomes: outcomes.map((o) => ({ ...o, probability: round(o.probability / sum) })), isLocked: false };
+}
+
+function aggregateFull(responses, totalAttempts) {
+  const types = [...new Set(responses.flatMap((r) => r.markets.map((m) => m.market)))];
+  const markets = types.map((t) => aggregateMarketFull(responses, t)).filter(Boolean);
+
+  const tally = new Map();
+  for (const r of responses) { const k = `${r.recommendedMarket}|${r.recommendedOutcome}`; tally.set(k, (tally.get(k) ?? 0) + 1); }
+  let topKey = `${responses[0].recommendedMarket}|${responses[0].recommendedOutcome}`, topVotes = 0;
+  for (const [k, v] of tally) if (v > topVotes) { topVotes = v; topKey = k; }
+  const [recMarket, recOutcome] = topKey.split('|');
+
+  const recOut = markets.find((m) => m.market === recMarket)?.outcomes.find((o) => o.outcome === recOutcome);
+  const probability = recOut?.probability ?? 0.34;
+  const confidence = clamp(responses.reduce((s, r) => s + r.confidence, 0) / responses.length, 0.05, 0.97);
+  const agreement = topVotes / responses.length;
+  const level = agreement >= 0.75 ? 'high' : agreement >= 0.5 ? 'medium' : 'low';
+  const rationale = responses.map((r) => r.rationale ?? '').filter((s) => s.length > 20).sort((a, b) => b.length - a.length)[0] ?? '';
+  const keyFactors = [...new Set(responses.flatMap((r) => r.keyFactors ?? []).filter(Boolean))].slice(0, 5);
+
+  const marketsRec = markets.map((m) => ({
+    ...m,
+    outcomes: m.outcomes.map((o) => ({ ...o, isRecommended: m.market === recMarket && o.outcome === recOutcome })),
+  }));
+  return {
+    markets: marketsRec, recommendedMarket: recMarket, recommendedOutcome: recOutcome, probability,
+    confidence, stars: toStars(confidence),
+    modelConsensus: { totalModels: totalAttempts, agreement: round(agreement), level, summary: `${topVotes} из ${responses.length} моделей за «${recOutcome}» (${recMarket})` },
+    rationale, keyFactors,
+  };
+}
+
+function buildPredModelViews(parsed, recMarket, recOutcome) {
+  return parsed.map((pm) => {
+    if (!pm.parsed) return { modelId: pm.modelId, probability: null, ownMarket: null, ownOutcomeLabel: null, confidence: null, agreed: false, rationale: null, error: pm.error };
+    const r = pm.parsed;
+    const mkt = r.markets.find((m) => m.market === recMarket);
+    const out = mkt?.outcomes.find((o) => o.outcome === recOutcome);
+    let probability = null, agreed = false;
+    if (out && mkt) { probability = round(out.probability); agreed = out.probability >= Math.max(...mkt.outcomes.map((o) => o.probability)) - 1e-9; }
+    return { modelId: pm.modelId, probability, ownMarket: r.recommendedMarket, ownOutcomeLabel: labelFor(r.recommendedMarket, r.recommendedOutcome), confidence: round(r.confidence), agreed, rationale: r.rationale ?? null, error: null };
+  });
+}
+
+async function runMatchAnalysis(client, fixture) {
+  const home = fixture.homeTeam, away = fixture.awayTeam;
+  const ctx = {
+    homeTeam: home.name, awayTeam: away.name,
+    homeTeamShort: home.shortName || home.name, awayTeamShort: away.shortName || away.name,
+    league: 'FIFA World Cup 2026', country: 'International', round: fixture.round,
+    date: new Date(fixture.startsAt).toISOString().slice(0, 10),
+  };
+  const results = await client.fanOut(MODELS, [
+    { role: 'system', content: buildSystemPrompt() },
+    { role: 'user', content: buildUserPrompt(ctx) },
+  ]);
+  const parsed = parsePred(results);
+  const valid = parsed.filter((p) => p.parsed).map((p) => p.parsed);
+  if (!valid.length) { console.warn(`  ${fixture.id}: полный анализ — нет ответов`); return null; }
+  const agg = aggregateFull(valid, results.length);
+  const models = buildPredModelViews(parsed, agg.recommendedMarket, agg.recommendedOutcome);
+  return {
+    fixtureId: fixture.id, createdAt: new Date().toISOString(), status: 'pending',
+    markets: agg.markets, recommendedMarket: agg.recommendedMarket, recommendedOutcome: agg.recommendedOutcome,
+    probability: agg.probability, confidence: agg.confidence, stars: agg.stars,
+    modelConsensus: agg.modelConsensus, rationale: agg.rationale || null, keyFactors: agg.keyFactors,
+    valueEdge: null, impliedProbability: null, selectedBets: null, riskNote: null,
+    outcome: null, models, summary: null, settlement: null, isLocked: false, lockedFields: [],
+  };
+}
+
 // ── обновление расписания ЧМ (вкладка «Матчи») ───────────────────────────────
 // 1 bulk-запрос к API-Football, только когда есть активный матч (экономия квоты).
 const wcStatus = (short) =>
@@ -355,6 +463,24 @@ async function main() {
 
   writeFileSync(FIXTURES_PATH, JSON.stringify(days));
   writeFileSync(HISTORY_PATH, JSON.stringify(buildHistory(days)));
+
+  // ── ПОЛНЫЙ прогноз для «Матчи» (рынки) — один раз на матч, с лимитом за прогон ──
+  if (LZ_KEY) {
+    const preds = existsSync(PRED_PATH) ? JSON.parse(readFileSync(PRED_PATH, 'utf8')) : {};
+    let predDone = 0;
+    const PRED_CAP = 4;
+    for (const day of days) for (const f of day.fixtures) {
+      const ko = new Date(f.startsAt).getTime();
+      if (ko <= now) continue;            // только будущие матчи
+      if (preds[f.id]) continue;          // уже есть полный прогноз
+      if (predDone >= PRED_CAP) continue; // лимит на прогон
+      try {
+        const pred = await runMatchAnalysis(client, f);
+        if (pred) { preds[f.id] = pred; predDone++; changed++; console.log(`Полный прогноз (Матчи): ${f.homeTeam.name} — ${f.awayTeam.name} → ${pred.recommendedMarket}/${pred.recommendedOutcome}`); }
+      } catch (e) { console.warn(`  полный анализ упал ${f.id}: ${e?.message ?? e}`); }
+    }
+    writeFileSync(PRED_PATH, JSON.stringify(preds));
+  }
 
   // Расписание ЧМ (вкладка «Матчи») — обновляем счёт/статус в активном окне.
   try {

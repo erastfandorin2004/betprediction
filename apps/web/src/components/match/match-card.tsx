@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import type { FixtureListItem } from '@ai-score/shared';
+import { ChevronDown } from 'lucide-react';
+import type { FixtureListItem, PredictionDetail } from '@ai-score/shared';
 import { STATIC_MODE } from '@/lib/lvs-data';
 import { formatTime } from '@/lib/format';
 import { useLocale } from '@/components/i18n/locale-provider';
@@ -11,14 +13,17 @@ import { getTeamName } from '@/lib/team-names-ru';
 import { LiveBadge } from './live-badge';
 import { ScoreDisplay } from './score-display';
 import { PredictionBadge } from './prediction-badge';
+import { PredictionCard } from '@/components/prediction/prediction-card';
 import { Badge } from '@/components/ui/badge';
 
 interface MatchCardProps {
   fixture: FixtureListItem;
+  analysis?: PredictionDetail | null;
 }
 
-export function MatchCard({ fixture }: MatchCardProps) {
+export function MatchCard({ fixture, analysis }: MatchCardProps) {
   const { t, locale } = useLocale();
+  const [expanded, setExpanded] = useState(false);
   const isLive = fixture.status === 'live';
   const isFinished = fixture.status === 'finished';
   const hasStarted = isLive || isFinished;
@@ -26,21 +31,25 @@ export function MatchCard({ fixture }: MatchCardProps) {
   const awayWin = fixture.score !== null && fixture.score.away > fixture.score.home;
 
   const cardClassName =
-    'group relative block overflow-hidden rounded-2xl p-4 shadow-sm transition-all duration-150 hover:scale-[1.005] hover:[box-shadow:0_0_0_1.5px_rgb(var(--accent)/0.5),0_6px_22px_rgb(var(--accent)/0.1)]';
+    'group relative block w-full overflow-hidden rounded-2xl p-4 text-left shadow-sm transition-all duration-150 hover:scale-[1.005] hover:[box-shadow:0_0_0_1.5px_rgb(var(--accent)/0.5),0_6px_22px_rgb(var(--accent)/0.1)]';
   const cardStyle = {
     background: 'rgb(var(--pitch-900))',
     border: `1px solid ${isLive ? 'rgb(239 68 68 / 0.4)' : 'rgb(var(--pitch-700))'}`,
   };
 
-  // В статике (GitHub Pages) детальной страницы матча нет — карточка не кликабельна.
+  // В статике (Pages) детальной страницы нет — карточка разворачивает анализ по клику.
+  // В обычном режиме (dev/SSR) — ссылка на страницу матча, как было.
   const Shell = ({ children }: { children: ReactNode }) =>
     STATIC_MODE ? (
-      <div className={cardClassName} style={cardStyle}>{children}</div>
+      <button type="button" onClick={() => setExpanded((v) => !v)} className={`${cardClassName} cursor-pointer`} style={cardStyle} aria-expanded={expanded}>
+        {children}
+      </button>
     ) : (
       <Link href={`/fixtures/${fixture.id}`} className={cardClassName} style={cardStyle}>{children}</Link>
     );
 
   return (
+    <div className="space-y-2">
     <Shell>
       {/* orange accent strip on the left */}
       <span
@@ -94,9 +103,27 @@ export function MatchCard({ fixture }: MatchCardProps) {
         <div className="flex items-center gap-2">
           {fixture.hasValue && <Badge variant="value">{t.prediction.valueLabel.toUpperCase()}</Badge>}
           {fixture.prediction && <PredictionBadge prediction={fixture.prediction} />}
+          {STATIC_MODE && (
+            <span className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: expanded ? 'rgb(var(--accent))' : 'rgb(var(--fg-muted))' }}>
+              {locale === 'ru' ? 'Анализ' : 'Analysis'}
+              <ChevronDown className="h-4 w-4 transition-transform" style={{ transform: expanded ? 'rotate(180deg)' : 'none' }} />
+            </span>
+          )}
         </div>
       </div>
     </Shell>
+
+      {/* Раскрытие: полный AI-анализ матча (рынки, угловые/карточки) из снимка */}
+      {STATIC_MODE && expanded && (
+        analysis ? (
+          <PredictionCard prediction={analysis} />
+        ) : (
+          <p className="rounded-2xl px-4 py-4 text-center text-sm" style={{ background: 'rgb(var(--pitch-900))', border: '1px solid rgb(var(--pitch-700))', color: 'rgb(var(--fg-muted))' }}>
+            {locale === 'ru' ? 'Анализ скоро появится' : 'Analysis coming soon'}
+          </p>
+        )
+      )}
+    </div>
   );
 }
 
