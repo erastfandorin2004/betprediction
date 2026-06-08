@@ -23,6 +23,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const FIXTURES_PATH = resolve(ROOT, 'apps/web/public/data/lvs-fixtures.json');
 const HISTORY_PATH = resolve(ROOT, 'apps/web/public/data/lvs-history.json');
+const WC_PATH = resolve(ROOT, 'apps/web/public/data/wc-schedule.json');
 
 const AF_BASE = 'https://v3.football.api-sports.io';
 const LZ_BASE = process.env.LAOZHANG_BASE_URL ?? 'https://api.laozhang.ai/v1';
@@ -256,6 +257,41 @@ function buildHistory(days) {
   return items.sort((a, b) => (b.resolvedAt ?? '').localeCompare(a.resolvedAt ?? ''));
 }
 
+// ── обновление расписания ЧМ (вкладка «Матчи») ───────────────────────────────
+// 1 bulk-запрос к API-Football, только когда есть активный матч (экономия квоты).
+const wcStatus = (short) =>
+  ['FT', 'AET', 'PEN'].includes(short) ? 'finished'
+    : ['NS', 'TBD', 'PST', 'CANC', 'SUSP'].includes(short) ? 'scheduled' : 'live';
+
+async function refreshWcSchedule(now) {
+  if (!AF_KEY || !existsSync(WC_PATH)) return false;
+  const days = JSON.parse(readFileSync(WC_PATH, 'utf8'));
+  const active = days.some((d) => d.fixtures.some((f) => {
+    const ko = new Date(f.startsAt).getTime();
+    return f.status !== 'finished' && ko <= now + 15 * 60000 && ko >= now - 3 * 60 * 60000;
+  }));
+  if (!active) return false; // нет матчей в активном окне — не тратим запрос
+
+  const data = await af('/fixtures?league=1&season=2026');
+  const resp = data?.response ?? [];
+  if (!resp.length) return false;
+  const byId = new Map(resp.map((x) => [x.fixture.id, x]));
+
+  let changed = false;
+  for (const d of days) for (const f of d.fixtures) {
+    const x = byId.get(f.id);
+    if (!x) continue;
+    const status = wcStatus(x.fixture.status.short);
+    const score = x.goals.home != null && x.goals.away != null ? { home: x.goals.home, away: x.goals.away } : null;
+    const minute = x.fixture.status.elapsed ?? null;
+    if (f.status !== status || JSON.stringify(f.score) !== JSON.stringify(score) || f.minute !== minute) {
+      f.status = status; f.score = score; f.minute = minute; changed = true;
+    }
+  }
+  if (changed) writeFileSync(WC_PATH, JSON.stringify(days));
+  return changed;
+}
+
 // ── main ─────────────────────────────────────────────────────────────────────
 async function main() {
   if (!existsSync(FIXTURES_PATH)) { console.error(`нет ${FIXTURES_PATH}`); process.exit(1); }
@@ -291,6 +327,12 @@ async function main() {
 
   writeFileSync(FIXTURES_PATH, JSON.stringify(days));
   writeFileSync(HISTORY_PATH, JSON.stringify(buildHistory(days)));
+
+  // Расписание ЧМ (вкладка «Матчи») — обновляем счёт/статус в активном окне.
+  try {
+    if (await refreshWcSchedule(now)) { changed++; console.log('Расписание ЧМ обновлено'); }
+  } catch (e) { console.warn(`WC-обновление упало: ${e?.message ?? e}`); }
+
   console.log(`Готово. Изменений: ${changed}.`);
   // Код 0 всегда; «изменилось ли» workflow определяет по git diff.
 }

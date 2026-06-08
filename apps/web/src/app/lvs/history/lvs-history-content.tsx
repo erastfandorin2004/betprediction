@@ -6,7 +6,7 @@ import type { LvsHistoryItem, LvsResultStatus } from '@ai-score/shared';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { getTeamName } from '@/lib/team-names-ru';
 import { flagEmoji } from '@/lib/country-flags';
-import { fetchLvsHistory } from '@/lib/lvs-data';
+import { fetchLvsHistory, ASSET_BASE } from '@/lib/lvs-data';
 import { Check, X, Minus } from 'lucide-react';
 
 const STATUS_COLOR: Record<LvsResultStatus, string> = {
@@ -34,7 +34,7 @@ export function LvsHistoryContent({ history: initialHistory }: { history: LvsHis
       <header className="relative mb-6 overflow-hidden rounded-3xl border shadow-lg" style={{ borderColor: 'rgb(var(--pitch-700))' }}>
         <div className="relative h-40 w-full sm:h-48">
           <Image
-            src="/lvs-history-hero.png"
+            src={`${ASSET_BASE}/lvs-history-hero.png`}
             alt={L.historyTitle}
             fill
             priority

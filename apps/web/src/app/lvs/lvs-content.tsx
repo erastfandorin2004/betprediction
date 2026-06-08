@@ -5,7 +5,7 @@ import Image from 'next/image';
 import type { LvsDay } from '@ai-score/shared';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { LvsFixtureCard } from '@/components/match/lvs-fixture-card';
-import { fetchLvsFixtures } from '@/lib/lvs-data';
+import { fetchLvsFixtures, ASSET_BASE } from '@/lib/lvs-data';
 
 export function LvsContent({ days: initialDays }: { days: LvsDay[] }) {
   const { t, locale } = useLocale();
@@ -24,7 +24,7 @@ export function LvsContent({ days: initialDays }: { days: LvsDay[] }) {
       <header className="relative mb-6 overflow-hidden rounded-3xl border shadow-lg" style={{ borderColor: 'rgb(var(--pitch-700))' }}>
         <div className="relative h-40 w-full sm:h-48">
           <Image
-            src="/lvs-hero.png"
+            src={`${ASSET_BASE}/lvs-hero.png`}
             alt="World Cup 2026"
             fill
             priority

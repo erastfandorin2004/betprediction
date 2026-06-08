@@ -9,6 +9,10 @@ import type { LvsDay, LvsHistoryItem } from '@ai-score/shared';
 export const STATIC_MODE = process.env.NEXT_PUBLIC_STATIC === 'true';
 const BASE = STATIC_MODE ? '/betprediction' : '';
 
+// Базовый путь для статических ассетов в public/ (next/image с unoptimized
+// не добавляет basePath сам — префиксуем вручную в src hero-картинок).
+export const ASSET_BASE = BASE;
+
 export async function fetchLvsFixtures(): Promise<LvsDay[]> {
   try {
     const res = await fetch(`${BASE}/data/lvs-fixtures.json`, { cache: 'no-store' });

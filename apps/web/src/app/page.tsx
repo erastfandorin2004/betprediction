@@ -1,8 +1,8 @@
 import { Suspense } from 'react';
 import { api, type WorldCupDay } from '@/lib/api-client';
-import { DayGroup } from '@/components/match/day-group';
 import { WcHeader } from '@/components/match/wc-header';
 import { TestMatchCard } from '@/components/match/test-match-card';
+import { WcScheduleClient } from '@/components/match/wc-schedule-client';
 
 export default function HomePage() {
   return (
@@ -18,28 +18,16 @@ export default function HomePage() {
 }
 
 async function WcSchedule() {
+  // dev/SSR: тянем расписание с бэкенда; статика (Pages) — бэкенда нет, отдаём []
+  // и клиент подгрузит снимок data/wc-schedule.json.
   let days: WorldCupDay[] = [];
   try {
     days = await api.fixtures.worldCup();
   } catch {
-    return <WcScheduleError />;
+    days = [];
   }
-
-  if (!days.length) return <WcScheduleEmpty />;
-
-  const today = new Date().toISOString().slice(0, 10);
-
-  return (
-    <div className="space-y-6">
-      {days.map(({ date, fixtures }) => (
-        <DayGroup key={date} date={date} fixtures={fixtures} isToday={date === today} />
-      ))}
-    </div>
-  );
+  return <WcScheduleClient initialDays={days} />;
 }
-
-// Thin client wrappers to get translated error/empty messages
-import { WcScheduleError, WcScheduleEmpty } from '@/components/match/wc-status';
 
 function ScheduleSkeleton() {
   return (
