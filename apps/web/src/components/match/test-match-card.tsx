@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Sparkles, ChevronRight } from 'lucide-react';
 import { useLocale } from '@/components/i18n/locale-provider';
+import { STATIC_MODE } from '@/lib/lvs-data';
 
 // Test fixtures seeded for the on-demand AI-prediction flow (только сегодняшние).
 // Вчерашние матчи (990100–990103) убраны из списка; проверенные прогнозы по ним
@@ -16,6 +17,9 @@ const TEST_MATCHES = [
 export function TestMatchCard() {
   const { t, locale } = useLocale();
   const p = t.prediction;
+
+  // Бэкенд-фича (анализ по клику) — в статике нет страниц матчей, скрываем.
+  if (STATIC_MODE) return null;
   const sub = locale === 'ru' ? 'Товарищеский матч · сегодня' : 'Friendly · today';
 
   return (

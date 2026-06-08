@@ -1,8 +1,10 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { FixtureListItem } from '@ai-score/shared';
+import { STATIC_MODE } from '@/lib/lvs-data';
 import { formatTime } from '@/lib/format';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { getTeamName } from '@/lib/team-names-ru';
@@ -23,15 +25,23 @@ export function MatchCard({ fixture }: MatchCardProps) {
   const homeWin = fixture.score !== null && fixture.score.home > fixture.score.away;
   const awayWin = fixture.score !== null && fixture.score.away > fixture.score.home;
 
+  const cardClassName =
+    'group relative block overflow-hidden rounded-2xl p-4 shadow-sm transition-all duration-150 hover:scale-[1.005] hover:[box-shadow:0_0_0_1.5px_rgb(var(--accent)/0.5),0_6px_22px_rgb(var(--accent)/0.1)]';
+  const cardStyle = {
+    background: 'rgb(var(--pitch-900))',
+    border: `1px solid ${isLive ? 'rgb(239 68 68 / 0.4)' : 'rgb(var(--pitch-700))'}`,
+  };
+
+  // В статике (GitHub Pages) детальной страницы матча нет — карточка не кликабельна.
+  const Shell = ({ children }: { children: ReactNode }) =>
+    STATIC_MODE ? (
+      <div className={cardClassName} style={cardStyle}>{children}</div>
+    ) : (
+      <Link href={`/fixtures/${fixture.id}`} className={cardClassName} style={cardStyle}>{children}</Link>
+    );
+
   return (
-    <Link
-      href={`/fixtures/${fixture.id}`}
-      className="group relative block overflow-hidden rounded-2xl p-4 shadow-sm transition-all duration-150 hover:scale-[1.005] hover:[box-shadow:0_0_0_1.5px_rgb(var(--accent)/0.5),0_6px_22px_rgb(var(--accent)/0.1)]"
-      style={{
-        background: 'rgb(var(--pitch-900))',
-        border: `1px solid ${isLive ? 'rgb(239 68 68 / 0.4)' : 'rgb(var(--pitch-700))'}`,
-      }}
-    >
+    <Shell>
       {/* orange accent strip on the left */}
       <span
         className="absolute inset-y-0 left-0 w-1 opacity-60 transition-opacity group-hover:opacity-100"
@@ -86,7 +96,7 @@ export function MatchCard({ fixture }: MatchCardProps) {
           {fixture.prediction && <PredictionBadge prediction={fixture.prediction} />}
         </div>
       </div>
-    </Link>
+    </Shell>
   );
 }
 
