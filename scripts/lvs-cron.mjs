@@ -464,20 +464,20 @@ async function main() {
   writeFileSync(FIXTURES_PATH, JSON.stringify(days));
   writeFileSync(HISTORY_PATH, JSON.stringify(buildHistory(days)));
 
-  // ── ПОЛНЫЙ прогноз для «Матчи» (рынки) — один раз на матч, с лимитом за прогон ──
+  // ── ПОЛНЫЙ прогноз для «Матчи» (рынки) ──
+  // ПОКА: только первый (ближайший) матч ЧМ — потом решим, как масштабировать.
   if (LZ_KEY) {
     const preds = existsSync(PRED_PATH) ? JSON.parse(readFileSync(PRED_PATH, 'utf8')) : {};
-    let predDone = 0;
-    const PRED_CAP = 4;
-    for (const day of days) for (const f of day.fixtures) {
-      const ko = new Date(f.startsAt).getTime();
-      if (ko <= now) continue;            // только будущие матчи
-      if (preds[f.id]) continue;          // уже есть полный прогноз
-      if (predDone >= PRED_CAP) continue; // лимит на прогон
+    const upcoming = days
+      .flatMap((d) => d.fixtures)
+      .filter((f) => new Date(f.startsAt).getTime() > now)
+      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+    const first = upcoming[0];
+    if (first && !preds[first.id]) {
       try {
-        const pred = await runMatchAnalysis(client, f);
-        if (pred) { preds[f.id] = pred; predDone++; changed++; console.log(`Полный прогноз (Матчи): ${f.homeTeam.name} — ${f.awayTeam.name} → ${pred.recommendedMarket}/${pred.recommendedOutcome}`); }
-      } catch (e) { console.warn(`  полный анализ упал ${f.id}: ${e?.message ?? e}`); }
+        const pred = await runMatchAnalysis(client, first);
+        if (pred) { preds[first.id] = pred; changed++; console.log(`Полный прогноз (Матчи, 1-й матч): ${first.homeTeam.name} — ${first.awayTeam.name} → ${pred.recommendedMarket}/${pred.recommendedOutcome}`); }
+      } catch (e) { console.warn(`  полный анализ упал ${first.id}: ${e?.message ?? e}`); }
     }
     writeFileSync(PRED_PATH, JSON.stringify(preds));
   }
