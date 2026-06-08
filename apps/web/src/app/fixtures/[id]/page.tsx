@@ -14,9 +14,17 @@ import { FixtureLabels, FixtureEventsWrapper, TeamBlockClient } from './fixture-
 import { getEspnH2H, getEspnTeamForm } from '@/lib/espn';
 import { getVenue } from '@/lib/venues-wc2026';
 import { cookies } from 'next/headers';
+import { STATIC_MODE } from '@/lib/lvs-data';
 
 interface Props {
   params: Promise<{ id: string }>;
+}
+
+// Статический экспорт требует generateStaticParams у динамического роута.
+// Отдаём один заглушечный путь (страница сама уйдёт в notFound без бэкенда).
+// В dev dynamicParams по умолчанию true → реальные страницы матчей работают.
+export function generateStaticParams() {
+  return [{ id: '0' }];
 }
 
 export default async function FixturePage({ params }: Props) {
@@ -124,9 +132,9 @@ async function ContextSections({ fixtureId, homeTeam, awayTeam }: {
   homeTeam: { id: number; name: string; shortName: string };
   awayTeam: { id: number; name: string; shortName: string };
 }) {
-  const cookieStore = await cookies();
   // App default is Russian; only switch to EN when the user explicitly chose it.
-  const locale = cookieStore.get('ai-score-locale')?.value === 'en' ? 'en' : 'ru';
+  // В статической сборке cookies() недоступен — берём дефолт.
+  const locale = STATIC_MODE ? 'ru' : (await cookies()).get('ai-score-locale')?.value === 'en' ? 'en' : 'ru';
 
   let raw: FixtureContext;
   try {

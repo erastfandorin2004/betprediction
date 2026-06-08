@@ -1,14 +1,22 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import type { LvsDay } from '@ai-score/shared';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { LvsFixtureCard } from '@/components/match/lvs-fixture-card';
+import { fetchLvsFixtures } from '@/lib/lvs-data';
 
-export function LvsContent({ days }: { days: LvsDay[] }) {
+export function LvsContent({ days: initialDays }: { days: LvsDay[] }) {
   const { t, locale } = useLocale();
   const L = t.lvs;
   const today = new Date().toISOString().slice(0, 10);
+
+  // Дуал-режим: серверные данные (dev с бэкендом) или клиентский JSON (статика/Pages).
+  const [days, setDays] = useState<LvsDay[]>(initialDays);
+  useEffect(() => {
+    if (initialDays.length === 0) fetchLvsFixtures().then(setDays).catch(() => {});
+  }, [initialDays]);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">

@@ -1,10 +1,12 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import type { LvsHistoryItem, LvsResultStatus } from '@ai-score/shared';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { getTeamName } from '@/lib/team-names-ru';
 import { flagEmoji } from '@/lib/country-flags';
+import { fetchLvsHistory } from '@/lib/lvs-data';
 import { Check, X, Minus } from 'lucide-react';
 
 const STATUS_COLOR: Record<LvsResultStatus, string> = {
@@ -13,9 +15,15 @@ const STATUS_COLOR: Record<LvsResultStatus, string> = {
   lost: '#ef4444',
 };
 
-export function LvsHistoryContent({ history }: { history: LvsHistoryItem[] }) {
+export function LvsHistoryContent({ history: initialHistory }: { history: LvsHistoryItem[] }) {
   const { t, locale } = useLocale();
   const L = t.lvs;
+
+  // Дуал-режим: серверные данные или клиентский JSON (статика/Pages).
+  const [history, setHistory] = useState<LvsHistoryItem[]>(initialHistory);
+  useEffect(() => {
+    if (initialHistory.length === 0) fetchLvsHistory().then(setHistory).catch(() => {});
+  }, [initialHistory]);
 
   const statusLabel = (s: LvsResultStatus) => (s === 'won' ? L.statusWon : s === 'partial' ? L.statusPartial : L.statusLost);
   const StatusIcon = (s: LvsResultStatus) => (s === 'won' ? Check : s === 'partial' ? Minus : X);

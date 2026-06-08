@@ -66,13 +66,13 @@ export class LvsScheduler implements OnModuleInit, OnModuleDestroy {
         ));
       if (!rows.length) return;
       this.logger.log(`LVS: ${rows.length} матч(ей) в окне T-60мин — пробуем анализ`);
-      const extra = new Set(this.lvs.extraFixtureIds());
       for (const r of rows) {
-        // Предпочитаем составы; но если провайдер их не даёт (бывает у мелких
-        // товарищеских), для доп.матчей форсируем анализ за ~45 мин до старта,
-        // чтобы прогноз точно вышел «за час до игры». Матчи ЧМ ждут составы строго.
+        // Предпочитаем составы (T-60…T-45): ждём публикации, иначе 409 → повтор.
+        // Если за ~45 мин до старта составов всё ещё нет — форсируем анализ, чтобы
+        // прогноз гарантированно вышел «за час до игры». Едино для матчей ЧМ и
+        // тестовых: официальные обычно публикуют составы к T-45, форс — страховка.
         const msToKo = r.startsAt.getTime() - Date.now();
-        const force = extra.has(r.id) && msToKo <= FORCE_FALLBACK_MS;
+        const force = msToKo <= FORCE_FALLBACK_MS;
         try {
           await this.lvs.analyze(r.id, force);
         } catch (err) {

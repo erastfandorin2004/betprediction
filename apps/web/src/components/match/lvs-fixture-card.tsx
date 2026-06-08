@@ -6,6 +6,7 @@ import type { LvsFixtureItem, LvsPredictionDetail, LvsModelForecast, LvsOutcome,
 import { formatTime } from '@/lib/format';
 import { getTeamName } from '@/lib/team-names-ru';
 import { flagEmoji } from '@/lib/country-flags';
+import { STATIC_MODE } from '@/lib/lvs-data';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { RefreshCw, AlertTriangle, Sparkles, Target, ChevronDown } from 'lucide-react';
 
@@ -140,7 +141,7 @@ export function LvsFixtureCard({ fixture }: { fixture: LvsFixtureItem }) {
               awayName={awayName}
               homeFlag={homeFlag}
               awayFlag={awayFlag}
-              canRerun={!isFinished}
+              canRerun={!isFinished && !STATIC_MODE}
               onRerun={run}
               L={L}
             />
@@ -152,7 +153,7 @@ export function LvsFixtureCard({ fixture }: { fixture: LvsFixtureItem }) {
                   <AlertTriangle className="h-4 w-4" /> {errorMsg}
                 </p>
               )}
-              {!isFinished && (
+              {!isFinished && !STATIC_MODE && (
                 <button
                   type="button"
                   onClick={run}
@@ -254,26 +255,26 @@ function LvsPredictionView({
   const outcomeWinner = outcome === '1' ? homeName : outcome === '2' ? awayName : null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3.5">
       {/* Исход + точный счёт — главные прогнозы */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         {/* Исход */}
         <div
-          className="rounded-2xl px-4 py-4"
+          className="rounded-xl px-3.5 py-3"
           style={{ background: 'rgb(var(--accent) / 0.10)', border: `1px solid rgb(var(--accent) / 0.35)` }}
         >
-          <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide" style={{ color: ACCENT }}>
-            <span className="text-base" aria-hidden>🏆</span> {L.outcome}
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: ACCENT }}>
+            <span className="text-sm" aria-hidden>🏆</span> {L.outcome}
           </p>
-          <p className="flex items-center gap-2 text-lg font-extrabold" style={{ color: 'rgb(var(--fg-card))' }}>
+          <p className="flex items-center gap-1.5 text-base font-extrabold" style={{ color: 'rgb(var(--fg-card))' }}>
             {outcomeWinner ? (
               <>
-                {outcomeFlag && <span className="text-2xl leading-none" aria-hidden>{outcomeFlag}</span>}
+                {outcomeFlag && <span className="text-lg leading-none" aria-hidden>{outcomeFlag}</span>}
                 <span className="truncate">{outcomeWinner}</span>
               </>
             ) : (
               <>
-                <span className="text-2xl leading-none" aria-hidden>🤝</span>
+                <span className="text-lg leading-none" aria-hidden>🤝</span>
                 <span>{L.draw}</span>
               </>
             )}
@@ -282,20 +283,20 @@ function LvsPredictionView({
 
         {/* Точный счёт */}
         <div
-          className="rounded-2xl px-4 py-4"
+          className="rounded-xl px-3.5 py-3"
           style={{ background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}
         >
-          <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted))' }}>
-            <span className="text-base" aria-hidden>🎯</span> {L.exactScore}
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'rgb(var(--fg-muted))' }}>
+            <span className="text-sm" aria-hidden>🎯</span> {L.exactScore}
           </p>
-          <p className="tabular text-3xl font-extrabold leading-none" style={{ color: 'rgb(var(--fg-primary))' }}>
+          <p className="tabular text-2xl font-extrabold leading-none" style={{ color: 'rgb(var(--fg-primary))' }}>
             {prediction.score.home} : {prediction.score.away}
           </p>
         </div>
       </div>
 
       {/* Вероятности: Победа 1 / Ничья / Победа 2 */}
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-3 gap-2">
         <ProbCard emoji={homeFlag || '🏠'} label={L.win1Short} v={prediction.probs.win1} active={outcome === '1'} />
         <ProbCard emoji="🤝" label={L.draw} v={prediction.probs.draw} active={outcome === 'X'} />
         <ProbCard emoji={awayFlag || '🚌'} label={L.win2Short} v={prediction.probs.win2} active={outcome === '2'} />
@@ -304,10 +305,10 @@ function LvsPredictionView({
       {/* Кто забьёт */}
       {prediction.scorers.length > 0 && (
         <div>
-          <p className="mb-2.5 flex items-center gap-1.5 text-sm font-bold" style={{ color: 'rgb(var(--fg-card))' }}>
-            <span className="text-base" aria-hidden>⚽</span> {L.scorers}
+          <p className="mb-2 flex items-center gap-1.5 text-[13px] font-bold" style={{ color: 'rgb(var(--fg-card))' }}>
+            <span className="text-sm" aria-hidden>⚽</span> {L.scorers}
           </p>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {prediction.scorers.map((s, i) => (
               <ScorerCard key={i} s={s} teamName={teamName(s.team)} teamFlag={teamFlag(s.team)} resolved={prediction.result?.scorers.find((r) => r.name === s.name) ?? null} L={L} />
             ))}
@@ -317,21 +318,21 @@ function LvsPredictionView({
 
       {/* Общий вывод LVS */}
       {(prediction.summary || prediction.rationale) && (
-        <div className="rounded-2xl px-5 py-4" style={{ background: 'rgb(var(--accent) / 0.07)', border: `1px solid rgb(var(--accent) / 0.25)` }}>
-          <p className="mb-2 flex items-center gap-1.5 text-sm font-bold" style={{ color: ACCENT }}>
-            <span className="text-base" aria-hidden>🧠</span> {prediction.summary ? `${L.overall} LVS` : L.rationale}
+        <div className="rounded-xl px-4 py-3" style={{ background: 'rgb(var(--accent) / 0.07)', border: `1px solid rgb(var(--accent) / 0.25)` }}>
+          <p className="mb-1.5 flex items-center gap-1.5 text-[13px] font-bold" style={{ color: ACCENT }}>
+            <span className="text-sm" aria-hidden>🧠</span> {prediction.summary ? `${L.overall} LVS` : L.rationale}
           </p>
-          <p className="text-[15px] leading-relaxed" style={{ color: 'rgb(var(--fg-secondary))' }}>{prediction.summary ?? prediction.rationale}</p>
+          <p className="text-[13px] leading-relaxed" style={{ color: 'rgb(var(--fg-secondary))' }}>{prediction.summary ?? prediction.rationale}</p>
         </div>
       )}
 
       {/* Мнение каждой модели отдельно */}
       {prediction.modelViews.length > 0 && (
         <div>
-          <p className="mb-2.5 flex items-center gap-1.5 text-sm font-bold" style={{ color: 'rgb(var(--fg-card))' }}>
-            <span className="text-base" aria-hidden>🤖</span> {L.modelsOpinion}
+          <p className="mb-2 flex items-center gap-1.5 text-[13px] font-bold" style={{ color: 'rgb(var(--fg-card))' }}>
+            <span className="text-sm" aria-hidden>🤖</span> {L.modelsOpinion}
           </p>
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {prediction.modelViews.map((m, i) => (
               <ModelCard key={i} m={m} homeName={homeName} awayName={awayName} homeFlag={homeFlag} awayFlag={awayFlag} L={L} />
             ))}
@@ -367,16 +368,16 @@ function LvsPredictionView({
 function ProbCard({ emoji, label, v, active }: { emoji: string; label: string; v: number; active: boolean }) {
   return (
     <div
-      className="flex flex-col items-center gap-1 rounded-2xl px-2 py-3 transition-transform"
+      className="flex flex-col items-center gap-0.5 rounded-xl px-2 py-2.5 transition-transform"
       style={{
         background: active ? `linear-gradient(180deg, rgb(var(--accent) / 0.22), rgb(var(--accent) / 0.10))` : 'rgb(var(--pitch-800))',
         border: active ? `1.5px solid ${ACCENT}` : '1px solid rgb(var(--pitch-700))',
-        transform: active ? 'scale(1.04)' : 'none',
+        transform: active ? 'scale(1.03)' : 'none',
       }}
     >
-      <span className="text-xl leading-none" aria-hidden>{emoji}</span>
-      <span className="tabular text-xl font-extrabold leading-none" style={{ color: active ? ACCENT : 'rgb(var(--fg-card))' }}>{Math.round(v * 100)}%</span>
-      <span className="text-center text-[11px] font-medium leading-tight" style={{ color: active ? ACCENT : 'rgb(var(--fg-muted))' }}>{label}</span>
+      <span className="text-base leading-none" aria-hidden>{emoji}</span>
+      <span className="tabular text-lg font-extrabold leading-none" style={{ color: active ? ACCENT : 'rgb(var(--fg-card))' }}>{Math.round(v * 100)}%</span>
+      <span className="text-center text-[10px] font-medium leading-tight" style={{ color: active ? ACCENT : 'rgb(var(--fg-muted))' }}>{label}</span>
     </div>
   );
 }
@@ -395,14 +396,14 @@ function ScorerCard({
   const hit = resolved?.scored ?? false;
   return (
     <div
-      className="rounded-2xl px-4 py-3"
+      className="rounded-xl px-3.5 py-2.5"
       style={hit
         ? { background: '#22c55e14', border: '1px solid #22c55e66' }
         : { background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}
     >
       <div className="flex items-center justify-between gap-3">
-        <span className="flex items-center gap-2 text-[15px] font-bold" style={{ color: 'rgb(var(--fg-card))' }}>
-          <span className="text-base" aria-hidden>⚽</span>
+        <span className="flex items-center gap-1.5 text-sm font-bold" style={{ color: 'rgb(var(--fg-card))' }}>
+          <span className="text-sm" aria-hidden>⚽</span>
           <span className="truncate">{s.name}</span>
         </span>
         {resolved ? (
@@ -421,7 +422,7 @@ function ScorerCard({
           </span>
         )}
       </div>
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]" style={{ color: 'rgb(var(--fg-secondary))' }}>
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs" style={{ color: 'rgb(var(--fg-secondary))' }}>
         <span className="flex items-center gap-1.5">
           {teamFlag && <span aria-hidden>{teamFlag}</span>}
           {teamName}
@@ -452,19 +453,19 @@ function ModelCard({
   const score = m.scoreHome != null && m.scoreAway != null ? `${m.scoreHome}:${m.scoreAway}` : '—';
 
   return (
-    <div className="rounded-2xl p-3.5" style={{ background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="truncate text-sm font-bold" style={{ color: 'rgb(var(--fg-card))' }}>{modelLabel(m.modelId)}</span>
+    <div className="rounded-xl p-3" style={{ background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="truncate text-[13px] font-bold" style={{ color: 'rgb(var(--fg-card))' }}>{modelLabel(m.modelId)}</span>
         {!m.error && (
-          <span className="tabular shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ background: 'rgb(var(--accent) / 0.14)', color: ACCENT }}>
+          <span className="tabular shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: 'rgb(var(--accent) / 0.14)', color: ACCENT }}>
             {outcomeText(m.outcome)} · {score}
           </span>
         )}
       </div>
       {m.error ? (
-        <p className="text-[13px]" style={{ color: 'rgb(var(--fg-muted))' }}>{L.noAnswer}</p>
+        <p className="text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>{L.noAnswer}</p>
       ) : (
-        <div className="space-y-1.5 text-[13px] leading-relaxed" style={{ color: 'rgb(var(--fg-secondary))' }}>
+        <div className="space-y-1 text-xs leading-relaxed" style={{ color: 'rgb(var(--fg-secondary))' }}>
           {m.scorers.length > 0 && (
             <p>
               <span style={{ color: 'rgb(var(--fg-muted))' }}>⚽ {L.goalsBy}: </span>
