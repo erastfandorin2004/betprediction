@@ -44,10 +44,11 @@ function nameMatches(predicted: string, actualNames: string[]): boolean {
   });
 }
 
-// Сверяет прогноз ЛВС с фактом. Статус «по исходу + бонусы»:
-//  • won     — исход верный И (точный счёт верный ИЛИ ≥1 предсказанный игрок забил);
-//  • partial — исход верный без бонусов ИЛИ исход неверный, но ≥1 игрок забил;
-//  • lost    — ничего не угадано.
+// Сверяет прогноз ЛВС с фактом. Статус «по исходу и счёту»:
+//  • won     — исход верный И точный счёт верный (угадано полностью);
+//  • partial — исход верный, но счёт не совпал;
+//  • lost    — исход не угадан.
+// Бомбардиры считаются для отображения, но на статус не влияют.
 export function settleLvs(pred: LvsPredictionInput, actual: LvsActual): LvsSettlementView {
   const actualOutcome = outcomeFromScore(actual.homeGoals, actual.awayGoals);
   const outcomeHit = pred.outcome === actualOutcome;
@@ -58,11 +59,10 @@ export function settleLvs(pred: LvsPredictionInput, actual: LvsActual): LvsSettl
     team: s.team,
     scored: nameMatches(s.name, actual.scorers),
   }));
-  const anyScorerHit = scorers.some((s) => s.scored);
 
   let resultStatus: LvsResultStatus;
-  if (outcomeHit && (scoreHit || anyScorerHit)) resultStatus = 'won';
-  else if (outcomeHit || anyScorerHit) resultStatus = 'partial';
+  if (outcomeHit && scoreHit) resultStatus = 'won';
+  else if (outcomeHit) resultStatus = 'partial';
   else resultStatus = 'lost';
 
   return {
