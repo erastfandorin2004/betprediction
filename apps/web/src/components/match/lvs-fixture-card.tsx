@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import type { LvsFixtureItem, LvsPredictionDetail, LvsModelForecast, LvsOutcome, LvsScorer } from '@ai-score/shared';
 import { formatTime } from '@/lib/format';
@@ -54,6 +54,25 @@ export function LvsFixtureCard({ fixture }: { fixture: LvsFixtureItem }) {
   // Свёрнут по умолчанию: анализ раскрывается по клику на матч / стрелку.
   const [expanded, setExpanded] = useState(false);
 
+  // Якорь на корневой <div> карточки — для deep-link вида /lvs#m-<fixtureId>.
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Если хеш в URL указывает на этот матч — раскрыть карточку и проскроллить к ней.
+  // Реагируем и на hashchange, чтобы переход работал на уже открытой странице.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const target = `#m-${fixture.id}`;
+    const focusIfMatch = () => {
+      if (window.location.hash === target) {
+        setExpanded(true);
+        cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    };
+    focusIfMatch();
+    window.addEventListener('hashchange', focusIfMatch);
+    return () => window.removeEventListener('hashchange', focusIfMatch);
+  }, [fixture.id]);
+
   const isFinished = fixture.status === 'finished';
   const homeName = getTeamName(fixture.homeTeam.name, fixture.homeTeam.shortName, locale, true);
   const awayName = getTeamName(fixture.awayTeam.name, fixture.awayTeam.shortName, locale, true);
@@ -82,7 +101,7 @@ export function LvsFixtureCard({ fixture }: { fixture: LvsFixtureItem }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-3xl" style={CARD}>
+    <div ref={cardRef} id={`m-${fixture.id}`} className="overflow-hidden rounded-3xl scroll-mt-24" style={CARD}>
       {/* Шапка-кнопка: клик по матчу разворачивает/сворачивает анализ */}
       <button
         type="button"
