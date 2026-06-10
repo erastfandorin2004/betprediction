@@ -6,7 +6,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import shared from '../packages/shared/dist/index.js';
 
-const { romanizeCyrillic, romanizeNormalized, isLatinName } = shared;
+const { romanizeCyrillic, romanizeNormalized, isLatinName, isPlaceholderName } = shared;
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // reverse-карта кириллица → латиница из web/player-names-ru.ts (KNOWN).
@@ -45,6 +45,7 @@ function cleanScorers(scorers) {
   const out = [];
   let changed = false;
   for (const s of scorers) {
+    if (isPlaceholderName(s.name)) { changed = true; continue; } // выкидываем заглушки
     const name = canonicalize(s.name);
     const latin = isLatinName(s.name);
     if (name !== s.name) changed = true;

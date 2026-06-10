@@ -28,6 +28,14 @@ export function isLatinName(name: string): boolean {
   return !/[а-яёА-ЯЁ]/.test(name);
 }
 
+// Заглушка вместо игрока (модель не смогла назвать имя — нет составов и т.п.).
+// Такие записи не показываем в списке бомбардиров.
+export function isPlaceholderName(name: string): boolean {
+  if (!name || name.trim().length < 2) return true;
+  if (/[()]/.test(name)) return true; // настоящих имён в скобках не бывает
+  return /неизвест|unknown|нет\s+состав|без\s+состав|no\s+lineup|tbd|n\/a/i.test(name);
+}
+
 /** Нормализованная латинская форма: романизация + без диакритики, только [a-z0-9 ]. */
 export function romanizeNormalized(name: string): string {
   const noDiacritics = name.normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -71,7 +79,7 @@ export function mergeScorers(all: RawScorer[]): MergedScorer[] {
   const accs: Acc[] = [];
 
   for (const s of all) {
-    if (!s?.name) continue;
+    if (!s?.name || isPlaceholderName(s.name)) continue;
     const key = romanizeNormalized(s.name);
     if (!key) continue;
     const sur = surnameToken(key);

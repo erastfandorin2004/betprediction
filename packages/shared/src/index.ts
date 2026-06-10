@@ -122,5 +122,5 @@ export type { ActualResult } from './settlement/settle';
 export { settleLvs, outcomeFromScore } from './settlement/settle-lvs';
 export type { LvsActual, LvsPredictionInput } from './settlement/settle-lvs';
 
-export { romanizeCyrillic, romanizeNormalized, isLatinName, mergeScorers } from './utils/player-name';
+export { romanizeCyrillic, romanizeNormalized, isLatinName, isPlaceholderName, mergeScorers } from './utils/player-name';
 export type { RawScorer, MergedScorer } from './utils/player-name';
