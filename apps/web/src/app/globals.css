@@ -97,6 +97,14 @@
 
   * { box-sizing: border-box; }
 
+  /* Защита от горизонтального «гуляния» интерфейса на мобиле: ни один элемент
+     не должен растягивать страницу шире вьюпорта и провоцировать горизонтальный
+     скролл влево-вправо. */
+  html, body {
+    overflow-x: hidden;
+    max-width: 100%;
+  }
+
   body {
     @apply bg-pitch-950 text-zinc-900 antialiased dark:text-zinc-100;
     font-feature-settings: 'rlig' 1, 'calt' 1;

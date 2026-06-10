@@ -54,10 +54,11 @@ export function AuthHeader() {
         style={{ background: 'linear-gradient(90deg, transparent, rgb(var(--accent) / 0.6), rgba(59,130,246,0.6), transparent)' }}
       />
 
-      <div className="flex h-16 w-full items-center gap-3 px-4">
-        {/* Logo — максимально слева */}
-        <Link href="/" className="flex shrink-0 items-center transition-transform hover:scale-[1.03]">
-          <BrandLogo size={36} wordClassName="text-2xl" />
+      <div className="flex h-16 w-full items-center gap-2 px-3 sm:gap-3 sm:px-4">
+        {/* Logo — максимально слева. На мобиле слегка уменьшен и может ужиматься,
+            чтобы правый кластер (язык/вход/регистрация) гарантированно помещался. */}
+        <Link href="/" className="flex min-w-0 items-center transition-transform hover:scale-[1.03]">
+          <BrandLogo size={36} wordClassName="truncate text-lg sm:text-2xl" />
         </Link>
 
         {/* Left nav — разделы в цветах ЧМ с эмодзи */}
@@ -83,8 +84,8 @@ export function AuthHeader() {
           })}
         </nav>
 
-        {/* Right cluster */}
-        <div className="ml-auto flex items-center gap-2">
+        {/* Right cluster — не сжимается, всегда помещается на одной строке */}
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
           {/* Тарифы — отдельный чип справа */}
           <Link
             href={pricingItem.href}
@@ -143,13 +144,13 @@ export function AuthHeader() {
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <Link href="/login" className="text-sm transition-opacity hover:opacity-70" style={{ color: 'rgb(var(--fg-muted))' }}>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Link href="/login" className="shrink-0 whitespace-nowrap text-[13px] transition-opacity hover:opacity-70 sm:text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>
                 {t.auth.signIn}
               </Link>
               <Link
                 href="/register"
-                className="rounded-full px-4 py-1.5 text-sm font-semibold transition-transform hover:scale-[1.03]"
+                className="shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-semibold transition-transform hover:scale-[1.03] sm:px-4 sm:text-sm"
                 style={{ background: `linear-gradient(90deg, rgb(var(--accent)), rgb(var(--accent-2)))`, color: 'rgb(var(--on-accent))' }}
               >
                 {t.auth.register}
