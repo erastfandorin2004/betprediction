@@ -9,6 +9,7 @@ import {
   buildLvsUserPrompt,
   lvsPredictionResponseSchema,
   mergeScorers,
+  parseJsonLoose,
   type MatchContext,
   type ModelCallResult,
   type LvsPredictionResponse,
@@ -347,7 +348,7 @@ function parseWithModel(results: ModelCallResult[]): ParsedModel[] {
   return results.map((r) => {
     if (r.error) return { modelId: r.modelId, parsed: null, error: r.error };
     try {
-      return { modelId: r.modelId, parsed: lvsPredictionResponseSchema.parse(JSON.parse(extractJson(r.content))), error: null };
+      return { modelId: r.modelId, parsed: lvsPredictionResponseSchema.parse(parseJsonLoose(r.content)), error: null };
     } catch (err) {
       return { modelId: r.modelId, parsed: null, error: err instanceof Error ? err.message.slice(0, 200) : 'parse error' };
     }
@@ -457,26 +458,6 @@ function toStars(c: number): number {
   if (c >= 0.55) return 3;
   if (c >= 0.4) return 2;
   return 1;
-}
-
-function extractJson(raw: string): string {
-  let s = raw.trim();
-  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fence) s = fence[1]!.trim();
-  const start = s.indexOf('{');
-  if (start === -1) return s;
-  let depth = 0, inStr = false, esc = false;
-  for (let i = start; i < s.length; i++) {
-    const ch = s[i]!;
-    if (inStr) {
-      if (esc) esc = false;
-      else if (ch === '\\') esc = true;
-      else if (ch === '"') inStr = false;
-    } else if (ch === '"') inStr = true;
-    else if (ch === '{') depth++;
-    else if (ch === '}' && --depth === 0) return s.slice(start, i + 1);
-  }
-  return s.slice(start);
 }
 
 function formString(fixtures: ProviderFixture[], teamName: string): string {

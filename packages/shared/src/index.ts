@@ -116,6 +116,7 @@ export {
   buildLvsUserPrompt,
 } from './llm/prompts';
 export type { MatchContext } from './llm/prompts';
+export { extractJsonObject, parseJsonLoose, isParseableJson } from './llm/json';
 
 export { settlePrediction } from './settlement/settle';
 export type { ActualResult } from './settlement/settle';

@@ -2,6 +2,8 @@
 // Docs: https://docs.laozhang.ai — base https://api.laozhang.ai/v1, Bearer auth.
 // Single LLM provider for the prediction ensemble. Used by worker and API.
 
+import { isParseableJson } from './json';
+
 export interface LlmMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -106,8 +108,14 @@ export class LaozhangClient {
   }
 
   // Fan-out to multiple models in parallel — each is an independent prediction.
-  // Models that error/time out (slower ones like deepseek) get one retry.
+  // Модели, которые ошиблись/вышли по таймауту ИЛИ вернули невалидный JSON
+  // (частый случай у claude — неэкранированные символы в строках → раньше
+  // карточка показывала «Модель не дала ответ»), получают до 2 ретраев.
   async fanOut(models: string[], messages: LlmMessage[]): Promise<ModelCallResult[]> {
+    const MAX_ATTEMPTS = 3; // 1 основной вызов + до 2 ретраев
+    // Ответ непригоден, если ошибка или из content не извлекается валидный JSON.
+    const needsRetry = (r: ModelCallResult) => r.error !== null || !isParseableJson(r.content);
+
     const call = (model: string) => {
       // gpt-5.x — reasoning-модели: без reasoning_effort:'low' «размышления»
       // съедают весь бюджет токенов и JSON обрывается (даже при 8000 ток).
@@ -126,9 +134,13 @@ export class LaozhangClient {
       });
     };
 
-    const results = await Promise.all(models.map(call));
-    return Promise.all(
-      results.map((r) => (r.error ? call(r.modelId) : Promise.resolve(r))),
-    );
+    const run = async (model: string): Promise<ModelCallResult> => {
+      let r = await call(model);
+      for (let attempt = 1; attempt < MAX_ATTEMPTS && needsRetry(r); attempt++) {
+        r = await call(model);
+      }
+      return r;
+    };
+    return Promise.all(models.map(run));
   }
 }

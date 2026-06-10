@@ -18,6 +18,7 @@ const {
   lvsPredictionResponseSchema,
   settleLvs,
   mergeScorers,
+  parseJsonLoose,
   // Полный прогноз для вкладки «Матчи» (рынки: 1X2/тоталы/угловые/карточки/…).
   buildSystemPrompt,
   buildUserPrompt,
@@ -90,28 +91,11 @@ const outcomeFromScore = (h, a) => (h > a ? '1' : h < a ? '2' : 'X');
 const outcomeLabel = (o) => (o === '1' ? 'П1' : o === '2' ? 'П2' : 'Ничья');
 const posCodeRu = (c) => ({ G: 'вр', D: 'защ', M: 'пз', F: 'нап' }[String(c).trim().toUpperCase()[0]] ?? c);
 
-function extractJson(raw) {
-  let s = raw.trim();
-  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fence) s = fence[1].trim();
-  const start = s.indexOf('{');
-  if (start === -1) return s;
-  let depth = 0, inStr = false, esc = false;
-  for (let i = start; i < s.length; i++) {
-    const ch = s[i];
-    if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; }
-    else if (ch === '"') inStr = true;
-    else if (ch === '{') depth++;
-    else if (ch === '}' && --depth === 0) return s.slice(start, i + 1);
-  }
-  return s.slice(start);
-}
-
 function parseWithModel(results) {
   return results.map((r) => {
     if (r.error) return { modelId: r.modelId, parsed: null, error: r.error };
     try {
-      return { modelId: r.modelId, parsed: lvsPredictionResponseSchema.parse(JSON.parse(extractJson(r.content))), error: null };
+      return { modelId: r.modelId, parsed: lvsPredictionResponseSchema.parse(parseJsonLoose(r.content)), error: null };
     } catch (e) { return { modelId: r.modelId, parsed: null, error: (e?.message ?? 'parse error').slice(0, 200) }; }
   });
 }
@@ -270,7 +254,7 @@ function parsePred(results) {
   return results.map((r) => {
     if (r.error) return { modelId: r.modelId, parsed: null, error: r.error };
     try {
-      return { modelId: r.modelId, parsed: llmPredictionResponseSchema.parse(JSON.parse(extractJson(r.content))), error: null };
+      return { modelId: r.modelId, parsed: llmPredictionResponseSchema.parse(parseJsonLoose(r.content)), error: null };
     } catch (e) { return { modelId: r.modelId, parsed: null, error: (e?.message ?? 'parse error').slice(0, 200) }; }
   });
 }
@@ -438,13 +422,21 @@ async function main() {
         }
       }
       // ── ПРЕДВАРИТЕЛЬНЫЙ анализ заранее (матч дальше окна T-60, прогноза нет) ──
-      // Нет прогноза ИЛИ предварительный получился неполным (<3 бомбардиров —
-      // напр. из-за старого дедупа) → (пере)генерируем на месте.
+      // Нет прогноза ИЛИ предварительный получился неполным: <3 бомбардиров
+      // (старый дедуп) либо какая-то модель не ответила → (пере)генерируем на
+      // месте. repairAttempts ограничивает пересборки (защита от цикла, если
+      // модель стабильно падает).
       else if (!inFinalWindow && prelimDone < PRELIM_CAP &&
-        (!p || (p.phase === 'preliminary' && p.status === 'pending' && (p.scorers?.length ?? 0) < 3))) {
+        (!p || (p.phase === 'preliminary' && p.status === 'pending' &&
+          ((p.scorers?.length ?? 0) < 3 || (p.modelViews ?? []).some((m) => m.error)) &&
+          (p.repairAttempts ?? 0) < 2))) {
         try {
           const pred = await runAnalysis(client, f, null, 'preliminary');
-          if (pred) { f.prediction = pred; changed++; prelimDone++; console.log(`Предварительный${p ? ' (пересборка)' : ''}: ${name}`); }
+          if (pred) {
+            if (p) pred.repairAttempts = (p.repairAttempts ?? 0) + 1;
+            f.prediction = pred; changed++; prelimDone++;
+            console.log(`Предварительный${p ? ' (пересборка)' : ''}: ${name}`);
+          }
         } catch (e) { console.warn(`  предв. анализ упал: ${e?.message ?? e}`); }
       }
     }
