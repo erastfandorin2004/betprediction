@@ -438,10 +438,13 @@ async function main() {
         }
       }
       // ── ПРЕДВАРИТЕЛЬНЫЙ анализ заранее (матч дальше окна T-60, прогноза нет) ──
-      else if (!p && !inFinalWindow && prelimDone < PRELIM_CAP) {
+      // Нет прогноза ИЛИ предварительный получился неполным (<3 бомбардиров —
+      // напр. из-за старого дедупа) → (пере)генерируем на месте.
+      else if (!inFinalWindow && prelimDone < PRELIM_CAP &&
+        (!p || (p.phase === 'preliminary' && p.status === 'pending' && (p.scorers?.length ?? 0) < 3))) {
         try {
           const pred = await runAnalysis(client, f, null, 'preliminary');
-          if (pred) { f.prediction = pred; changed++; prelimDone++; console.log(`Предварительный: ${name}`); }
+          if (pred) { f.prediction = pred; changed++; prelimDone++; console.log(`Предварительный${p ? ' (пересборка)' : ''}: ${name}`); }
         } catch (e) { console.warn(`  предв. анализ упал: ${e?.message ?? e}`); }
       }
     }
