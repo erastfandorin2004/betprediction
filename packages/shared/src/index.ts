@@ -117,6 +117,8 @@ export {
   formatOddsBlock,
   buildLvsSystemPrompt,
   buildLvsUserPrompt,
+  buildChampionSystemPrompt,
+  buildChampionUserPrompt,
 } from './llm/prompts';
 export type { MatchContext } from './llm/prompts';
 export { extractJsonObject, parseJsonLoose, isParseableJson } from './llm/json';
