@@ -31,6 +31,7 @@ export const lvsPredictionResponseSchema = z
     score: scoreSchema,
     scorers: z.array(scorerSchema).catch([]).transform((a) => a.filter((s) => s.name).slice(0, 3)),
     rationale: z.string().catch('').transform((s) => s.trim().slice(0, 1000)),
+    rationaleEn: z.string().catch('').transform((s) => s.trim().slice(0, 1000)),
     keyFactors: z
       .array(z.string())
       .catch([])

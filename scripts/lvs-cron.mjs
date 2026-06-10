@@ -102,9 +102,9 @@ function parseWithModel(results) {
 
 function buildModelViews(parsed) {
   return parsed.map((pm) => {
-    if (!pm.parsed) return { modelId: pm.modelId, outcome: null, scoreHome: null, scoreAway: null, scorers: [], confidence: null, rationale: null, error: pm.error };
+    if (!pm.parsed) return { modelId: pm.modelId, outcome: null, scoreHome: null, scoreAway: null, scorers: [], confidence: null, rationale: null, rationaleEn: null, error: pm.error };
     const r = pm.parsed;
-    return { modelId: pm.modelId, outcome: r.outcome, scoreHome: r.score.home, scoreAway: r.score.away, scorers: r.scorers.map((s) => s.name), confidence: round(r.confidence), rationale: r.rationale || null, error: null };
+    return { modelId: pm.modelId, outcome: r.outcome, scoreHome: r.score.home, scoreAway: r.score.away, scorers: r.scorers.map((s) => s.name), confidence: round(r.confidence), rationale: r.rationale || null, rationaleEn: r.rationaleEn || null, error: null };
   });
 }
 
@@ -133,8 +133,11 @@ function aggregate(responses) {
     .map((s) => ({ name: s.name, team: s.team, position: s.position, probability: round(Math.min(0.95, s.weight / total + 0.2)) }));
 
   const confidence = clamp(responses.reduce((s, r) => s + r.confidence, 0) / n, 0.05, 0.97);
-  const rationale = responses.map((r) => r.rationale ?? '').filter((s) => s.length > 20).sort((a, b) => b.length - a.length)[0] ?? '';
-  return { outcome, probs, score: { home: sh, away: sa }, scorers, confidence, stars: toStars(confidence), rationale };
+  // Берём самое развёрнутое обоснование и его английскую пару (от той же модели).
+  const best = responses.filter((r) => (r.rationale ?? '').length > 20).sort((a, b) => (b.rationale?.length ?? 0) - (a.rationale?.length ?? 0))[0];
+  const rationale = best?.rationale ?? '';
+  const rationaleEn = best?.rationaleEn ?? '';
+  return { outcome, probs, score: { home: sh, away: sa }, scorers, confidence, stars: toStars(confidence), rationale, rationaleEn };
 }
 
 function lineupsSummary(lineups, homeShort, awayShort) {
@@ -168,7 +171,7 @@ async function runAnalysis(client, fixture, lineups, phase) {
 
   const agg = aggregate(valid);
   const modelViews = buildModelViews(parsed);
-  const summary = await synthesize(client, ctx, agg, modelViews);
+  const { summary, summaryEn } = await synthesize(client, ctx, agg, modelViews);
 
   return {
     fixtureId: fixture.id,
@@ -176,30 +179,40 @@ async function runAnalysis(client, fixture, lineups, phase) {
     outcome: agg.outcome, outcomeLabel: outcomeLabel(agg.outcome),
     probs: agg.probs, score: agg.score, scorers: agg.scorers,
     confidence: agg.confidence, stars: agg.stars,
-    rationale: agg.rationale || null, summary, odds: null,
+    rationale: agg.rationale || null, rationaleEn: agg.rationaleEn || null,
+    summary, summaryEn, odds: null,
     modelViews, lineups: lineups ?? null,
     status: 'pending', result: null,
     createdAt: new Date().toISOString(), resolvedAt: null,
   };
 }
 
+// Синтез общего вывода. Один вызов возвращает оба языка (ru + en) — без
+// отдельного запроса перевода.
 async function synthesize(client, ctx, agg, views) {
   const opinions = views.filter((v) => !v.error).map((v) => {
     const sc = v.scoreHome != null ? ` ${v.scoreHome}:${v.scoreAway}` : '';
     const pl = v.scorers.length ? `, голы: ${v.scorers.join(', ')}` : '';
     return `- ${v.modelId}: исход «${v.outcome ?? '—'}»${sc}${pl}`;
   }).join('\n');
-  if (!opinions) return null;
+  if (!opinions) return { summary: null, summaryEn: null };
   const decision = `Итог: исход «${agg.outcome}», счёт ${agg.score.home}:${agg.score.away}, забьют: ${agg.scorers.map((s) => s.name).join(', ')}.`;
   const res = await client.complete({
     model: SYNTH_MODEL,
     messages: [
-      { role: 'system', content: 'Объедини прогнозы AI-моделей в один краткий вывод. Только связный текст на русском, 2–3 предложения, без markdown. Имена игроков пиши латиницей (как в данных), без кириллицы.' },
+      { role: 'system', content: 'Объедини прогнозы AI-моделей в один краткий вывод (2–3 предложения), без markdown. Имена игроков латиницей. Верни ТОЛЬКО JSON {"ru":"вывод на русском","en":"the same conclusion in English"} — оба языка в одном ответе.' },
       { role: 'user', content: `${ctx.homeTeam} — ${ctx.awayTeam}.\nМодели:\n${opinions}\n${decision}\nВ чём модели согласны/расходятся и почему такой прогноз.` },
     ],
-    max_tokens: 300, temperature: 0.3,
+    max_tokens: 500, temperature: 0.3,
   });
-  return res.error || !res.content.trim() ? null : res.content.trim().slice(0, 600);
+  if (res.error || !res.content.trim()) return { summary: null, summaryEn: null };
+  try {
+    const j = parseJsonLoose(res.content);
+    return { summary: (j.ru ?? '').trim().slice(0, 600) || null, summaryEn: (j.en ?? '').trim().slice(0, 600) || null };
+  } catch {
+    // На случай, если модель вернула просто текст — кладём его как русский.
+    return { summary: res.content.trim().slice(0, 600), summaryEn: null };
+  }
 }
 
 // ── сеттлмент одного матча ───────────────────────────────────────────────────

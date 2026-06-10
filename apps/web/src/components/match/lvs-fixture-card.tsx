@@ -29,19 +29,26 @@ const modelLabel = (id: string) => MODEL_LABELS[id] ?? id;
 
 // Нормализация позиции игрока к читаемому русскому слову (модель может вернуть
 // код G/D/M/F, англ. слово или уже русское — отдаём как есть в последнем случае).
-function formatPosition(pos: string | null | undefined): string | null {
+type PosCode = 'gk' | 'def' | 'mid' | 'fw';
+const POS_LABEL: Record<PosCode, { ru: string; en: string }> = {
+  gk: { ru: 'вратарь', en: 'Goalkeeper' },
+  def: { ru: 'защитник', en: 'Defender' },
+  mid: { ru: 'полузащитник', en: 'Midfielder' },
+  fw: { ru: 'нападающий', en: 'Forward' },
+};
+const POS_CODE: Record<string, PosCode> = {
+  g: 'gk', gk: 'gk', goalkeeper: 'gk', вратарь: 'gk',
+  d: 'def', def: 'def', defender: 'def', защитник: 'def',
+  m: 'mid', mid: 'mid', midfielder: 'mid', полузащитник: 'mid',
+  f: 'fw', fw: 'fw', forward: 'fw', striker: 'fw', attacker: 'fw', нападающий: 'fw',
+};
+function formatPosition(pos: string | null | undefined, locale: string): string | null {
   if (!pos) return null;
   const p = pos.trim();
   if (!p) return null;
-  const key = p.toLowerCase();
-  const map: Record<string, string> = {
-    g: 'вратарь', gk: 'вратарь', goalkeeper: 'вратарь', вратарь: 'вратарь',
-    d: 'защитник', def: 'защитник', defender: 'защитник', защитник: 'защитник',
-    m: 'полузащитник', mid: 'полузащитник', midfielder: 'полузащитник', полузащитник: 'полузащитник',
-    f: 'нападающий', fw: 'нападающий', forward: 'нападающий', striker: 'нападающий',
-    attacker: 'нападающий', нападающий: 'нападающий',
-  };
-  return map[key] ?? p;
+  const code = POS_CODE[p.toLowerCase()];
+  if (!code) return p;
+  return locale === 'en' ? POS_LABEL[code].en : POS_LABEL[code].ru;
 }
 
 export function LvsFixtureCard({ fixture }: { fixture: LvsFixtureItem }) {
@@ -298,6 +305,7 @@ function LvsPredictionView({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   L: any;
 }) {
+  const { locale } = useLocale();
   const teamName = (team: 'home' | 'away') => (team === 'home' ? homeName : awayName);
   const teamFlag = (team: 'home' | 'away') => (team === 'home' ? homeFlag : awayFlag);
 
@@ -365,21 +373,28 @@ function LvsPredictionView({
           </p>
           <div className="space-y-1.5">
             {prediction.scorers.map((s, i) => (
-              <ScorerCard key={i} s={s} teamName={teamName(s.team)} teamFlag={teamFlag(s.team)} resolved={prediction.result?.scorers.find((r) => r.name === s.name) ?? null} L={L} />
+              <ScorerCard key={i} s={s} teamName={teamName(s.team)} teamFlag={teamFlag(s.team)} resolved={prediction.result?.scorers.find((r) => r.name === s.name) ?? null} locale={locale} L={L} />
             ))}
           </div>
         </div>
       )}
 
       {/* Общий вывод LVS */}
-      {(prediction.summary || prediction.rationale) && (
-        <div className="rounded-xl px-4 py-3" style={{ background: 'rgb(var(--accent) / 0.07)', border: `1px solid rgb(var(--accent) / 0.25)` }}>
-          <p className="mb-1.5 flex items-center gap-1.5 text-[13px] font-bold" style={{ color: ACCENT }}>
-            <span className="text-sm" aria-hidden>🧠</span> {prediction.summary ? `${L.overall} LVS` : L.rationale}
-          </p>
-          <p className="text-[13px] leading-relaxed" style={{ color: 'rgb(var(--fg-secondary))' }}>{prediction.summary ?? prediction.rationale}</p>
-        </div>
-      )}
+      {(() => {
+        const en = locale === 'en';
+        const summaryText = en ? (prediction.summaryEn ?? prediction.summary) : prediction.summary;
+        const rationaleText = en ? (prediction.rationaleEn ?? prediction.rationale) : prediction.rationale;
+        const text = summaryText ?? rationaleText;
+        if (!text) return null;
+        return (
+          <div className="rounded-xl px-4 py-3" style={{ background: 'rgb(var(--accent) / 0.07)', border: `1px solid rgb(var(--accent) / 0.25)` }}>
+            <p className="mb-1.5 flex items-center gap-1.5 text-[13px] font-bold" style={{ color: ACCENT }}>
+              <span className="text-sm" aria-hidden>🧠</span> {summaryText ? `${L.overall} LVS` : L.rationale}
+            </p>
+            <p className="text-[13px] leading-relaxed" style={{ color: 'rgb(var(--fg-secondary))' }}>{text}</p>
+          </div>
+        );
+      })()}
 
       {/* Мнение каждой модели отдельно */}
       {prediction.modelViews.length > 0 && (
@@ -389,7 +404,7 @@ function LvsPredictionView({
           </p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {prediction.modelViews.map((m, i) => (
-              <ModelCard key={i} m={m} homeName={homeName} awayName={awayName} homeFlag={homeFlag} awayFlag={awayFlag} L={L} />
+              <ModelCard key={i} m={m} homeName={homeName} awayName={awayName} homeFlag={homeFlag} awayFlag={awayFlag} locale={locale} L={L} />
             ))}
           </div>
         </div>
@@ -438,16 +453,17 @@ function ProbCard({ emoji, label, v, active }: { emoji: string; label: string; v
 }
 
 function ScorerCard({
-  s, teamName, teamFlag, resolved, L,
+  s, teamName, teamFlag, resolved, locale, L,
 }: {
   s: LvsScorer;
   teamName: string;
   teamFlag: string;
   resolved: { scored: boolean } | null;
+  locale: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   L: any;
 }) {
-  const position = formatPosition(s.position);
+  const position = formatPosition(s.position, locale);
   const hit = resolved?.scored ?? false;
   return (
     <div
@@ -493,19 +509,21 @@ function ScorerCard({
 }
 
 function ModelCard({
-  m, homeName, awayName, homeFlag, awayFlag, L,
+  m, homeName, awayName, homeFlag, awayFlag, locale, L,
 }: {
   m: LvsModelForecast;
   homeName: string;
   awayName: string;
   homeFlag: string;
   awayFlag: string;
+  locale: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   L: any;
 }) {
   const outcomeText = (o: LvsOutcome | null) =>
     o === '1' ? `${homeFlag} ${homeName}`.trim() : o === '2' ? `${awayFlag} ${awayName}`.trim() : o === 'X' ? `🤝 ${L.draw}` : '—';
   const score = m.scoreHome != null && m.scoreAway != null ? `${m.scoreHome}:${m.scoreAway}` : '—';
+  const rationaleText = locale === 'en' ? (m.rationaleEn ?? m.rationale) : m.rationale;
 
   return (
     <div className="rounded-xl p-3" style={{ background: 'rgb(var(--pitch-800))', border: '1px solid rgb(var(--pitch-700))' }}>
@@ -527,10 +545,10 @@ function ModelCard({
               {m.scorers.join(', ')}
             </p>
           )}
-          {m.rationale && (
+          {rationaleText && (
             <p>
               <span style={{ color: 'rgb(var(--fg-muted))' }}>{L.comment}: </span>
-              {m.rationale}
+              {rationaleText}
             </p>
           )}
         </div>

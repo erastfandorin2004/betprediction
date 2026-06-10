@@ -145,13 +145,14 @@ export function buildLvsUserPrompt(ctx: MatchContext): string {
   return `${lines.join('\n')}
 
 Верни ТОЛЬКО JSON в формате:
-{"outcome":"1","probs":{"win1":0.0,"draw":0.0,"win2":0.0},"score":{"home":0,"away":0},"scorers":[{"name":"Name Surname","team":"home","position":"нападающий","probability":0.0},{"name":"...","team":"away","position":"полузащитник","probability":0.0},{"name":"...","team":"home","position":"нападающий","probability":0.0}],"rationale":"3-5 предложений на русском","keyFactors":["...","...","..."],"confidence":0.0}
+{"outcome":"1","probs":{"win1":0.0,"draw":0.0,"win2":0.0},"score":{"home":0,"away":0},"scorers":[{"name":"Name Surname","team":"home","position":"нападающий","probability":0.0},{"name":"...","team":"away","position":"полузащитник","probability":0.0},{"name":"...","team":"home","position":"нападающий","probability":0.0}],"rationale":"3-5 предложений на русском","rationaleEn":"the same 3-5 sentences in English","keyFactors":["...","...","..."],"confidence":0.0}
 
 Требования:
 - "outcome" — '1' (победа ${ctx.homeTeam}), 'X' (ничья) или '2' (победа ${ctx.awayTeam}); совпадает с самым вероятным исходом в "probs" (сумма win1+draw+win2 = 1.0).
 - "score" — наиболее вероятный точный счёт (целые числа), согласованный с исходом.
 - "scorers" — РОВНО 3 игрока, ТОЛЬКО из стартовых составов выше, имена ТОЛЬКО латиницей (как в составах, без кириллицы), "team": "home" или "away", "position" — позиция игрока на русском (нападающий/полузащитник/защитник/вратарь), выбор с учётом позиции, "probability" — шанс гола (0..1).
-- "rationale" (3-5 предложений) — почему такой исход, счёт и игроки: форма, составы, H2H, мотивация. "keyFactors" — 3-5 коротких пунктов. Всё на русском.`;
+- "rationale" (3-5 предложений на русском) — почему такой исход, счёт и игроки: форма, составы, H2H, мотивация. "keyFactors" — 3-5 коротких пунктов на русском.
+- "rationaleEn" — то же обоснование на английском (точный перевод rationale). Обязательно заполни оба поля в этом же ответе.`;
 }
 
 // Renders a bookmaker odds map into a readable block for the prompt.

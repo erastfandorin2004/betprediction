@@ -369,6 +369,7 @@ function buildModelViews(parsed: ParsedModel[]): LvsModelForecast[] {
       scorers: r.scorers.map((s) => s.name),
       confidence: round(r.confidence),
       rationale: r.rationale || null,
+      rationaleEn: r.rationaleEn || null,
       error: null,
     };
   });

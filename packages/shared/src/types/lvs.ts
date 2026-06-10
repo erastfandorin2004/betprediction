@@ -28,6 +28,7 @@ export interface LvsModelForecast {
   scorers: string[];
   confidence: number | null;
   rationale: string | null;
+  rationaleEn?: string | null;
   error: string | null;
 }
 
@@ -76,7 +77,9 @@ export interface LvsPredictionDetail {
   confidence: number;
   stars: number;
   rationale: string | null;
+  rationaleEn?: string | null;
   summary: string | null;
+  summaryEn?: string | null;
   odds: string | null; // подтянутая букмекерская линия (читаемый блок)
   modelViews: LvsModelForecast[];
   lineups: LvsLineups | null;
