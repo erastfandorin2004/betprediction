@@ -8,6 +8,7 @@ import {
   buildLvsSystemPrompt,
   buildLvsUserPrompt,
   lvsPredictionResponseSchema,
+  mergeScorers,
   type MatchContext,
   type ModelCallResult,
   type LvsPredictionResponse,
@@ -155,7 +156,7 @@ export class LvsService {
     const res = await client.complete({
       model,
       messages: [
-        { role: 'system', content: 'Объедини прогнозы AI-моделей в один краткий вывод. Только связный текст на русском, 2–3 предложения, без markdown.' },
+        { role: 'system', content: 'Объедини прогнозы AI-моделей в один краткий вывод. Только связный текст на русском, 2–3 предложения, без markdown. Имена игроков пиши латиницей (как в данных), без кириллицы.' },
         { role: 'user', content: `${ctx.homeTeam} — ${ctx.awayTeam}.\nМодели:\n${opinions}\n${decision}\nВ чём модели согласны/расходятся и почему такой прогноз.` },
       ],
       max_tokens: 300,
@@ -408,23 +409,11 @@ function aggregate(responses: LvsPredictionResponse[]): Aggregated {
   }
   const [sh, sa] = bestScore.split(':').map(Number) as [number, number];
 
-  // Бомбардиры: топ-3 по сумме вероятностей среди всех ответов.
-  const scorerMap = new Map<string, { name: string; team: 'home' | 'away'; position: string | null; weight: number }>();
-  for (const r of responses) {
-    for (const s of r.scorers) {
-      const key = normalizeName(s.name);
-      if (!key) continue;
-      const e = scorerMap.get(key);
-      if (e) {
-        e.weight += s.probability || 0.3;
-        if (!e.position && s.position) e.position = s.position; // первая непустая позиция
-      } else {
-        scorerMap.set(key, { name: s.name, team: s.team, position: s.position || null, weight: s.probability || 0.3 });
-      }
-    }
-  }
-  const totalWeight = [...scorerMap.values()].reduce((a, b) => a + b.weight, 0) || 1;
-  const scorers: LvsScorer[] = [...scorerMap.values()]
+  // Бомбардиры: топ-3 по сумме вероятностей. Имена унифицируются (латиница,
+  // без дублей кириллица/латиница одного игрока).
+  const merged = mergeScorers(responses.flatMap((r) => r.scorers));
+  const totalWeight = merged.reduce((a, b) => a + b.weight, 0) || 1;
+  const scorers: LvsScorer[] = merged
     .sort((a, b) => b.weight - a.weight)
     .slice(0, 3)
     .map((s) => ({ name: s.name, team: s.team, position: s.position, probability: round(Math.min(0.95, s.weight / totalWeight + 0.2)) }));
@@ -448,10 +437,6 @@ function toLvsLineup(team: MatchLineupsOut['home'], coach?: string): LvsTeamLine
 }
 
 // ── pure helpers (зеркало ai-analysis) ─────────────────────────────────────
-
-function normalizeName(name: string): string {
-  return name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-zа-я0-9 ]/gi, ' ').replace(/\s+/g, ' ').trim();
-}
 
 // Код позиции от провайдера (G/D/M/F) → краткое русское обозначение.
 function posCodeRu(code: string): string {

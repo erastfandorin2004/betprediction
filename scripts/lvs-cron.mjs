@@ -17,6 +17,7 @@ const {
   buildLvsUserPrompt,
   lvsPredictionResponseSchema,
   settleLvs,
+  mergeScorers,
   // Полный прогноз для вкладки «Матчи» (рынки: 1X2/тоталы/угловые/карточки/…).
   buildSystemPrompt,
   buildUserPrompt,
@@ -87,7 +88,6 @@ const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 const toStars = (c) => (c >= 0.85 ? 5 : c >= 0.7 ? 4 : c >= 0.55 ? 3 : c >= 0.4 ? 2 : 1);
 const outcomeFromScore = (h, a) => (h > a ? '1' : h < a ? '2' : 'X');
 const outcomeLabel = (o) => (o === '1' ? 'П1' : o === '2' ? 'П2' : 'Ничья');
-const normalizeName = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-zа-я0-9 ]/gi, ' ').replace(/\s+/g, ' ').trim();
 const posCodeRu = (c) => ({ G: 'вр', D: 'защ', M: 'пз', F: 'нап' }[String(c).trim().toUpperCase()[0]] ?? c);
 
 function extractJson(raw) {
@@ -142,15 +142,10 @@ function aggregate(responses) {
   }
   const [sh, sa] = bestScore.split(':').map(Number);
 
-  const sm = new Map();
-  for (const r of responses) for (const s of r.scorers) {
-    const key = normalizeName(s.name); if (!key) continue;
-    const e = sm.get(key);
-    if (e) { e.weight += s.probability || 0.3; if (!e.position && s.position) e.position = s.position; }
-    else sm.set(key, { name: s.name, team: s.team, position: s.position || null, weight: s.probability || 0.3 });
-  }
-  const total = [...sm.values()].reduce((a, b) => a + b.weight, 0) || 1;
-  const scorers = [...sm.values()].sort((a, b) => b.weight - a.weight).slice(0, 3)
+  // Слияние бомбардиров с унификацией алфавита (латиница, без дублей кир/лат).
+  const merged = mergeScorers(responses.flatMap((r) => r.scorers));
+  const total = merged.reduce((a, b) => a + b.weight, 0) || 1;
+  const scorers = merged.sort((a, b) => b.weight - a.weight).slice(0, 3)
     .map((s) => ({ name: s.name, team: s.team, position: s.position, probability: round(Math.min(0.95, s.weight / total + 0.2)) }));
 
   const confidence = clamp(responses.reduce((s, r) => s + r.confidence, 0) / n, 0.05, 0.97);
@@ -215,7 +210,7 @@ async function synthesize(client, ctx, agg, views) {
   const res = await client.complete({
     model: SYNTH_MODEL,
     messages: [
-      { role: 'system', content: 'Объедини прогнозы AI-моделей в один краткий вывод. Только связный текст на русском, 2–3 предложения, без markdown.' },
+      { role: 'system', content: 'Объедини прогнозы AI-моделей в один краткий вывод. Только связный текст на русском, 2–3 предложения, без markdown. Имена игроков пиши латиницей (как в данных), без кириллицы.' },
       { role: 'user', content: `${ctx.homeTeam} — ${ctx.awayTeam}.\nМодели:\n${opinions}\n${decision}\nВ чём модели согласны/расходятся и почему такой прогноз.` },
     ],
     max_tokens: 300, temperature: 0.3,
