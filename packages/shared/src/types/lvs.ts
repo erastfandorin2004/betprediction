@@ -32,6 +32,36 @@ export interface LvsModelForecast {
   error: string | null;
 }
 
+// Разовый прогноз на турнир: чемпион мира + лучший бомбардир (Golden Boot).
+export interface LvsTournamentModelView {
+  modelId: string;
+  champion: string | null;
+  topScorer: string | null;
+  topScorerTeam: string | null;
+  rationale: string | null;
+  rationaleEn?: string | null;
+  error: string | null;
+}
+
+export interface LvsTournamentContender {
+  name: string;
+  team?: string | null;
+  votes: number;
+  probability: number; // доля голосов моделей
+}
+
+export interface LvsTournamentPrediction {
+  generatedAt: string;
+  champion: string;
+  championContenders: LvsTournamentContender[];
+  topScorer: string;
+  topScorerTeam: string | null;
+  topScorerContenders: LvsTournamentContender[];
+  summary: string | null;
+  summaryEn?: string | null;
+  modelViews: LvsTournamentModelView[];
+}
+
 export interface LvsLineupPlayer {
   id: string;
   name: string;

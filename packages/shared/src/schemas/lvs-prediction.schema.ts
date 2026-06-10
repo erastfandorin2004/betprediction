@@ -48,3 +48,18 @@ export const lvsPredictionResponseSchema = z
   });
 
 export type LvsPredictionResponse = z.infer<typeof lvsPredictionResponseSchema>;
+
+// Ответ модели на разовый прогноз турнира: чемпион + лучший бомбардир.
+export const championResponseSchema = z.object({
+  champion: cappedString(60),
+  topScorer: z
+    .object({
+      name: cappedString(80),
+      team: z.string().catch('').transform((s) => s.trim().slice(0, 60)),
+    })
+    .catch({ name: '', team: '' }),
+  rationale: z.string().catch('').transform((s) => s.trim().slice(0, 800)),
+  rationaleEn: z.string().catch('').transform((s) => s.trim().slice(0, 800)),
+});
+
+export type ChampionResponse = z.infer<typeof championResponseSchema>;

@@ -1,4 +1,4 @@
-import type { LvsDay, LvsHistoryItem } from '@ai-score/shared';
+import type { LvsDay, LvsHistoryItem, LvsTournamentPrediction } from '@ai-score/shared';
 
 // Статический источник данных ЛВС (для GitHub Pages — без бэкенда).
 // JSON генерирует scripts/lvs-cron.mjs (по крону через GitHub Actions) и кладёт
@@ -20,6 +20,17 @@ export async function fetchLvsFixtures(): Promise<LvsDay[]> {
     return (await res.json()) as LvsDay[];
   } catch {
     return [];
+  }
+}
+
+export async function fetchLvsTournament(): Promise<LvsTournamentPrediction | null> {
+  try {
+    const res = await fetch(`${BASE}/data/lvs-tournament.json`, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const data = (await res.json()) as LvsTournamentPrediction;
+    return data && data.champion ? data : null;
+  } catch {
+    return null;
   }
 }
 

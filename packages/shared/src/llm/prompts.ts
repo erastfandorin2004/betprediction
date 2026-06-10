@@ -155,6 +155,32 @@ export function buildLvsUserPrompt(ctx: MatchContext): string {
 - "rationaleEn" — то же обоснование на английском (точный перевод rationale). Обязательно заполни оба поля в этом же ответе.`;
 }
 
+// ─── Прогноз на турнир (чемпион + лучший бомбардир) ─────────────────────────
+// Разовый прогноз на исход всего ЧМ-2026: победитель турнира и обладатель
+// «Золотой бутсы». Имена команд и игроков — латиницей. Двуязычное обоснование.
+export function buildChampionSystemPrompt(): string {
+  return (
+    'Ты — экспертная система футбольного анализа. Дай прогноз на весь ЧМ-2026: ' +
+    '(1) страна-чемпион мира; (2) лучший бомбардир турнира ' +
+    '(обладатель «Золотой бутсы») — конкретный игрок и его сборная. Учитывай силу ' +
+    'составов, форму, сетку турнира, историю. Названия команд и имена игроков пиши ' +
+    'ТОЛЬКО латиницей (как в английских источниках), без кириллицы. ' +
+    'Ответь ТОЛЬКО валидным JSON, без markdown и текста вне JSON.'
+  );
+}
+
+export function buildChampionUserPrompt(): string {
+  return `Прогноз на победителя Чемпионата мира по футболу 2026 (США/Канада/Мексика) и на лучшего бомбардира турнира.
+
+Верни ТОЛЬКО JSON в формате:
+{"champion":"Country","topScorer":{"name":"Name Surname","team":"Country"},"rationale":"2-4 предложения на русском","rationaleEn":"the same 2-4 sentences in English"}
+
+Требования:
+- "champion" — одна страна-победитель, латиницей (англ. название, напр. "Brazil", "France").
+- "topScorer" — один игрок: "name" латиницей, "team" — его сборная латиницей.
+- "rationale" — на русском, почему именно этот чемпион и бомбардир. "rationaleEn" — то же на английском. Заполни оба поля в этом же ответе.`;
+}
+
 // Renders a bookmaker odds map into a readable block for the prompt.
 export function formatOddsBlock(odds: Record<string, number>): string {
   const labels: Record<string, string> = {

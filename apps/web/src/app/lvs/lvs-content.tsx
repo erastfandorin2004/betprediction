@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import type { LvsDay } from '@ai-score/shared';
+import type { LvsDay, LvsTournamentPrediction } from '@ai-score/shared';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { LvsFixtureCard } from '@/components/match/lvs-fixture-card';
-import { fetchLvsFixtures, ASSET_BASE } from '@/lib/lvs-data';
+import { LvsTournamentCard } from '@/components/match/lvs-tournament-card';
+import { fetchLvsFixtures, fetchLvsTournament, ASSET_BASE } from '@/lib/lvs-data';
 
 export function LvsContent({ days: initialDays }: { days: LvsDay[] }) {
   const { t, locale } = useLocale();
@@ -14,8 +15,10 @@ export function LvsContent({ days: initialDays }: { days: LvsDay[] }) {
 
   // Дуал-режим: серверные данные (dev с бэкендом) или клиентский JSON (статика/Pages).
   const [days, setDays] = useState<LvsDay[]>(initialDays);
+  const [tournament, setTournament] = useState<LvsTournamentPrediction | null>(null);
   useEffect(() => {
     if (initialDays.length === 0) fetchLvsFixtures().then(setDays).catch(() => {});
+    fetchLvsTournament().then(setTournament).catch(() => {});
   }, [initialDays]);
 
   return (
@@ -58,6 +61,8 @@ export function LvsContent({ days: initialDays }: { days: LvsDay[] }) {
           </div>
         </div>
       </header>
+
+      {tournament && <LvsTournamentCard data={tournament} />}
 
       {days.length === 0 ? (
         <p className="rounded-2xl px-4 py-10 text-center text-sm" style={{ background: 'rgb(var(--pitch-900))', border: '1px solid rgb(var(--pitch-700))', color: 'rgb(var(--fg-muted))' }}>

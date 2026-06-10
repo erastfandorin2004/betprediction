@@ -77,8 +77,8 @@ export type { FixtureListQueryInput, FixtureListQueryParsed } from './schemas/fi
 export { llmPredictionResponseSchema } from './schemas/prediction.schema';
 export type { LlmPredictionResponse } from './schemas/prediction.schema';
 
-export { lvsPredictionResponseSchema } from './schemas/lvs-prediction.schema';
-export type { LvsPredictionResponse } from './schemas/lvs-prediction.schema';
+export { lvsPredictionResponseSchema, championResponseSchema } from './schemas/lvs-prediction.schema';
+export type { LvsPredictionResponse, ChampionResponse } from './schemas/lvs-prediction.schema';
 
 export type {
   LvsOutcome,
@@ -95,6 +95,9 @@ export type {
   LvsFixtureItem,
   LvsDay,
   LvsHistoryItem,
+  LvsTournamentModelView,
+  LvsTournamentContender,
+  LvsTournamentPrediction,
 } from './types/lvs';
 
 export {

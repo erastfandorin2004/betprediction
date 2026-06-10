@@ -16,8 +16,13 @@ const {
   buildLvsSystemPrompt,
   buildLvsUserPrompt,
   lvsPredictionResponseSchema,
+  championResponseSchema,
+  buildChampionSystemPrompt,
+  buildChampionUserPrompt,
   settleLvs,
   mergeScorers,
+  romanizeNormalized,
+  isLatinName,
   parseJsonLoose,
   // Полный прогноз для вкладки «Матчи» (рынки: 1X2/тоталы/угловые/карточки/…).
   buildSystemPrompt,
@@ -32,6 +37,7 @@ const FIXTURES_PATH = resolve(ROOT, 'apps/web/public/data/lvs-fixtures.json');
 const HISTORY_PATH = resolve(ROOT, 'apps/web/public/data/lvs-history.json');
 const WC_PATH = resolve(ROOT, 'apps/web/public/data/wc-schedule.json');
 const PRED_PATH = resolve(ROOT, 'apps/web/public/data/predictions.json');
+const TOURN_PATH = resolve(ROOT, 'apps/web/public/data/lvs-tournament.json');
 
 const AF_BASE = 'https://v3.football.api-sports.io';
 const LZ_BASE = process.env.LAOZHANG_BASE_URL ?? 'https://api.laozhang.ai/v1';
@@ -390,6 +396,86 @@ async function refreshWcSchedule(now) {
   return changed;
 }
 
+// ── разовый прогноз турнира: чемпион + лучший бомбардир ───────────────────────
+// Считается ОДИН раз: если файл уже с чемпионом — не пересчитываем.
+async function ensureTournamentPrediction(client) {
+  if (existsSync(TOURN_PATH)) {
+    try { const cur = JSON.parse(readFileSync(TOURN_PATH, 'utf8')); if (cur && cur.champion) return false; } catch { /* перегенерируем */ }
+  }
+  const results = await client.fanOut(MODELS, [
+    { role: 'system', content: buildChampionSystemPrompt() },
+    { role: 'user', content: buildChampionUserPrompt() },
+  ]);
+  const parsed = results.map((r) => {
+    if (r.error) return { modelId: r.modelId, parsed: null, error: r.error };
+    try { return { modelId: r.modelId, parsed: championResponseSchema.parse(parseJsonLoose(r.content)), error: null }; }
+    catch (e) { return { modelId: r.modelId, parsed: null, error: (e?.message ?? 'parse error').slice(0, 200) }; }
+  });
+  const valid = parsed.filter((p) => p.parsed);
+  if (!valid.length) { console.warn('Турнирный прогноз: нет валидных ответов'); return false; }
+  const total = valid.length;
+
+  // Чемпион: голоса по нормализованному имени команды.
+  const champTally = new Map();
+  for (const p of valid) {
+    const t = (p.parsed.champion ?? '').trim(); if (!t) continue;
+    const k = t.toLowerCase();
+    const e = champTally.get(k);
+    if (e) { e.votes++; if (!isLatinName(e.name) && isLatinName(t)) e.name = t; }
+    else champTally.set(k, { name: t, votes: 1 });
+  }
+  const championContenders = [...champTally.values()].sort((a, b) => b.votes - a.votes)
+    .map((c) => ({ name: c.name, votes: c.votes, probability: round(c.votes / total) }));
+  const champion = championContenders[0]?.name ?? '';
+
+  // Лучший бомбардир: дедуп по фамилии (романизация), латинское имя + сборная.
+  const scTally = new Map();
+  for (const p of valid) {
+    const nm = (p.parsed.topScorer?.name ?? '').trim(); if (!nm) continue;
+    const team = (p.parsed.topScorer?.team ?? '').trim() || null;
+    const r = romanizeNormalized(nm);
+    const key = r.split(' ').filter((x) => x.length >= 4).pop() || r;
+    const e = scTally.get(key);
+    if (e) { e.votes++; if (!e.team && team) e.team = team; if (!isLatinName(e.name) && isLatinName(nm)) e.name = nm; }
+    else scTally.set(key, { name: nm, team, votes: 1 });
+  }
+  const topScorerContenders = [...scTally.values()].sort((a, b) => b.votes - a.votes)
+    .map((s) => ({ name: s.name, team: s.team, votes: s.votes, probability: round(s.votes / total) }));
+  const top = topScorerContenders[0] ?? { name: '', team: null };
+
+  // Синтез вывода: один вызов, оба языка.
+  let summary = null, summaryEn = null;
+  const opinions = valid.map((p) => `- ${p.modelId}: чемпион ${p.parsed.champion}, бомбардир ${p.parsed.topScorer?.name ?? '—'}`).join('\n');
+  try {
+    const res = await client.complete({
+      model: SYNTH_MODEL,
+      messages: [
+        { role: 'system', content: 'Объедини прогнозы AI-моделей на ЧМ-2026 в краткий вывод (2–3 предложения), без markdown. Имена команд и игроков латиницей. Верни ТОЛЬКО JSON {"ru":"вывод на русском","en":"the same in English"}.' },
+        { role: 'user', content: `Прогноз на ЧМ-2026.\nМодели:\n${opinions}\nИтог ансамбля: чемпион ${champion}, лучший бомбардир ${top.name}. В чём модели согласны/расходятся.` },
+      ],
+      max_tokens: 500, temperature: 0.3,
+    });
+    if (!res.error && res.content.trim()) {
+      const j = parseJsonLoose(res.content);
+      summary = (j.ru ?? '').trim().slice(0, 600) || null;
+      summaryEn = (j.en ?? '').trim().slice(0, 600) || null;
+    }
+  } catch (e) { console.warn(`  синтез турнира упал: ${e?.message ?? e}`); }
+
+  const modelViews = parsed.map((p) => p.parsed
+    ? { modelId: p.modelId, champion: p.parsed.champion || null, topScorer: p.parsed.topScorer?.name || null, topScorerTeam: p.parsed.topScorer?.team || null, rationale: p.parsed.rationale || null, rationaleEn: p.parsed.rationaleEn || null, error: null }
+    : { modelId: p.modelId, champion: null, topScorer: null, topScorerTeam: null, rationale: null, rationaleEn: null, error: p.error });
+
+  writeFileSync(TOURN_PATH, JSON.stringify({
+    generatedAt: new Date().toISOString(),
+    champion, championContenders,
+    topScorer: top.name, topScorerTeam: top.team, topScorerContenders,
+    summary, summaryEn, modelViews,
+  }));
+  console.log(`Турнирный прогноз: чемпион ${champion}, бомбардир ${top.name} (${valid.length}/${results.length} моделей)`);
+  return true;
+}
+
 // ── main ─────────────────────────────────────────────────────────────────────
 async function main() {
   if (!existsSync(FIXTURES_PATH)) { console.error(`нет ${FIXTURES_PATH}`); process.exit(1); }
@@ -483,6 +569,13 @@ async function main() {
       } catch (e) { console.warn(`  полный анализ упал ${first.id}: ${e?.message ?? e}`); }
     }
     writeFileSync(PRED_PATH, JSON.stringify(preds));
+  }
+
+  // Разовый прогноз турнира (чемпион + бомбардир) — считается один раз.
+  if (LZ_KEY) {
+    try {
+      if (await ensureTournamentPrediction(client)) changed++;
+    } catch (e) { console.warn(`Турнирный прогноз упал: ${e?.message ?? e}`); }
   }
 
   // Расписание ЧМ (вкладка «Матчи») — обновляем счёт/статус в активном окне.
