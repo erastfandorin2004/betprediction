@@ -120,15 +120,27 @@ function aggregate(responses) {
   for (const r of responses) { win1 += r.probs.win1; draw += r.probs.draw; win2 += r.probs.win2; }
   const sum = win1 + draw + win2 || 1;
   const probs = { win1: round(win1 / sum), draw: round(draw / sum), win2: round(win2 / sum) };
-  const outcome = probs.win1 >= probs.draw && probs.win1 >= probs.win2 ? '1' : probs.win2 >= probs.draw ? '2' : 'X';
+  let outcome = probs.win1 >= probs.draw && probs.win1 >= probs.win2 ? '1' : probs.win2 >= probs.draw ? '2' : 'X';
 
+  // Счёт ДОЛЖЕН быть согласован с исходом (иначе карточка вида «П1 1:1»): берём
+  // самый частый счёт среди согласованных с исходом; если таких нет — оставляем
+  // общую моду и выводим исход из неё.
   const tally = new Map();
   for (const r of responses) { const k = `${r.score.home}:${r.score.away}`; tally.set(k, (tally.get(k) ?? 0) + 1); }
-  let bestScore = `${responses[0].score.home}:${responses[0].score.away}`, bestVotes = 0;
+  let consistentBest = null, consistentVotes = 0;
+  let overallBest = `${responses[0].score.home}:${responses[0].score.away}`, overallVotes = 0;
   for (const [k, v] of tally) {
+    if (v > overallVotes) { overallVotes = v; overallBest = k; }
     const [h, a] = k.split(':').map(Number);
-    const score = v + (outcomeFromScore(h, a) === outcome ? 0.5 : 0);
-    if (score > bestVotes) { bestVotes = score; bestScore = k; }
+    if (outcomeFromScore(h, a) === outcome && v > consistentVotes) { consistentVotes = v; consistentBest = k; }
+  }
+  let bestScore;
+  if (consistentBest) {
+    bestScore = consistentBest;
+  } else {
+    bestScore = overallBest;
+    const [h, a] = bestScore.split(':').map(Number);
+    outcome = outcomeFromScore(h, a);
   }
   const [sh, sa] = bestScore.split(':').map(Number);
 
