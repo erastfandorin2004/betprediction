@@ -1,0 +1,83 @@
+name: LVS watchdog (частый опрос окна T-60)
+
+# Самодостаточный «сторож» БЕЗ внешних сервисов и без PAT.
+# Проблема: GitHub душит частые schedule-кроны (по факту 2–3 запуска/сутки),
+# и часовое окно «за час до матча → составы → финальный прогноз» промахивается.
+# Решение: один запуск держит ДЛИННУЮ петлю (~5 ч) и каждые ~8 мин гоняет
+# scripts/lvs-cron.mjs + коммитит изменения. Даже 1–2 (троттленных) старта в
+# сутки дают 5–10 ч непрерывного плотного опроса — окно T-60 уже не теряется.
+# В конце пробуем перезапустить себя (workflow_dispatch) — если GitHub это
+# разрешит, петля становится непрерывной; если нет — подхватит schedule.
+on:
+  schedule:
+    # Холодные старты «смен», прицеленные в полосу матчей ЧМ (UTC 15:00–04:00).
+    - cron: '3 15 * * *'
+    - cron: '3 20 * * *'
+    - cron: '3 1 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write # коммит обновлённых JSON
+  actions: write # попытка перезапустить себя через workflow_dispatch
+  pages: write # деплой Pages в конце смены
+  id-token: write
+
+# Не держим две петли разом; новый старт встаёт в очередь, не отменяя текущий.
+concurrency:
+  group: lvs-watchdog
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350 # под лимит job 6 ч; петля крутится ~300 мин
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @ai-score/shared build
+
+      - name: Петля опроса (~5 ч, тик ~8 мин)
+        env:
+          LAOZHANG_API_KEY: ${{ secrets.LAOZHANG_API_KEY }}
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+        run: |
+          git config user.name "lvs-bot"
+          git config user.email "lvs-bot@users.noreply.github.com"
+          END=$(( $(date +%s) + 300*60 )) # крутимся 5 часов
+          while [ "$(date +%s)" -lt "$END" ]; do
+            node scripts/lvs-cron.mjs || true
+            if ! git diff --quiet -- apps/web/public/data; then
+              git add apps/web/public/data/*.json
+              git commit -m "chore(lvs): авто-обновление прогнозов/итогов [skip ci]" || true
+              git pull --rebase --autostash origin main || true
+              git push origin main || (git pull --rebase --autostash origin main && git push origin main) || true
+            fi
+            sleep 480
+          done
+
+      # Деплой свежего состояния на Pages в конце смены (один раз за запуск).
+      - run: pnpm --filter web build
+        env:
+          NEXT_PUBLIC_STATIC: 'true'
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/out
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+      # Бонус: пробуем продлить петлю без перерыва. Если GITHUB_TOKEN не вправе
+      # триггерить workflow_dispatch — тихо игнорируем, подхватит schedule.
+      - name: Перезапустить себя (best-effort)
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run lvs-watchdog.yml || true

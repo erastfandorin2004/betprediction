@@ -74,7 +74,8 @@ jobs:
             echo "Данные не изменились — коммит не нужен"
           else
             git commit -m "chore(lvs): авто-обновление прогнозов/итогов [skip ci]"
-            git push
+            git pull --rebase --autostash origin main || true
+            git push origin main || (git pull --rebase --autostash origin main && git push origin main)
           fi
 
       - name: Сборка статического экспорта
