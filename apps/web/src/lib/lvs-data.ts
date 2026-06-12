@@ -1,4 +1,4 @@
-import type { LvsDay, LvsHistoryItem, LvsTournamentPrediction } from '@ai-score/shared';
+import type { LvsDay, LvsHistoryItem, LvsTournamentPrediction, PredictionHistoryItem } from '@ai-score/shared';
 
 // Статический источник данных ЛВС (для GitHub Pages — без бэкенда).
 // JSON генерирует scripts/lvs-cron.mjs (по крону через GitHub Actions) и кладёт
@@ -39,6 +39,18 @@ export async function fetchLvsHistory(): Promise<LvsHistoryItem[]> {
     const res = await fetch(`${BASE}/data/lvs-history.json`, { cache: 'no-store' });
     if (!res.ok) return [];
     return (await res.json()) as LvsHistoryItem[];
+  } catch {
+    return [];
+  }
+}
+
+// Трек-рекорд прогнозов «Матчи» (статический фолбэк — бэкенда на Pages нет).
+// Генерит scripts/lvs-cron.mjs → data/predictions-history.json.
+export async function fetchPredictionsHistory(): Promise<PredictionHistoryItem[]> {
+  try {
+    const res = await fetch(`${BASE}/data/predictions-history.json`, { cache: 'no-store' });
+    if (!res.ok) return [];
+    return (await res.json()) as PredictionHistoryItem[];
   } catch {
     return [];
   }

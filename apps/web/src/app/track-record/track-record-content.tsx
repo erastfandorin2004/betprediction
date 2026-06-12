@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   BarChart3, TrendingUp, Target, CheckCircle2, XCircle, MinusCircle,
   History, ShieldCheck, Percent, Coins, Flame, Trophy,
 } from 'lucide-react';
 import { useLocale } from '@/components/i18n/locale-provider';
+import { STATIC_MODE, fetchPredictionsHistory } from '@/lib/lvs-data';
 import type { PredictionHistoryItem, BetResult } from '@ai-score/shared';
 
 const CARD = {
@@ -111,9 +112,18 @@ const RESULT_META: Record<BetResult, { color: string; Icon: typeof CheckCircle2 
   no_bet: { color: MUTED, Icon: MinusCircle },
 };
 
-export function TrackRecordContent({ history = [] }: { history?: PredictionHistoryItem[] }) {
+export function TrackRecordContent({ history: initialHistory = [] }: { history?: PredictionHistoryItem[] }) {
   const { t, locale } = useLocale();
   const tr = t.trackRecord;
+
+  // На статике (GitHub Pages) бэкенда нет — историю «Матчи» подгружаем из
+  // статического снимка data/predictions-history.json (как делают ЛВС-страницы).
+  const [history, setHistory] = useState<PredictionHistoryItem[]>(initialHistory);
+  useEffect(() => {
+    if (STATIC_MODE && initialHistory.length === 0) {
+      fetchPredictionsHistory().then(setHistory).catch(() => {});
+    }
+  }, [initialHistory.length]);
 
   const [range, setRange] = useState<Range>('all');
   const [status, setStatus] = useState<StatusFilter>('all');
@@ -395,13 +405,13 @@ function HistoryList({ items, locale }: { items: PredictionHistoryItem[]; locale
         const dt = new Date(item.createdAt).toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-GB', {
           day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit',
         });
-        return (
-          <Link
-            key={item.fixtureId + item.createdAt}
-            href={`/fixtures/${item.fixtureId}`}
-            className="block rounded-xl px-4 py-3 transition-colors hover:brightness-110"
-            style={{ background: 'rgb(var(--pitch-900))', border: '1px solid rgb(var(--pitch-700))' }}
-          >
+        // На статике детальной страницы /fixtures/[id] нет (notFound) — карточка
+        // не кликабельна; на бэкенде ведёт на разбор матча.
+        const key = item.fixtureId + item.createdAt;
+        const cls = 'block rounded-xl px-4 py-3 transition-colors' + (STATIC_MODE ? '' : ' hover:brightness-110');
+        const cardStyle = { background: 'rgb(var(--pitch-900))', border: '1px solid rgb(var(--pitch-700))' } as const;
+        const body = (
+          <>
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold" style={{ color: 'rgb(var(--fg-card))' }}>{item.match}</p>
@@ -436,8 +446,11 @@ function HistoryList({ items, locale }: { items: PredictionHistoryItem[]; locale
               )}
             </div>
             )}
-          </Link>
+          </>
         );
+        return STATIC_MODE
+          ? <div key={key} className={cls} style={cardStyle}>{body}</div>
+          : <Link key={key} href={`/fixtures/${item.fixtureId}`} className={cls} style={cardStyle}>{body}</Link>;
       })}
     </div>
   );

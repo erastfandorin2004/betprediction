@@ -20,6 +20,7 @@ const {
   buildChampionSystemPrompt,
   buildChampionUserPrompt,
   settleLvs,
+  settlePrediction,
   mergeScorers,
   romanizeNormalized,
   isLatinName,
@@ -37,6 +38,7 @@ const FIXTURES_PATH = resolve(ROOT, 'apps/web/public/data/lvs-fixtures.json');
 const HISTORY_PATH = resolve(ROOT, 'apps/web/public/data/lvs-history.json');
 const WC_PATH = resolve(ROOT, 'apps/web/public/data/wc-schedule.json');
 const PRED_PATH = resolve(ROOT, 'apps/web/public/data/predictions.json');
+const PRED_HISTORY_PATH = resolve(ROOT, 'apps/web/public/data/predictions-history.json');
 const TOURN_PATH = resolve(ROOT, 'apps/web/public/data/lvs-tournament.json');
 
 const AF_BASE = 'https://v3.football.api-sports.io';
@@ -80,6 +82,24 @@ async function afScore(fixtureId) {
   if (!f) return null;
   const finished = ['FT', 'AET', 'PEN'].includes(f.fixture.status.short);
   return { finished, homeGoals: f.goals.home, awayGoals: f.goals.away };
+}
+
+// Угловые и карточки матча (для сведения рынков CORNERS_OU/CARDS_OU).
+// Возвращает {corners,cards} — суммарно по обеим командам; null, если данных нет.
+async function afStats(fixtureId) {
+  const data = await af(`/fixtures/statistics?fixture=${fixtureId}`);
+  const teams = data?.response ?? [];
+  if (!teams.length) return { corners: null, cards: null };
+  let corners = null, cards = null;
+  for (const t of teams) {
+    for (const s of t.statistics ?? []) {
+      const v = typeof s.value === 'number' ? s.value : parseInt(s.value, 10);
+      if (Number.isNaN(v)) continue;
+      if (s.type === 'Corner Kicks') corners = (corners ?? 0) + v;
+      else if (s.type === 'Yellow Cards' || s.type === 'Red Cards') cards = (cards ?? 0) + v;
+    }
+  }
+  return { corners, cards };
 }
 
 async function afGoalscorers(fixtureId) {
@@ -269,6 +289,48 @@ function buildHistory(days) {
     });
   }
   return items.sort((a, b) => (b.resolvedAt ?? '').localeCompare(a.resolvedAt ?? ''));
+}
+
+// История «Матчи» (PredictionHistoryItem[]) из predictions.json — статический
+// фолбэк для вкладки «Трек-рекорд» (бэкенда на Pages нет). Зеркало
+// predictions.service.getHistory, но без коэффициентов: betResult — по основному
+// рынку из settlement, odds/profit = null (линии на статике нет).
+function buildPredHistory(preds, fixtureById) {
+  const items = [];
+  for (const [idStr, p] of Object.entries(preds)) {
+    const id = Number(idStr);
+    const fx = fixtureById.get(id);
+    if (!fx) continue; // матча нет в расписании (напр., снятый тестовый) — пропускаем
+    const markets = p.markets ?? [];
+    const recMkt = markets.find((m) => m.market === p.recommendedMarket);
+    const recOut = recMkt?.outcomes.find((o) => o.outcome === p.recommendedOutcome);
+    const s = p.settlement ?? null;
+    let betResult = 'pending';
+    if (p.status === 'resolved' && s) {
+      const st = s.mainCheck?.status ?? s.mainStatus;
+      betResult = st === 'won' ? 'won' : st === 'push' ? 'push' : st === 'lost' ? 'lost' : 'pending';
+    }
+    items.push({
+      fixtureId: id,
+      match: `${fx.homeTeam.name} — ${fx.awayTeam.name}`,
+      league: 'FIFA World Cup 2026',
+      kickoff: fx.startsAt,
+      createdAt: p.createdAt,
+      status: p.status,
+      market: p.recommendedMarket,
+      pick: recOut?.label ?? labelFor(p.recommendedMarket, p.recommendedOutcome),
+      probability: p.probability,
+      stars: p.stars ?? 1,
+      odds: null,
+      betResult,
+      profit: null,
+      finalScore: s?.finalScore ?? null,
+      verdict: s?.overall ?? null,
+      wonCount: s?.wonCount ?? null,
+      total: s?.total ?? null,
+    });
+  }
+  return items.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
 }
 
 // ── ПОЛНЫЙ прогноз для вкладки «Матчи» (рынки) ───────────────────────────────
@@ -565,22 +627,56 @@ async function main() {
   writeFileSync(FIXTURES_PATH, JSON.stringify(days));
   writeFileSync(HISTORY_PATH, JSON.stringify(buildHistory(days)));
 
-  // ── ПОЛНЫЙ прогноз для «Матчи» (рынки) ──
-  // ПОКА: только первый (ближайший) матч ЧМ — потом решим, как масштабировать.
-  if (LZ_KEY) {
+  // ── ПОЛНЫЙ прогноз для «Матчи» (рынки) + сведение + история ──
+  // Прогнозы лежат в predictions.json (ключ = fixtureId). Для вкладки «Трек-рекорд»
+  // на статике (бэкенда на Pages нет) собираем predictions-history.json. Сведение
+  // по факту матча — общим helper'ом settlePrediction (как у бэкенда).
+  {
     const preds = existsSync(PRED_PATH) ? JSON.parse(readFileSync(PRED_PATH, 'utf8')) : {};
-    const upcoming = days
-      .flatMap((d) => d.fixtures)
-      .filter((f) => new Date(f.startsAt).getTime() > now)
-      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
-    const first = upcoming[0];
-    if (first && !preds[first.id]) {
-      try {
-        const pred = await runMatchAnalysis(client, first);
-        if (pred) { preds[first.id] = pred; changed++; console.log(`Полный прогноз (Матчи, 1-й матч): ${first.homeTeam.name} — ${first.awayTeam.name} → ${pred.recommendedMarket}/${pred.recommendedOutcome}`); }
-      } catch (e) { console.warn(`  полный анализ упал ${first.id}: ${e?.message ?? e}`); }
+    const fixtureById = new Map(days.flatMap((d) => d.fixtures).map((f) => [f.id, f]));
+
+    // Генерация ближайшего матча (как и было) — требует LLM-ключа.
+    if (LZ_KEY) {
+      const upcoming = days
+        .flatMap((d) => d.fixtures)
+        .filter((f) => new Date(f.startsAt).getTime() > now)
+        .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+      const first = upcoming[0];
+      if (first && !preds[first.id]) {
+        try {
+          const pred = await runMatchAnalysis(client, first);
+          if (pred) { preds[first.id] = pred; changed++; console.log(`Полный прогноз (Матчи, 1-й матч): ${first.homeTeam.name} — ${first.awayTeam.name} → ${pred.recommendedMarket}/${pred.recommendedOutcome}`); }
+        } catch (e) { console.warn(`  полный анализ упал ${first.id}: ${e?.message ?? e}`); }
+      }
     }
+
+    // Сведение завершённых прогнозов «Матчи»: счёт + (для угловых/карточек) статистика.
+    if (AF_KEY) {
+      for (const [idStr, p] of Object.entries(preds)) {
+        if (p.status === 'resolved' || p.settlement) continue;
+        const id = Number(idStr);
+        const fx = fixtureById.get(id);
+        const ko = fx ? new Date(fx.startsAt).getTime() : null;
+        const due = (fx && fx.status === 'finished') || (ko != null && ko < now - 130 * 60000);
+        if (!due) continue;
+        try {
+          const score = await afScore(id);
+          if (!score?.finished || score.homeGoals == null || score.awayGoals == null) continue;
+          const st = await afStats(id);
+          // Основной рынок — угловые/карточки, а данных нет → ждём (не сводим).
+          if ((p.recommendedMarket === 'CORNERS_OU' && st.corners == null) ||
+              (p.recommendedMarket === 'CARDS_OU' && st.cards == null)) continue;
+          p.settlement = settlePrediction(p.markets ?? [], p.recommendedMarket, p.recommendedOutcome,
+            { homeGoals: score.homeGoals, awayGoals: score.awayGoals, corners: st.corners, cards: st.cards });
+          p.status = 'resolved';
+          changed++;
+          console.log(`Сведение (Матчи) ${id}: ${p.settlement.mainStatus} ${score.homeGoals}:${score.awayGoals}`);
+        } catch (e) { console.warn(`  сведение (Матчи) ${id} упало: ${e?.message ?? e}`); }
+      }
+    }
+
     writeFileSync(PRED_PATH, JSON.stringify(preds));
+    writeFileSync(PRED_HISTORY_PATH, JSON.stringify(buildPredHistory(preds, fixtureById)));
   }
 
   // Разовый прогноз турнира (чемпион + бомбардир) — считается один раз.
