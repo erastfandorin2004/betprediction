@@ -635,18 +635,25 @@ async function main() {
     const preds = existsSync(PRED_PATH) ? JSON.parse(readFileSync(PRED_PATH, 'utf8')) : {};
     const fixtureById = new Map(days.flatMap((d) => d.fixtures).map((f) => [f.id, f]));
 
-    // Генерация ближайшего матча (как и было) — требует LLM-ключа.
+    // Генерация прогноза «Матчи» — ОДИН РАЗ на каждый матч ДО старта. Берём все
+    // ближайшие матчи в окне MATCH_GEN_WINDOW_H, у кого прогноза ещё нет; cap на
+    // прогон бережёт токены, watchdog (тик ~8 мин) добирает остальные по мере
+    // приближения. Прогноз фиксируется до начала игры и далее не пересчитывается.
     if (LZ_KEY) {
+      const MATCH_GEN_WINDOW_H = 36;
+      const MATCH_GEN_CAP = 4;
+      const horizon = now + MATCH_GEN_WINDOW_H * 3600_000;
       const upcoming = days
         .flatMap((d) => d.fixtures)
-        .filter((f) => new Date(f.startsAt).getTime() > now)
+        .filter((f) => { const ko = new Date(f.startsAt).getTime(); return ko > now && ko <= horizon && !preds[f.id]; })
         .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
-      const first = upcoming[0];
-      if (first && !preds[first.id]) {
+      let gen = 0;
+      for (const f of upcoming) {
+        if (gen >= MATCH_GEN_CAP) break;
         try {
-          const pred = await runMatchAnalysis(client, first);
-          if (pred) { preds[first.id] = pred; changed++; console.log(`Полный прогноз (Матчи, 1-й матч): ${first.homeTeam.name} — ${first.awayTeam.name} → ${pred.recommendedMarket}/${pred.recommendedOutcome}`); }
-        } catch (e) { console.warn(`  полный анализ упал ${first.id}: ${e?.message ?? e}`); }
+          const pred = await runMatchAnalysis(client, f);
+          if (pred) { preds[f.id] = pred; changed++; gen++; console.log(`Полный прогноз (Матчи): ${f.homeTeam.name} — ${f.awayTeam.name} → ${pred.recommendedMarket}/${pred.recommendedOutcome}`); }
+        } catch (e) { console.warn(`  полный анализ упал ${f.id}: ${e?.message ?? e}`); }
       }
     }
 
