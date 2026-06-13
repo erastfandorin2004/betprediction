@@ -711,6 +711,17 @@ async function main() {
     if (await refreshWcSchedule(now)) { changed++; console.log('Расписание ЧМ обновлено'); }
   } catch (e) { console.warn(`WC-обновление упало: ${e?.message ?? e}`); }
 
+  // Подсказка watchdog'у, сколько спать до следующего цикла: коротко (отзывчиво),
+  // если рядом «горячий» матч (входит/в окне T-60 или только сыгран — сеттлмент),
+  // иначе длинно (в простое не молотим). watchdog читает .lvs-next-sleep.
+  try {
+    const hot = days.flatMap((d) => d.fixtures).some((f) => {
+      const ms = new Date(f.startsAt).getTime() - Date.now();
+      return ms <= 75 * 60000 && ms > -150 * 60000; // T-75мин … T+150мин
+    });
+    writeFileSync(resolve(ROOT, '.lvs-next-sleep'), String(hot ? 120 : 600));
+  } catch { /* не критично */ }
+
   console.log(`Готово. Изменений: ${changed}.`);
   // Код 0 всегда; «изменилось ли» workflow определяет по git diff.
 }
