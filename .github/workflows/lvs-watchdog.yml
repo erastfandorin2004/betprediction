@@ -1,36 +1,37 @@
-name: LVS watchdog (частый опрос окна T-60)
+name: LVS watchdog (частый опрос + деплой окна T-60)
 
 # Самодостаточный «сторож» БЕЗ внешних сервисов и без PAT.
-# Проблема: GitHub душит частые schedule-кроны (по факту 2–3 запуска/сутки),
-# и часовое окно «за час до матча → составы → финальный прогноз» промахивается.
-# Решение: один запуск держит ДЛИННУЮ петлю (~5 ч) и каждые ~8 мин гоняет
-# scripts/lvs-cron.mjs + коммитит изменения. Даже 1–2 (троттленных) старта в
-# сутки дают 5–10 ч непрерывного плотного опроса — окно T-60 уже не теряется.
-# В конце пробуем перезапустить себя (workflow_dispatch) — если GitHub это
-# разрешит, петля становится непрерывной; если нет — подхватит schedule.
+# Проблема: GitHub душит частые schedule-кроны, а длинная петля деплоила Pages
+# только В КОНЦЕ прогона (раз в ~5 ч) — данные в git свежие, а ЖИВОЙ САЙТ отставал.
+# Решение: КОРОТКИЙ цикл — один прогон = анализ/сеттлмент + коммит + СБОРКА И ДЕПЛОЙ
+# Pages, после чего прогон ПЕРЕЗАПУСКАЕТ САМ СЕБЯ (workflow_dispatch). Так сайт
+# обновляется каждые ~5 мин, и окно «за час до матча → составы → финал» видно сразу.
+# Один прогон короткий (≤20 мин), цепочка идёт только в часы матчей (UTC 14:00–04:00),
+# вне их — останавливается, ignite поднимает schedule.
 on:
   schedule:
-    # Холодные старты «смен», прицеленные в полосу матчей ЧМ (UTC 15:00–04:00).
-    - cron: '3 15 * * *'
-    - cron: '3 20 * * *'
+    # Холодные старты (ignite) в полосе матчей ЧМ — на случай, если цепочка прервётся.
+    - cron: '3 14 * * *'
+    - cron: '3 18 * * *'
+    - cron: '3 22 * * *'
     - cron: '3 1 * * *'
   workflow_dispatch: {}
 
 permissions:
   contents: write # коммит обновлённых JSON
-  actions: write # попытка перезапустить себя через workflow_dispatch
-  pages: write # деплой Pages в конце смены
+  actions: write # перезапуск себя через workflow_dispatch
+  pages: write # деплой Pages
   id-token: write
 
-# Не держим две петли разом; новый старт встаёт в очередь, не отменяя текущий.
+# Один цикл за раз; следующий встаёт в очередь (мы диспатчим его в самом конце).
 concurrency:
   group: lvs-watchdog
   cancel-in-progress: false
 
 jobs:
-  poll:
+  cycle:
     runs-on: ubuntu-latest
-    timeout-minutes: 350 # под лимит job 6 ч; петля крутится ~300 мин
+    timeout-minutes: 20
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -44,26 +45,23 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @ai-score/shared build
 
-      - name: Петля опроса (~5 ч, тик ~8 мин)
+      - name: Анализ/сеттлмент + коммит данных
         env:
           LAOZHANG_API_KEY: ${{ secrets.LAOZHANG_API_KEY }}
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
         run: |
           git config user.name "lvs-bot"
           git config user.email "lvs-bot@users.noreply.github.com"
-          END=$(( $(date +%s) + 300*60 )) # крутимся 5 часов
-          while [ "$(date +%s)" -lt "$END" ]; do
-            node scripts/lvs-cron.mjs || true
-            if ! git diff --quiet -- apps/web/public/data; then
-              git add apps/web/public/data/*.json
-              git commit -m "chore(lvs): авто-обновление прогнозов/итогов [skip ci]" || true
-              git pull --rebase --autostash origin main || true
-              git push origin main || (git pull --rebase --autostash origin main && git push origin main) || true
-            fi
-            sleep 480
-          done
+          node scripts/lvs-cron.mjs || true
+          if ! git diff --quiet -- apps/web/public/data; then
+            git add apps/web/public/data/*.json
+            git commit -m "chore(lvs): авто-обновление прогнозов/итогов [skip ci]" || true
+            git pull --rebase --autostash origin main || true
+            git push origin main || (git pull --rebase --autostash origin main && git push origin main) || true
+          fi
 
-      # Деплой свежего состояния на Pages в конце смены (один раз за запуск).
+      # Сборка и ДЕПЛОЙ свежего состояния — каждый цикл (берёт локальные JSON,
+      # устойчиво к гонке push: деплоим то, что только что насчитали).
       - run: pnpm --filter web build
         env:
           NEXT_PUBLIC_STATIC: 'true'
@@ -74,10 +72,18 @@ jobs:
       - id: deploy
         uses: actions/deploy-pages@v4
 
-      # Бонус: пробуем продлить петлю без перерыва. Если GITHUB_TOKEN не вправе
-      # триггерить workflow_dispatch — тихо игнорируем, подхватит schedule.
-      - name: Перезапустить себя (best-effort)
+      # Перезапуск себя для непрерывной цепочки — только в часы матчей (UTC 14–04),
+      # чтобы не молотить впустую ночью/днём. Вне окна цепочка тормозит, ignite её
+      # поднимает по schedule. workflow_dispatch встроенным токеном GitHub разрешает.
+      - name: Перезапустить себя (в часы матчей)
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run lvs-watchdog.yml || true
+        run: |
+          H=$(date -u +%H)
+          if [ "$H" -ge 14 ] || [ "$H" -le 4 ]; then
+            sleep 120 # пол цикла — целевая каденция ~5 мин
+            gh workflow run lvs-watchdog.yml || true
+          else
+            echo "вне окна матчей (UTC $H) — цепочку не продолжаем"
+          fi

@@ -6,23 +6,16 @@ name: LVS publish (analysis + Pages)
 #  • обновлённые JSON коммитим в репо (неизменяемый трек-рекорд в истории git);
 #  • собираем статический экспорт фронта и публикуем на GitHub Pages.
 on:
-  schedule:
-    # Плотный опрос ТОЛЬКО в часы матчей ЧМ (UTC ≈15:00–04:00) — чтобы окно T-60
-    # «составы → финальный прогноз» не промахивалось мимо запусков. Днём матчей нет,
-    # крон не гоняем. ВАЖНО: GitHub душит частые schedule (по факту 2–3 запуска/сутки
-    # вместо обещанных */15), поэтому гарантированную точность даёт ВНЕШНИЙ пингер
-    # через repository_dispatch (см. ниже), а schedule оставлен как подстраховка.
-    - cron: '*/15 15-23 * * *'
-    - cron: '*/15 0-4 * * *'
+  # Этот workflow деплоит сайт при ПУШЕ (мои коммиты с кодом/данными) и по запросу.
+  # Регулярный анализ/сеттлмент + частый деплой окна T-60 делает ОТДЕЛЬНЫЙ
+  # lvs-watchdog.yml (короткий самоперезапускающийся цикл). Здесь schedule убран,
+  # чтобы два воркфлоу не гоняли крон параллельно и не дрались за git push.
   push:
     branches: [main]
   workflow_dispatch: {}
-  # Внешний бесплатный планировщик (например cron-job.org) каждые ~10 мин шлёт POST
-  #   https://api.github.com/repos/<owner>/<repo>/dispatches
-  #   заголовки: Authorization: Bearer <PAT с правом actions:write>,
-  #              Accept: application/vnd.github+json
-  #   тело: {"event_type":"lvs-tick"}
-  # Это гарантированный тик, не зависящий от троттлинга GitHub schedule.
+  # Внешний бесплатный планировщик (например cron-job.org) может слать POST
+  #   https://api.github.com/repos/<owner>/<repo>/dispatches  {"event_type":"lvs-tick"}
+  #   (Authorization: Bearer <PAT actions:write>) — необязательно, watchdog и так крутит.
   repository_dispatch:
     types: [lvs-tick]
 

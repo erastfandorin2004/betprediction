@@ -46,7 +46,7 @@ const LZ_BASE = process.env.LAOZHANG_BASE_URL ?? 'https://api.laozhang.ai/v1';
 const DEFAULT_MODELS = ['gpt-5.1', 'grok-4', 'claude-opus-4-8', 'deepseek-chat'];
 const SYNTH_MODEL = 'gemini-2.5-flash-nothinking';
 const ANALYSIS_LEAD_MS = 60 * 60 * 1000; // окно анализа: ≤60 мин до старта
-const FORCE_FALLBACK_MS = 45 * 60 * 1000; // нет составов к T-45 → форсируем
+const FORCE_FALLBACK_MS = 25 * 60 * 1000; // нет составов к T-25 → форсируем (даём составам появиться)
 
 const LZ_KEY = process.env.LAOZHANG_API_KEY ?? '';
 const AF_KEY = process.env.API_FOOTBALL_KEY ?? '';
@@ -573,17 +573,29 @@ async function main() {
     if (LZ_KEY && msToKo > 0) {
       // ── ФИНАЛЬНЫЙ анализ за час до матча: по составам, заменяет предварительный ──
       // Также покрывает случай «прогноза ещё нет, а матч уже в окне T-60».
-      if (inFinalWindow && (!p || p.phase !== 'final')) {
+      // lineupless — форсированный финал БЕЗ составов: пересчитываем, как только
+      // составы появятся (апгрейд). Иначе финал, сделанный форсом за T-25, навсегда
+      // оставался бы без составов, даже если их опубликовали позже.
+      const lineupless = !!(p && p.phase === 'final' && !p.lineups);
+      if (inFinalWindow && (!p || p.phase !== 'final' || lineupless)) {
         const lineups = await afLineups(f.id);
-        const force = msToKo <= FORCE_FALLBACK_MS; // нет составов к T-45 → форсируем
-        if (lineups || force) {
-          console.log(`Финальный анализ: ${name} (T-${Math.round(msToKo / 60000)}мин, составы: ${lineups ? 'да' : 'нет'})`);
+        const force = msToKo <= FORCE_FALLBACK_MS;
+        if (lineups) {
+          // Лучший случай: финал ПО СОСТАВАМ (в т.ч. апгрейд форс-финала без составов).
+          console.log(`Финальный анализ: ${name} (T-${Math.round(msToKo / 60000)}мин, составы: да${lineupless ? ', апгрейд' : ''})`);
           try {
             const pred = await runAnalysis(client, f, lineups, 'final');
             if (pred) { f.prediction = pred; changed++; console.log(`  ✓ финал: ${pred.outcomeLabel} ${pred.score.home}:${pred.score.away}`); }
           } catch (e) { console.warn(`  финальный анализ упал: ${e?.message ?? e}`); }
+        } else if (force && !lineupless) {
+          // Составов так и нет, близко к старту, финала ещё не было → форс без составов (один раз).
+          console.log(`Финальный анализ (форс, без составов): ${name} (T-${Math.round(msToKo / 60000)}мин)`);
+          try {
+            const pred = await runAnalysis(client, f, null, 'final');
+            if (pred) { f.prediction = pred; changed++; console.log(`  ✓ финал(форс): ${pred.outcomeLabel} ${pred.score.home}:${pred.score.away}`); }
+          } catch (e) { console.warn(`  финальный анализ упал: ${e?.message ?? e}`); }
         } else if (!p) {
-          // составов ещё нет и не форсим — пусть будет хотя бы предварительный
+          // Далеко от форса, прогноза ещё нет — пусть будет хотя бы предварительный.
           if (prelimDone < PRELIM_CAP) {
             try {
               const pred = await runAnalysis(client, f, null, 'preliminary');
@@ -591,6 +603,7 @@ async function main() {
             } catch (e) { console.warn(`  предв. анализ упал: ${e?.message ?? e}`); }
           }
         } else {
+          // Есть предварительный/форс-финал — ждём составы, апгрейдим, как появятся.
           console.log(`Ожидаются составы: ${name} (T-${Math.round(msToKo / 60000)}мин) — повтор позже`);
         }
       }
